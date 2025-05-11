@@ -1,0 +1,85 @@
+﻿@page "/login"
+@using Blazored.LocalStorage
+@using SansPost.Models
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<link rel="stylesheet" href="css/logres.css">
+
+<div class="home-container">
+    <div class="register-text">
+        <h2>Logowanie</h2>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <p class="error">@errorMessage</p>
+        }
+
+        <form @onsubmit="LoginUser">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="Podaj email" @bind="email" required>
+
+            <label for="password">Hasło</label>
+            <input type="password" id="password" placeholder="Podaj hasło" @bind="password" required>
+
+            <button type="submit" class="auth-btn" disabled="@isSubmitting">
+                @(isSubmitting ? "Logowanie..." : "Zaloguj się")
+            </button>
+        </form>
+
+        <p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool isSubmitting = false;
+    private string token;
+
+    private async Task LoginUser()
+    {
+        isSubmitting = true;
+        errorMessage = "";
+
+        var loginData = new { Email = email, Password = password };
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/users/login", loginData);
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<string>>();
+
+                if (apiResponse != null && apiResponse.Success && !string.IsNullOrEmpty(apiResponse.Data))
+                {
+                    token = apiResponse.Data;
+                    await LocalStorage.SetItemAsync("authToken", token);
+                    Console.WriteLine("Token zapisany, przekierowuję do /posts");
+                    await Task.Delay(500);
+                    Navigation.NavigateTo("/posts", true);
+                }
+                else
+                {
+                    errorMessage = apiResponse?.Message ?? "Nieprawidłowe dane logowania.";
+                }
+            }
+            else
+            {
+                errorMessage = "Błąd logowania. Sprawdź dane.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Błąd: {ex.Message}";
+        }
+
+        isSubmitting = false;
+    }
+
+
+}

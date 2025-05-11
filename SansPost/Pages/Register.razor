@@ -1,0 +1,113 @@
+﻿@page "/register"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<link rel="stylesheet" href="css/logres.css">
+
+<div class="home-container">
+    <div class="register-text">
+        <h2>Rejestracja</h2>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <p class="error">@errorMessage</p>
+        }
+
+        <form @onsubmit="RegisterUser">
+            <!--<label for="username">Nazwa użytkownika</label>-->
+            <input type="text" id="username" placeholder="Podaj nazwę" @bind="username" required>
+
+          
+
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="Podaj email" @bind="email" required>
+
+            <label for="password">Hasło</label>
+            <div class="password-container">
+                <input type="@passwordInputType" id="password" placeholder="Podaj hasło" @bind="password" required>
+                <button type="button" class="toggle-password" @onclick="TogglePassword">
+                    @passwordToggleIcon
+                </button>
+            </div>
+
+            <label for="confirmPassword">Potwierdź hasło</label>
+            <div class="password-container">
+                <input type="@confirmPasswordInputType" id="confirmPassword" placeholder="Powtórz hasło" @bind="confirmPassword" required>
+                <button type="button" class="toggle-password" @onclick="ToggleConfirmPassword">
+                    @confirmPasswordToggleIcon
+                </button>
+            </div>
+
+            <button type="submit" class="auth-btn" disabled="@isSubmitting">
+                @(isSubmitting ? "Rejestrowanie..." : "Zarejestruj się")
+            </button>
+        </form>
+
+        <p>Masz już konto? <a href="/login">Zaloguj się</a></p>
+    </div>
+</div>
+
+@code {
+    private string ? username;
+    private string ? email;
+    private string ? password;
+    private string confirmPassword = "";
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    private bool showPassword = false;
+    private bool showConfirmPassword = false;
+
+    private string passwordInputType => showPassword ? "text" : "password";
+    private string confirmPasswordInputType => showConfirmPassword ? "text" : "password";
+    private string passwordToggleIcon => showPassword ? "👁️" : "🙈";
+    private string confirmPasswordToggleIcon => showConfirmPassword ? "👁️" : "🙈";
+
+    private async Task RegisterUser()
+    {
+        isSubmitting = true;
+        errorMessage = "";
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "Hasła nie są identyczne!";
+            isSubmitting = false;
+         
+            return;
+            
+        }
+
+        var registerData = new { Username = username, Email = email, Password = password };
+        Console.WriteLine(registerData);
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/users/register", registerData);
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                errorMessage = "Błąd rejestracji! Sprawdź dane.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Błąd: {ex.Message}";
+        }
+
+        isSubmitting = false;
+    }
+
+    private void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+
+    private void ToggleConfirmPassword()
+    {
+        showConfirmPassword = !showConfirmPassword;
+    }
+}

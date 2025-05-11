@@ -1,0 +1,105 @@
+﻿/* Ogólne tło */
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: linear-gradient(to right, #0d1b2a, #1b263b, #415a77, #778da9);
+    font-family: sans-serif;
+    color: white;
+}
+
+/* Kontener główny – środkowanie */
+.edit-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* wertykalnie */
+    align-items: center; /* horyzontalnie */
+    padding: 40px 20px;
+}
+
+    /* Tytuł */
+    .edit-container h2 {
+        font-size: 42px;
+        font-weight: bold;
+        margin-bottom: 40px;
+        text-align: center;
+    }
+
+/* Formularz */
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 600px;
+}
+
+    /* Pola */
+    .edit-form input,
+    .edit-form textarea,
+    .edit-form select {
+        padding: 14px;
+        border: none;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        font-size: 16px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .edit-form textarea {
+        resize: vertical;
+        min-height: 150px;
+    }
+select,
+select option {
+    color: black;
+    background-color: white;
+}
+
+    
+    select option:checked {
+        background-color: #cce5ff;
+    }
+
+.button-row {
+    display: flex;
+    justify-content: space-between; /* Równo podzielone */
+    gap: 20px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.save-button,
+.delete-button {
+    flex: 1; /* Równa szerokość */
+    padding: 14px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+/* Styl zapisu */
+.save-button {
+    background-color: #ffcc00;
+    color: black;
+}
+
+    .save-button:hover {
+        background-color: #e6b800;
+    }
+
+/* Styl usuwania */
+.delete-button {
+    background-color: #cc0000;
+    color: white;
+}
+
+    .delete-button:hover {
+        background-color: #cc0000;
+    }

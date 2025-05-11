@@ -1,0 +1,26 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Web
+@namespace SansPost.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="~/" />
+    <link rel="stylesheet" href ="css/post.css" />
+    <link rel="stylesheet" href ="css/home.css" />
+    <link rel="stylesheet" href ="css/logres.css" />
+    
+    <link rel="icon" type="image/png" href="favicon.png"/>
+    <component type="typeof(HeadOutlet)" render-mode="Server" />
+</head>
+<body>
+    <component type="typeof(App)" render-mode="Server" />
+   
+
+    <script src="_framework/blazor.server.js?v=@DateTime.Now.Ticks"></script>
+    
+</body>
+</html>

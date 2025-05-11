@@ -1,0 +1,176 @@
+﻿/* Resetowanie marginesów */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Struktura strony */
+.container {
+    display: flex;
+    height: 100vh;
+    
+}
+
+
+/* Główna sekcja z postami */
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(to right, #0d1b2a, #1b263b, #415a77, #778da9);
+}
+
+/* Nagłówek */
+h2 {
+    color: white;
+    font-size: 28px;
+    margin-top: 30px;
+}
+
+/* Filtry */
+.filters {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 20px;
+    color: white;
+}
+
+    .filters select {
+        padding: 8px;
+        border-radius: 4px;
+        border: none;
+        background: white;
+        color: black;
+    }
+
+/* Kontener postów */
+.posts-container {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 20px;
+    padding: 10px;
+    max-width: 90%;
+}
+
+/* Kafelki postów */
+.post-card {
+    min-width: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    transition: 0.3s;
+    flex-shrink: 0;
+    text-align: center;
+    color: white;
+}
+
+    .post-card:hover {
+        transform: scale(1.05);
+    }
+
+/* Kategoria posta */
+.category {
+    font-size: 18px;
+    font-weight: bold;
+    color: #d4af37;
+}
+
+/* Tytuł posta */
+.post-card h3 {
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+
+/* Przycisk "Więcej" */
+.read-more {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #d4af37;
+    color: black;
+    text-decoration: none;
+    border-radius: 4px;
+}
+
+    .read-more:hover {
+        background: #b89126;
+    }
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Trzy kolumny */
+    gap: 20px; /* Odstępy między postami */
+    width: 100%;
+    max-width: 1100px;
+    padding: 20px;
+    justify-content: center;
+}
+
+.auth-btn {
+    background: white;
+    border: 2px solid #000f;
+    padding: 22px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    color: #000f;
+    width: 100%;
+    transition: background 0.3s;
+}
+
+    .auth-btn:hover {
+        background: #ffcc00;
+    }
+
+@media (max-width: 1024px) {
+    .grid-container {
+        grid-template-columns: repeat(2, 1fr); /* 2 kolumny na mniejszych ekranach */
+    }
+}
+
+@media (max-width: 768px) {
+    .grid-container {
+        grid-template-columns: 1fr; /* 1 kolumna na małych ekranach */
+    }
+}
+
+.register-section {
+    text-align: center;
+    margin-top: 15px;
+    
+}
+
+    .register-section h3 {
+        color: white;
+        font-size: 22px;
+        font-weight: bold; /* Pogrubienie */
+        padding: 20px;
+        margin-top:-20px;
+    }
+
+
+.register-button {
+    display: inline-block;
+    padding: 12px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 8px;
+    text-decoration: none;
+    background: white;
+    color: black;
+    transition: background 0.3s ease-in-out;
+    border: none;
+    cursor: pointer;
+}
+
+    .register-button:hover {
+        background: #b89126;
+    }

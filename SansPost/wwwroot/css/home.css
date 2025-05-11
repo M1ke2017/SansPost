@@ -1,0 +1,89 @@
+﻿/* Reset marginesów i paddingu */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Usunięcie przewijania */
+}
+
+/* Kontener główny */
+.home-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(100%); /* Odejmujemy szerokość paska nawigacji */
+    height: 100vh;
+    background: linear-gradient(to right, #0d1b2a, #1b263b, #415a77, #778da9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Treść w środku */
+.welcome-text {
+    text-align: center;
+    color: white;
+    max-width: 60%;
+}
+
+    /* Nagłówek */
+    .welcome-text h1 {
+        font-size: 3.6rem;
+        font-weight: 900;
+        margin-bottom: 5px;
+    }
+
+        .welcome-text h1 span {
+            color: #ffcc00;
+        }
+
+    .welcome-text p {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: white;
+    }
+
+/* Przyciski */
+.buttons {
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+    .buttons a {
+        text-decoration: none;
+        padding: 12px 20px;
+        font-size: 1rem;
+        font-weight: bold;
+        border-radius: 8px;
+        transition: 0.3s ease;
+    }
+
+/* Stylizacja przycisków */
+.register-btn {
+    background-color: white;
+    color: #000F;
+    border: 2px solid #000f;
+}
+
+    .register-btn:hover {
+        background-color: #ffcc00;
+        color: #000f;
+    }
+
+.browse-btn {
+    background-color: white;
+    color: #333;
+    border: 2px solid #333;
+}
+
+    .browse-btn:hover {
+        background-color: #333;
+        color: white;
+    }
+
+h1:focus, h2:focus {
+    outline: none;
+}

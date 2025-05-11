@@ -1,0 +1,112 @@
+﻿@page "/edit-post/{Id:int}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject CustomAuthStateProvider AuthProvider
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
+@using SansPost.Services
+@using SansPost.Models
+@using SansPost.Models.Enum
+@using System.Net.Http.Headers
+
+<link href="css/editpost.css" rel="stylesheet" />
+
+@if (isLoading)
+{
+    <p style="color:white;">Ładowanie danych posta...</p>
+}
+else if (post is null)
+{
+    <p style="color:red;">Nie znaleziono posta lub brak uprawnień.</p>
+}
+else
+{
+    <div class="edit-container">
+        <h2>Edytuj post</h2>
+
+        <form class="edit-form" @onsubmit="UpdatePost">
+            <input @bind="post.Title" placeholder="Tytuł" />
+
+            <select @bind="post.Category">
+                <option disabled selected value="">-- wybierz kategorię --</option>
+                @foreach (var category in Categories)
+                {
+                    <option value="@category">@category</option>
+                }
+            </select>
+
+            <textarea @bind="post.Content" placeholder="Treść posta"></textarea>
+
+            <div class="button-row">
+                <button type="submit" class="save-button" href="/posts">Zapisz zmiany</button>
+                <button type="button" class="delete-button" @onclick="DeletePost">Usuń post</button>
+            </div>
+
+        </form>
+    </div>
+
+
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    private PostRequest? post;
+    private bool isLoading = true;
+    private List<string> Categories = Enum.GetNames(typeof(PostCategory)).ToList();
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<PostRequest>($"/post/{Id}");
+            if (response != null)
+                post = response;
+            else
+                message = "Nie znaleziono posta.";
+        }
+        catch (Exception ex)
+        {
+            message = $"Błąd: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UpdatePost()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, $"edit-post/{Id}")
+            {
+                Content = JsonContent.Create(post)
+            };
+
+        
+        var token = await AuthProvider.GetTokenAsync();
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            message = "Post zaktualizowany!";
+        }
+        else
+        {
+            message = "Błąd podczas aktualizacji.";
+        }
+    }
+
+
+    private async Task DeletePost()
+    {
+        var response = await Http.DeleteAsync($"delete/{Id}");
+        if (response.IsSuccessStatusCode)
+            Navigation.NavigateTo("/");
+        else
+            message = "Nie udało się usunąć posta.";
+    }
+}
+

@@ -1,0 +1,73 @@
+﻿@page "/post-view/{Id:int}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@using SansPost.Models
+
+<link href="css/postview.css" rel="stylesheet" />
+
+<div class="home-container">
+    @if (isLoading)
+    {
+        <p style="color: white;">Ładowanie posta...</p>
+    }
+    else if (post is null)
+    {
+        <p style="color: red;">Nie znaleziono posta.</p>
+    }
+    else
+    {
+        <div class="register-text">
+            <h1>@post.Title</h1>
+            <h3 style="color: #ffcc00;">@post.Category</h3>
+
+            <p style="margin-top: 2rem;">@post.Content</p>
+
+            <div style="margin-top: 2rem;">
+                <strong>Komentarze:</strong>
+                <ul class="comment-list">
+                    <!-- Komentarze zostawiamy puste na teraz -->
+                </ul>
+            </div>
+
+            <div class="comment-input-wrapper">
+                <input type="text" class="comment-input-line" placeholder="Dodaj komentarz..." />
+            </div>
+
+            
+            <div>
+                <a class="action-button" href="@($"/edit-post/{Id}")">Edytuj</a>
+            </div>
+            
+
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    private Post? post;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            post = await Http.GetFromJsonAsync<Post>($"/post/{Id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Błąd ładowania posta: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+
+    }
+    private void EditPost(int id)
+    {
+        Navigation.NavigateTo($"/edit-post/{id}");
+    }
+
+}

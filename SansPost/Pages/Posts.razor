@@ -1,0 +1,109 @@
+﻿@page "/posts"
+@using SansPost.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<link rel="stylesheet" href="css/posts.css">
+
+<div class="container">
+    <div class="main-content">
+        <h2>Przeglądaj posty</h2>
+
+        <div class="grid-container">
+            @if (currentPage == 0)
+            {
+                <!-- Strona zachęty -->
+                @foreach (var post in introPosts)
+                {
+                    <div class="post-card">
+                        <span class="category">@post.Category</span>
+                        <h3>@post.Title</h3>
+                        <p>@post.Content</p>
+                        <a href="#" class="read-more">Więcej</a>
+                    </div>
+                }
+            }
+            else
+            {
+                @foreach (var post in PaginatedPosts)
+                {
+                    <div class="post-card">
+                        <span class="category">@post.Category</span>
+                        <h3>@post.Title</h3>
+                        <p>@post.Content</p>
+                        <a href="@($"/post-view/{post.Id}")" class="auth-btn">Więcej</a>
+                    </div>
+                }
+
+            }
+        </div>
+
+        <div class="pagination">
+            <button @onclick="PreviousPage" disabled="@(currentPage == 0)">⬅ Poprzednia</button>
+            <span>Strona @((currentPage + 1)) z @TotalPages</span>
+            <button @onclick="NextPage" disabled="@(currentPage >= TotalPages - 1)">➡ Następna</button>
+        </div>
+
+        <div class="register-section">
+            <h3>Podziel się z nami przemyśleniami</h3>
+            <a href="/post-from" class="register-button">Dodaj Post</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Post> posts = new();
+    private List<Post> introPosts = new()
+    {
+        new Post { Category = "Technologia", Title = "Tytuł posta", Content = "Przykładowy fragment posta..." },
+        new Post { Category = "Sport", Title = "Mecz finałowy", Content = "Krótki opis meczu finałowego..." },
+        new Post { Category = "Wiadomości", Title = "Najważniejsze wydarzenia", Content = "Dowiedz się, co się dzieje na świecie..." },
+        new Post { Category = "Sport", Title = "Nowe wyniki", Content = "Sprawdź najnowsze wyniki..." },
+        new Post { Category = "Technologia", Title = "Nowinki technologiczne", Content = "Odkryj nowe innowacje..." },
+        new Post { Category = "Wiadomości", Title = "Polityka", Content = "Co się dzieje w świecie polityki..." },
+        new Post { Category = "Lifestyle", Title = "Zdrowy styl życia", Content = "Najlepsze sposoby na zdrowie..." },
+        new Post { Category = "Podróże", Title = "Najlepsze miejsca do odwiedzenia", Content = "Odkryj niesamowite lokalizacje..." },
+        new Post { Category = "Edukacja", Title = "Najlepsze kursy online", Content = "Znajdź idealne kursy dla siebie..." }
+    };
+
+    private int currentPage = 0;
+    private int pageSize = 9;
+
+    private int TotalPages => (int)Math.Ceiling(posts.Count / (double)pageSize) + 1;
+
+    private IEnumerable<Post> PaginatedPosts =>
+        posts.Skip((currentPage - 1) * pageSize).Take(pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<ApiResponse<List<Post>>>("/api/posts");
+
+            if (response != null && response.Success && response.Data != null)
+            {
+                posts = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Błąd pobierania postów: {ex.Message}");
+        }
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < TotalPages - 1)
+        {
+            currentPage++;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (currentPage > 0)
+        {
+            currentPage--;
+        }
+    }
+}
