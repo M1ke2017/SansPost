@@ -25,6 +25,7 @@
                     <span class="category">@post.Category.DisplayName()</span>
                     <h3>@post.Title</h3>
                     <p>@post.ContentPreview@(post.IsContentTruncated ? "…" : "")</p>
+                    <span><a href="@($"/u/{post.AuthorUsername}")">@post.AuthorUsername</a> · ❤ @post.LikeCount · 💬 @post.CommentCount</span>
                     <a href="@($"/post-view/{post.Id}")" class="auth-btn">Więcej</a>
                 </div>
             }
@@ -50,6 +51,9 @@
 </div>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
     private readonly List<PostSummaryResponse> posts = new();
     private PostCategory? category;
     private string? nextCursor;
@@ -74,7 +78,7 @@
             {
                 Category = category,
                 Cursor = reset ? null : nextCursor
-            });
+            }, (await AuthState).User.GetUserId());
 
             if (reset)
                 posts.Clear();

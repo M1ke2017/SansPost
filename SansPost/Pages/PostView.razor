@@ -1,5 +1,10 @@
 @page "/post-view/{Id:int}"
+@using SansPost.Features.Comments
+@using SansPost.Features.Reactions
 @inject IPostService PostService
+@inject ICommentService CommentService
+@inject ILikeService LikeService
+@inject NavigationManager Navigation
 @inject ILogger<PostView> Logger
 
 <link href="css/postview.css" rel="stylesheet" />
@@ -18,28 +23,79 @@
         <div class="register-text">
             <h1>@post.Title</h1>
             <h3 style="color: #ffcc00;">@post.Category.DisplayName()</h3>
-            <p>@post.AuthorUsername · @post.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")@(post.UpdatedAt is null ? "" : " · edytowano")</p>
+            <p>
+                <a href="@($"/u/{post.AuthorUsername}")">@post.AuthorUsername</a>
+                · @post.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")@(post.UpdatedAt is null ? "" : " · edytowano")
+            </p>
 
             <p style="margin-top: 2rem;">@post.Content</p>
 
+            <div class="reactions" style="margin-top: 1rem;">
+                @if (userId is null)
+                {
+                    <span>❤ @likeCount</span>
+                    <a href="@LoginUrl">Zaloguj się, aby polubić lub skomentować</a>
+                }
+                else
+                {
+                    @* Wizualnie toggle, ale wywołuje jawny stan docelowy (Like/Unlike) — idempotentnie. *@
+                    <button @onclick="ToggleLike" disabled="@isBusy">@(liked ? "❤ Lubisz to" : "♡ Polub") (@likeCount)</button>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <p class="error">@message</p>
+            }
+
             <div style="margin-top: 2rem;">
-                <strong>Komentarze:</strong>
+                <strong>Komentarze (@commentCount):</strong>
                 <ul class="comment-list">
-                    <!-- Komentarze zostawiamy puste na teraz -->
+                    @foreach (var comment in comments)
+                    {
+                        <li>
+                            <a href="@($"/u/{comment.AuthorUsername}")">@comment.AuthorUsername</a>
+                            · @comment.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")@(comment.UpdatedAt is null ? "" : " · edytowano")
+
+                            @if (editingId == comment.Id)
+                            {
+                                <textarea @bind="editContent" maxlength="@CommentLimits.ContentMaxLength"></textarea>
+                                <button @onclick="() => SaveEdit(comment)" disabled="@isBusy">Zapisz</button>
+                                <button @onclick="() => editingId = null">Anuluj</button>
+                            }
+                            else
+                            {
+                                <p>@comment.Content</p>
+                                @if (comment.AuthorId == userId)
+                                {
+                                    <button @onclick="() => StartEdit(comment)">Edytuj</button>
+                                    <button @onclick="() => DeleteComment(comment)" disabled="@isBusy">Usuń</button>
+                                }
+                            }
+                        </li>
+                    }
                 </ul>
+
+                @if (commentsCursor is not null)
+                {
+                    <button @onclick="LoadMoreComments" disabled="@isBusy">Więcej komentarzy</button>
+                }
             </div>
 
-            <div class="comment-input-wrapper">
-                <input type="text" class="comment-input-line" placeholder="Dodaj komentarz..." />
-            </div>
+            @if (userId is not null)
+            {
+                <div class="comment-input-wrapper">
+                    <textarea class="comment-input-line" @bind="newComment" maxlength="@CommentLimits.ContentMaxLength" placeholder="Dodaj komentarz..."></textarea>
+                    <button @onclick="AddComment" disabled="@isBusy">Dodaj</button>
+                </div>
+            }
 
-            @if (isOwner)
+            @if (post.AuthorId == userId)
             {
                 <div>
                     <a class="action-button" href="@($"/edit-post/{Id}")">Edytuj</a>
                 </div>
             }
-
         </div>
     }
 </div>
@@ -52,15 +108,36 @@
     private Task<AuthenticationState> AuthState { get; set; } = default!;
 
     private PostDetailsResponse? post;
-    private bool isOwner;
+    private int? userId;
     private bool isLoading = true;
+    private bool isBusy;
+    private string? message;
+
+    private int likeCount;
+    private bool liked;
+
+    private readonly List<CommentResponse> comments = new();
+    private int commentCount;
+    private string? commentsCursor;
+    private string newComment = "";
+    private int? editingId;
+    private string editContent = "";
+
+    private string LoginUrl => $"/login?returnUrl={Uri.EscapeDataString($"/post-view/{Id}")}";
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            post = await PostService.GetByIdAsync(Id);
-            isOwner = post is not null && post.AuthorId == (await AuthState).User.GetUserId();
+            userId = (await AuthState).User.GetUserId();
+            post = await PostService.GetByIdAsync(Id, userId);
+            if (post is null)
+                return;
+
+            likeCount = post.LikeCount;
+            liked = post.LikedByCurrentUser;
+            commentCount = post.CommentCount;
+            await LoadMoreComments();
         }
         catch (Exception ex)
         {
@@ -69,6 +146,106 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task LoadMoreComments()
+    {
+        var result = await CommentService.GetByPostAsync(Id, new CommentPageQuery { Cursor = commentsCursor });
+        if (!result.Succeeded)
+            return;
+
+        comments.AddRange(result.Value!.Items);
+        commentsCursor = result.Value.NextCursor;
+    }
+
+    private Task ToggleLike() => RunAsync(async actor =>
+    {
+        var result = liked
+            ? await LikeService.UnlikeAsync(actor, Id)
+            : await LikeService.LikeAsync(actor, Id);
+
+        if (result.Succeeded)
+        {
+            likeCount = result.Value!.LikeCount;
+            liked = result.Value.LikedByCurrentUser;
+        }
+        else
+        {
+            message = result.Message;
+        }
+    });
+
+    private Task AddComment() => RunAsync(async actor =>
+    {
+        var result = await CommentService.AddAsync(actor, Id, new CommentRequest { Content = newComment });
+        if (!result.Succeeded)
+        {
+            message = result.Message;
+            return;
+        }
+
+        newComment = "";
+        commentCount++;
+        if (commentsCursor is null)
+            comments.Add(result.Value!); // dyskusja rośnie na końcu (CreatedAt ASC)
+    });
+
+    private void StartEdit(CommentResponse comment)
+    {
+        editingId = comment.Id;
+        editContent = comment.Content;
+    }
+
+    private Task SaveEdit(CommentResponse comment) => RunAsync(async actor =>
+    {
+        // Wersja z chwili wczytania — cudza/równoległa zmiana daje 412 zamiast cichego nadpisania.
+        var result = await CommentService.UpdateAsync(actor, comment.Id, comment.Version, new CommentRequest { Content = editContent });
+        if (!result.Succeeded)
+        {
+            message = result.Message;
+            return;
+        }
+
+        comments[comments.IndexOf(comment)] = result.Value!;
+        editingId = null;
+    });
+
+    private Task DeleteComment(CommentResponse comment) => RunAsync(async actor =>
+    {
+        var result = await CommentService.DeleteAsync(actor, comment.Id, comment.Version);
+        if (!result.Succeeded)
+        {
+            message = result.Message;
+            return;
+        }
+
+        comments.Remove(comment);
+        commentCount--;
+    });
+
+    private async Task RunAsync(Func<int, Task> action)
+    {
+        if (userId is not int actor)
+        {
+            Navigation.NavigateTo(LoginUrl, forceLoad: true);
+            return;
+        }
+
+        isBusy = true;
+        message = null;
+        try
+        {
+            await action(actor);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd interakcji z postem {PostId}.", Id);
+            message = "Wystąpił błąd. Spróbuj ponownie.";
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 }

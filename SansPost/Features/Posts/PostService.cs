@@ -5,12 +5,13 @@ using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Posts
 {
-    // Granica modułu Posts. Konsumenci (Controllers, Blazor) znają tylko ten kontrakt i DTO — nie encje ani DbContext.
+    // Granica modułu Posts. Konsumenci (Controllers, Blazor, Profiles) znają tylko ten kontrakt i DTO — nie encje ani DbContext.
+    // viewerUserId = zaufana tożsamość odbiorcy (null = anonim), używana tylko do LikedByCurrentUser.
     public interface IPostService
     {
-        Task<ServiceResult<PostFeedResponse>> GetFeedAsync(PostFeedQuery query, CancellationToken cancellationToken = default);
+        Task<ServiceResult<KeysetPage<PostSummaryResponse>>> GetFeedAsync(PostFeedQuery query, int? viewerUserId, CancellationToken cancellationToken = default);
 
-        Task<PostDetailsResponse?> GetByIdAsync(int postId, CancellationToken cancellationToken = default);
+        Task<PostDetailsResponse?> GetByIdAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default);
 
         Task<PostQuotaResponse?> GetQuotaAsync(int userId, CancellationToken cancellationToken = default);
 
@@ -19,27 +20,13 @@ namespace SansPost.Features.Posts
         // expectedVersion = wersja, którą klient edytował (ETag / If-Match).
         Task<ServiceResult<PostDetailsResponse>> UpdateAsync(int actorUserId, int postId, int expectedVersion, PostRequest request, CancellationToken cancellationToken = default);
 
-        // expectedVersion opcjonalne — jeśli podane, usunięcie wymaga zgodnej wersji.
-        Task<ServiceResult> DeleteAsync(int actorUserId, int postId, int? expectedVersion, CancellationToken cancellationToken = default);
+        // Usunięcie również wymaga wersji — nie da się usunąć posta, którego aktualnej treści klient nie widział.
+        Task<ServiceResult> DeleteAsync(int actorUserId, int postId, int expectedVersion, CancellationToken cancellationToken = default);
     }
 
     public class PostService : IPostService
     {
         private const string StaleVersionMessage = "Post został w międzyczasie zmieniony. Odśwież go i spróbuj ponownie.";
-
-        private static readonly Expression<Func<Post, PostSummaryResponse>> ToSummary = p => new PostSummaryResponse(
-            p.Id,
-            p.Title,
-            p.Content.Length > PostLimits.PreviewLength ? p.Content.Substring(0, PostLimits.PreviewLength) : p.Content,
-            p.Content.Length > PostLimits.PreviewLength,
-            p.Category,
-            p.CreatedAt,
-            p.UpdatedAt,
-            p.UserId,
-            p.User.Username);
-
-        private static readonly Expression<Func<Post, PostDetailsResponse>> ToDetails = p => new PostDetailsResponse(
-            p.Id, p.Title, p.Content, p.Category, p.ImageUrl, p.CreatedAt, p.UpdatedAt, p.UserId, p.User.Username, p.Version);
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
@@ -50,16 +37,48 @@ namespace SansPost.Features.Posts
             _time = time;
         }
 
-        public async Task<ServiceResult<PostFeedResponse>> GetFeedAsync(PostFeedQuery query, CancellationToken cancellationToken = default)
+        // Read model: liczniki jako skorelowane podzapytania w JEDNYM SELECT (brak N+1, brak materializacji Likes/Comments).
+        // Zależność od tabel Comments/Likes dotyczy wyłącznie odczytu — Posts nie wywołuje ich logiki.
+        private Expression<Func<Post, PostSummaryResponse>> ToSummary(int? viewerUserId) => p => new PostSummaryResponse(
+            p.Id,
+            p.Title,
+            p.Content.Length > PostLimits.PreviewLength ? p.Content.Substring(0, PostLimits.PreviewLength) : p.Content,
+            p.Content.Length > PostLimits.PreviewLength,
+            p.Category,
+            p.CreatedAt,
+            p.UpdatedAt,
+            p.UserId,
+            p.User.Username,
+            _context.Likes.Count(l => l.PostId == p.Id),
+            _context.Comments.Count(c => c.PostId == p.Id),
+            viewerUserId != null && _context.Likes.Any(l => l.PostId == p.Id && l.UserId == viewerUserId));
+
+        private Expression<Func<Post, PostDetailsResponse>> ToDetails(int? viewerUserId) => p => new PostDetailsResponse(
+            p.Id,
+            p.Title,
+            p.Content,
+            p.Category,
+            p.ImageUrl,
+            p.CreatedAt,
+            p.UpdatedAt,
+            p.UserId,
+            p.User.Username,
+            p.Version,
+            _context.Likes.Count(l => l.PostId == p.Id),
+            _context.Comments.Count(c => c.PostId == p.Id),
+            viewerUserId != null && _context.Likes.Any(l => l.PostId == p.Id && l.UserId == viewerUserId));
+
+        public async Task<ServiceResult<KeysetPage<PostSummaryResponse>>> GetFeedAsync(PostFeedQuery query, int? viewerUserId, CancellationToken cancellationToken = default)
         {
             if (query.Limit is < 1 or > PostLimits.MaxPageSize)
-                return ServiceResult<PostFeedResponse>.Fail(ServiceError.Validation, $"Limit musi mieścić się w zakresie 1–{PostLimits.MaxPageSize}.");
+                return ServiceResult<KeysetPage<PostSummaryResponse>>.Fail(ServiceError.Validation, $"Limit musi mieścić się w zakresie 1–{PostLimits.MaxPageSize}.");
             if (!Enum.IsDefined(query.Sort) || (query.Category is { } c && !Enum.IsDefined(c)))
-                return ServiceResult<PostFeedResponse>.Fail(ServiceError.Validation, "Nieprawidłowe sortowanie lub kategoria.");
+                return ServiceResult<KeysetPage<PostSummaryResponse>>.Fail(ServiceError.Validation, "Nieprawidłowe sortowanie lub kategoria.");
 
-            FeedCursor? cursor = null;
-            if (!string.IsNullOrEmpty(query.Cursor) && !FeedCursor.TryDecode(query.Cursor, query.Sort, out cursor))
-                return ServiceResult<PostFeedResponse>.Fail(ServiceError.Validation, "Nieprawidłowy kursor.");
+            var cursorScope = $"posts.{query.Sort}";
+            KeysetCursor? cursor = null;
+            if (!string.IsNullOrEmpty(query.Cursor) && !KeysetCursor.TryDecode(query.Cursor, cursorScope, out cursor))
+                return ServiceResult<KeysetPage<PostSummaryResponse>>.Fail(ServiceError.Validation, "Nieprawidłowy kursor.");
 
             var posts = _context.Posts.AsNoTracking();
 
@@ -85,22 +104,22 @@ namespace SansPost.Features.Posts
             }
 
             // limit + 1 → informacja o kolejnej stronie bez COUNT(*).
-            var page = await posts.Take(query.Limit + 1).Select(ToSummary).ToListAsync(cancellationToken);
+            var page = await posts.Take(query.Limit + 1).Select(ToSummary(viewerUserId)).ToListAsync(cancellationToken);
 
             var hasMore = page.Count > query.Limit;
             if (hasMore)
                 page.RemoveAt(page.Count - 1);
 
-            var nextCursor = hasMore ? new FeedCursor(query.Sort, page[^1].CreatedAt, page[^1].Id).Encode() : null;
-            return ServiceResult<PostFeedResponse>.Success(new PostFeedResponse(page, nextCursor, hasMore));
+            var nextCursor = hasMore ? new KeysetCursor(cursorScope, page[^1].CreatedAt, page[^1].Id).Encode() : null;
+            return ServiceResult<KeysetPage<PostSummaryResponse>>.Success(new KeysetPage<PostSummaryResponse>(page, nextCursor, hasMore));
         }
 
-        public async Task<PostDetailsResponse?> GetByIdAsync(int postId, CancellationToken cancellationToken = default)
+        public async Task<PostDetailsResponse?> GetByIdAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default)
         {
             return await _context.Posts
                 .AsNoTracking()
                 .Where(p => p.Id == postId)
-                .Select(ToDetails)
+                .Select(ToDetails(viewerUserId))
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
@@ -146,7 +165,7 @@ namespace SansPost.Features.Posts
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return ServiceResult<PostDetailsResponse>.Success((await GetByIdAsync(post.Id, cancellationToken))!);
+            return ServiceResult<PostDetailsResponse>.Success((await GetByIdAsync(post.Id, actorUserId, cancellationToken))!);
         }
 
         // Bez jawnej transakcji: jeden UPDATE z warunkiem na Version (SaveChanges jest atomowe).
@@ -176,51 +195,48 @@ namespace SansPost.Features.Posts
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    var failure = await ResolveConcurrencyFailureAsync(postId, versionWasExpected: true, cancellationToken);
+                    var failure = await ResolveConcurrencyFailureAsync(postId, cancellationToken);
                     return ServiceResult<PostDetailsResponse>.Fail(failure.Error, failure.Message!);
                 }
             }
 
-            var updated = await GetByIdAsync(postId, cancellationToken);
+            var updated = await GetByIdAsync(postId, actorUserId, cancellationToken);
             return updated is null
                 ? ServiceResult<PostDetailsResponse>.Fail(ServiceError.NotFound, "Post nie istnieje.")
                 : ServiceResult<PostDetailsResponse>.Success(updated);
         }
 
-        public async Task<ServiceResult> DeleteAsync(int actorUserId, int postId, int? expectedVersion, CancellationToken cancellationToken = default)
+        public async Task<ServiceResult> DeleteAsync(int actorUserId, int postId, int expectedVersion, CancellationToken cancellationToken = default)
         {
             var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken);
             if (post is null)
                 return ServiceResult.Fail(ServiceError.NotFound, "Post nie istnieje.");
             if (post.UserId != actorUserId)
                 return ServiceResult.Fail(ServiceError.Forbidden, "Nie masz uprawnień do usunięcia tego posta.");
-            if (expectedVersion is { } version && post.Version != version)
+            if (post.Version != expectedVersion)
                 return ServiceResult.Fail(ServiceError.PreconditionFailed, StaleVersionMessage);
 
             _context.Posts.Remove(post);
             try
             {
-                // DELETE ... WHERE id = @id AND version = @loadedVersion; komentarze/polubienia usuwa FK CASCADE.
+                // DELETE ... WHERE id = @id AND version = @expectedVersion; komentarze/polubienia usuwa FK CASCADE.
                 await _context.SaveChangesAsync(cancellationToken);
             }
             catch (DbUpdateConcurrencyException)
             {
-                return await ResolveConcurrencyFailureAsync(postId, expectedVersion is not null, cancellationToken);
+                return await ResolveConcurrencyFailureAsync(postId, cancellationToken);
             }
 
             return ServiceResult.Success();
         }
 
-        private async Task<ServiceResult> ResolveConcurrencyFailureAsync(int postId, bool versionWasExpected, CancellationToken cancellationToken)
+        private async Task<ServiceResult> ResolveConcurrencyFailureAsync(int postId, CancellationToken cancellationToken)
         {
             _context.ChangeTracker.Clear();
 
-            if (!await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
-                return ServiceResult.Fail(ServiceError.NotFound, "Post został usunięty.");
-
-            return versionWasExpected
+            return await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken)
                 ? ServiceResult.Fail(ServiceError.PreconditionFailed, StaleVersionMessage)
-                : ServiceResult.Fail(ServiceError.Conflict, StaleVersionMessage);
+                : ServiceResult.Fail(ServiceError.NotFound, "Post został usunięty.");
         }
 
         private async Task<int> GetPostLimitAsync(int userId, CancellationToken cancellationToken)

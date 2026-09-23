@@ -28,6 +28,7 @@ namespace SansPost.Features.Posts
     }
 
     // Parametry feedu (query string). Keyset pagination: Cursor z poprzedniej odpowiedzi.
+    // Celowo bez "viewer" — tożsamość odbiorcy (LikedByCurrentUser) pochodzi wyłącznie z uwierzytelnienia.
     public sealed class PostFeedQuery
     {
         public string? Cursor { get; set; }
@@ -37,7 +38,8 @@ namespace SansPost.Features.Posts
         public int? AuthorId { get; set; }
     }
 
-    // Element feedu — skrócona treść liczona w SQL, bez pełnego Content.
+    // Element feedu — skrócona treść i liczniki liczone w SQL (jedna projekcja), bez pełnego Content.
+    // LikedByCurrentUser = false dla anonimowego odbiorcy.
     public sealed record PostSummaryResponse(
         int Id,
         string Title,
@@ -47,7 +49,10 @@ namespace SansPost.Features.Posts
         DateTime CreatedAt,
         DateTime? UpdatedAt,
         int AuthorId,
-        string AuthorUsername);
+        string AuthorUsername,
+        int LikeCount,
+        int CommentCount,
+        bool LikedByCurrentUser);
 
     public sealed record PostDetailsResponse(
         int Id,
@@ -59,12 +64,10 @@ namespace SansPost.Features.Posts
         DateTime? UpdatedAt,
         int AuthorId,
         string AuthorUsername,
-        int Version);
-
-    public sealed record PostFeedResponse(
-        IReadOnlyList<PostSummaryResponse> Items,
-        string? NextCursor,
-        bool HasMore);
+        int Version,
+        int LikeCount,
+        int CommentCount,
+        bool LikedByCurrentUser);
 
     public sealed record PostQuotaResponse(int Limit, int Used, int Remaining);
 }

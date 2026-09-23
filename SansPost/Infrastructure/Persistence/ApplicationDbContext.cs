@@ -71,6 +71,53 @@ namespace SansPost.Infrastructure.Persistence
                     .HasDatabaseName("IX_posts_category_feed");
             });
 
+            modelBuilder.Entity<Comment>(comment =>
+            {
+                comment.Property(c => c.Content).HasMaxLength(CommentLimits.ContentMaxLength);
+
+                // Optimistic concurrency: UPDATE/DELETE ... WHERE version = @expected.
+                comment.Property(c => c.Version).IsConcurrencyToken();
+
+                // FK = ostateczna gwarancja braku osieroconych komentarzy; usunięcie posta kasuje jego komentarze.
+                comment.HasOne(c => c.Post)
+                    .WithMany()
+                    .HasForeignKey(c => c.PostId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                comment.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Wątek posta: WHERE postid = @p ORDER BY createdat, id (+ keyset); COUNT(*) WHERE postid w feedzie.
+                comment.HasIndex(c => new { c.PostId, c.CreatedAt, c.Id })
+                    .HasDatabaseName("IX_comments_post_thread");
+
+                // Aktywność autora na profilu: WHERE userid ORDER BY createdat DESC, id DESC; COUNT(*) WHERE userid.
+                comment.HasIndex(c => new { c.UserId, c.CreatedAt, c.Id })
+                    .IsDescending(false, true, true)
+                    .HasDatabaseName("IX_comments_author");
+            });
+
+            modelBuilder.Entity<Like>(like =>
+            {
+                // Jeden użytkownik = co najwyżej jedno polubienie posta. Wspiera też COUNT(*) WHERE postid
+                // oraz lookup "LikedByCurrentUser" (postid, userid).
+                like.HasIndex(l => new { l.PostId, l.UserId })
+                    .IsUnique()
+                    .HasDatabaseName("UX_likes_post_user");
+
+                like.HasOne(l => l.Post)
+                    .WithMany()
+                    .HasForeignKey(l => l.PostId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                like.HasOne(l => l.User)
+                    .WithMany()
+                    .HasForeignKey(l => l.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<RefreshToken>(token =>
             {
                 token.Property(t => t.TokenHash).HasMaxLength(64);

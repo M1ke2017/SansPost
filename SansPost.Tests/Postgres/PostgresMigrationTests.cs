@@ -47,6 +47,14 @@ namespace SansPost.Tests.Postgres
                   (1, 'Stary tech', 'x', 'Technologia', now()),
                   (1, 'Stary sport', 'x', 'Sport', now()),
                   (2, 'Bez kategorii', 'x', NULL, now());
+                INSERT INTO comments (postid, userid, content, createdat)
+                  SELECT id, 2, 'Stary komentarz', now() FROM posts WHERE title = 'Stary tech';
+                INSERT INTO likes (postid, userid)
+                  SELECT id, 2 FROM posts WHERE title = 'Stary tech';
+                INSERT INTO likes (postid, userid)
+                  SELECT id, 2 FROM posts WHERE title = 'Stary tech';
+                INSERT INTO likes (postid, userid)
+                  SELECT id, 1 FROM posts WHERE title = 'Stary tech';
                 """);
 
             await migrator.MigrateAsync();
@@ -61,6 +69,13 @@ namespace SansPost.Tests.Postgres
             Assert.Equal(new[] { PostCategory.General, PostCategory.General, PostCategory.Technology }, posts.Select(p => p.Category));
             Assert.All(posts, p => Assert.Equal(1, p.Version));
             Assert.All(posts, p => Assert.Null(p.UpdatedAt));
+
+            // Sprint 4: duplikaty polubień ze starego toggle usunięte przed UNIQUE(postid, userid); komentarze z wersją.
+            var likes = await context.Likes.OrderBy(l => l.UserId).ToListAsync();
+            Assert.Equal(new[] { 1, 2 }, likes.Select(l => l.UserId));
+            Assert.All(likes, l => Assert.NotEqual(default, l.CreatedAt));
+            var comment = await context.Comments.SingleAsync();
+            Assert.Equal((1, (DateTime?)null), (comment.Version, comment.UpdatedAt));
         }
 
         [DockerFact]

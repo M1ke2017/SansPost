@@ -14,6 +14,12 @@ namespace SansPost.Features.Comments
         public User User { get; set; } = null!;
 
         public string Content { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; }
+
+        // null = nigdy nie edytowany. Zmieniane tylko przy realnej zmianie treści.
+        public DateTime? UpdatedAt { get; set; }
+
+        // Optimistic concurrency token (ETag). Rośnie o 1 przy każdej realnej edycji.
+        public int Version { get; set; } = 1;
     }
 }

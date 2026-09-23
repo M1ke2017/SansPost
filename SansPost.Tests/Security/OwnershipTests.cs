@@ -32,13 +32,19 @@ namespace SansPost.Tests.Security
                 Content = JsonContent.Create(PostBody("Przejęty")),
                 Headers = { IfMatch = { created.Headers.ETag! } }
             });
-            var delete = await bob.DeleteAsync($"/api/posts/{post.Id}");
+            var delete = await bob.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/api/posts/{post.Id}")
+            {
+                Headers = { IfMatch = { created.Headers.ETag! } }
+            });
 
             Assert.Equal(HttpStatusCode.Forbidden, edit.StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
             Assert.Equal("Post Alicji", _factory.WithScope(db => db.Posts.Single(p => p.Id == post.Id).Title));
 
-            Assert.Equal(HttpStatusCode.NoContent, (await alice.DeleteAsync($"/api/posts/{post.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await alice.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/api/posts/{post.Id}")
+            {
+                Headers = { IfMatch = { created.Headers.ETag! } }
+            })).StatusCode);
         }
 
         [Fact]

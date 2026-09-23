@@ -38,7 +38,7 @@ namespace SansPost.Tests.Postgres
             return await PostgresFixture.CreatePostService(context).UpdateAsync(userId, postId, version, Request(title));
         }
 
-        private async Task<ServiceResult> DeleteAsync(int userId, int postId, int? version = null)
+        private async Task<ServiceResult> DeleteAsync(int userId, int postId, int version)
         {
             await using var context = _pg.CreateContext();
             return await PostgresFixture.CreatePostService(context).DeleteAsync(userId, postId, version);
@@ -47,7 +47,7 @@ namespace SansPost.Tests.Postgres
         private async Task<PostDetailsResponse?> GetAsync(int postId)
         {
             await using var context = _pg.CreateContext();
-            return await PostgresFixture.CreatePostService(context).GetByIdAsync(postId);
+            return await PostgresFixture.CreatePostService(context).GetByIdAsync(postId, null);
         }
 
         // Test A — lost update.
@@ -122,7 +122,7 @@ namespace SansPost.Tests.Postgres
             var post = await CreatePostAsync(userId);
 
             var readByA = (await GetAsync(post.Id))!;
-            Assert.True((await DeleteAsync(userId, post.Id)).Succeeded);
+            Assert.True((await DeleteAsync(userId, post.Id, readByA.Version)).Succeeded);
 
             var staleUpdate = await UpdateAsync(userId, post.Id, readByA.Version, "Po usunięciu");
 
@@ -142,7 +142,7 @@ namespace SansPost.Tests.Postgres
                 var post = await CreatePostAsync(userId, $"Wyścig {i}");
 
                 var update = Task.Run(() => UpdateAsync(userId, post.Id, post.Version, $"Edytowany {i}"));
-                var delete = Task.Run(() => DeleteAsync(userId, post.Id));
+                var delete = Task.Run(() => DeleteAsync(userId, post.Id, post.Version));
                 await Task.WhenAll(update, delete);
 
                 var remaining = await GetAsync(post.Id);
@@ -153,11 +153,11 @@ namespace SansPost.Tests.Postgres
                 }
                 else
                 {
-                    // Update wygrał między odczytem a DELETE ... WHERE version — usunięcie odrzucone, edycja zachowana.
-                    Assert.Equal(ServiceError.Conflict, delete.Result.Error);
+                    // Update wygrał — DELETE ze starą wersją odrzucony (412), edycja zachowana.
+                    Assert.Equal(ServiceError.PreconditionFailed, delete.Result.Error);
                     Assert.True(update.Result.Succeeded);
                     Assert.Equal($"Edytowany {i}", remaining!.Title);
-                    Assert.True((await DeleteAsync(userId, post.Id)).Succeeded);
+                    Assert.True((await DeleteAsync(userId, post.Id, remaining.Version)).Succeeded);
                 }
             }
 

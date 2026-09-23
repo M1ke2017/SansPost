@@ -5,6 +5,7 @@ using SansPost.Infrastructure.Security;
 
 namespace SansPost.Controllers
 {
+    // Komentarze: GET → ETag, PUT/DELETE → wymagany If-Match (428 bez nagłówka, 412 dla nieaktualnej wersji).
     [Route("api")]
     public class CommentsController : ApiControllerBase
     {
@@ -17,13 +18,22 @@ namespace SansPost.Controllers
 
         [AllowAnonymous]
         [HttpGet("posts/{postId:int}/comments")]
-        public async Task<IActionResult> GetByPost(int postId, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetByPost(int postId, [FromQuery] CommentPageQuery query, CancellationToken cancellationToken)
         {
-            var comments = await _commentService.GetByPostAsync(postId, cancellationToken);
-            if (comments is null)
+            var result = await _commentService.GetByPostAsync(postId, query, cancellationToken);
+            return result.Succeeded ? Ok(result.Value) : this.ToProblem(result);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("comments/{commentId:int}")]
+        public async Task<IActionResult> GetById(int commentId, CancellationToken cancellationToken)
+        {
+            var comment = await _commentService.GetByIdAsync(commentId, cancellationToken);
+            if (comment is null)
                 return NotFound();
 
-            return Ok(comments);
+            SetETag(comment.Version);
+            return Ok(comment);
         }
 
         [HttpPost("posts/{postId:int}/comments")]
@@ -36,7 +46,24 @@ namespace SansPost.Controllers
             if (!result.Succeeded)
                 return this.ToProblem(result);
 
-            return StatusCode(StatusCodes.Status201Created, result.Value);
+            SetETag(result.Value!.Version);
+            return CreatedAtAction(nameof(GetById), new { commentId = result.Value.Id }, result.Value);
+        }
+
+        [HttpPut("comments/{commentId:int}")]
+        public async Task<IActionResult> Update(int commentId, CommentRequest request, CancellationToken cancellationToken)
+        {
+            if (User.GetUserId() is not int userId)
+                return Unauthorized();
+            if (RequireIfMatch(out var expectedVersion) is { } ifMatchError)
+                return ifMatchError;
+
+            var result = await _commentService.UpdateAsync(userId, commentId, expectedVersion, request, cancellationToken);
+            if (!result.Succeeded)
+                return this.ToProblem(result);
+
+            SetETag(result.Value!.Version);
+            return Ok(result.Value);
         }
 
         [HttpDelete("comments/{commentId:int}")]
@@ -44,8 +71,10 @@ namespace SansPost.Controllers
         {
             if (User.GetUserId() is not int userId)
                 return Unauthorized();
+            if (RequireIfMatch(out var expectedVersion) is { } ifMatchError)
+                return ifMatchError;
 
-            var result = await _commentService.DeleteAsync(userId, commentId, cancellationToken);
+            var result = await _commentService.DeleteAsync(userId, commentId, expectedVersion, cancellationToken);
             return result.Succeeded ? NoContent() : this.ToProblem(result);
         }
     }

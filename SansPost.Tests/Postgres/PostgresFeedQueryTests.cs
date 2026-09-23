@@ -1,6 +1,4 @@
-using System.Data.Common;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Npgsql;
+using SansPost.Features;
 using SansPost.Features.Posts;
 using Xunit.Abstractions;
 
@@ -20,23 +18,11 @@ namespace SansPost.Tests.Postgres
             _output = output;
         }
 
-        private sealed class CommandCapture : DbCommandInterceptor
-        {
-            public List<(string Sql, NpgsqlParameter[] Parameters)> Commands { get; } = new();
-
-            public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
-                DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
-            {
-                Commands.Add((command.CommandText, command.Parameters.Cast<NpgsqlParameter>().Select(p => p.Clone()).ToArray()));
-                return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
-            }
-        }
-
-        private async Task<(PostFeedResponse Feed, CommandCapture Capture)> RunFeedAsync(PostFeedQuery query)
+        private async Task<(KeysetPage<PostSummaryResponse> Feed, CommandCapture Capture)> RunFeedAsync(PostFeedQuery query, int? viewerUserId = null)
         {
             var capture = new CommandCapture();
             await using var context = _pg.CreateContext(interceptors: capture);
-            var result = await PostgresFixture.CreatePostService(context).GetFeedAsync(query);
+            var result = await PostgresFixture.CreatePostService(context).GetFeedAsync(query, viewerUserId);
             Assert.True(result.Succeeded, result.Message);
             return (result.Value!, capture);
         }
@@ -44,6 +30,7 @@ namespace SansPost.Tests.Postgres
         [DockerFact]
         public async Task Feed_WithManyAuthors_ExecutesSingleQuery_AndPagesWithoutDuplicates()
         {
+            var viewerId = await _pg.CreateUserAsync("viewer");
             for (var i = 0; i < 5; i++)
                 await _pg.SeedPostsAsync(await _pg.CreateUserAsync("feed"), 5);
 
@@ -51,9 +38,10 @@ namespace SansPost.Tests.Postgres
             string? cursor = null;
             do
             {
-                var (feed, capture) = await RunFeedAsync(new PostFeedQuery { Limit = 7, Cursor = cursor });
+                // Autor, LikeCount, CommentCount i LikedByCurrentUser — wszystko w jednej projekcji SQL.
+                var (feed, capture) = await RunFeedAsync(new PostFeedQuery { Limit = 7, Cursor = cursor }, viewerId);
 
-                Assert.Single(capture.Commands); // autor przez JOIN w projekcji — brak N+1
+                Assert.Single(capture.Commands);
                 Assert.All(feed.Items, item => Assert.True(seen.Add(item.Id), $"Duplikat {item.Id} między stronami."));
                 cursor = feed.NextCursor;
             }
@@ -82,21 +70,10 @@ namespace SansPost.Tests.Postgres
             var (firstPage, _) = await RunFeedAsync(new PostFeedQuery { AuthorId = query.AuthorId, Category = query.Category, Limit = 1 });
             query.Limit = 1;
             query.Cursor = firstPage.NextCursor;
-            var (_, capture) = await RunFeedAsync(query);
+            var (_, capture) = await RunFeedAsync(query, userId);
             var (sql, parameters) = capture.Commands.Single();
 
-            // Mała tabela → planner i tak wybrałby seq scan; wyłączamy go, żeby sprawdzić czy indeks PASUJE do zapytania.
-            await using var connection = new NpgsqlConnection(_pg.ConnectionString);
-            await connection.OpenAsync();
-            await using (var off = new NpgsqlCommand("SET enable_seqscan = off", connection))
-                await off.ExecuteNonQueryAsync();
-
-            await using var explain = new NpgsqlCommand("EXPLAIN " + sql, connection);
-            explain.Parameters.AddRange(parameters);
-            var plan = new List<string>();
-            await using (var reader = await explain.ExecuteReaderAsync())
-                while (await reader.ReadAsync())
-                    plan.Add(reader.GetString(0));
+            var plan = await CommandCapture.ExplainAsync(_pg.ConnectionString, sql, parameters);
 
             _output.WriteLine(sql);
             _output.WriteLine(string.Join(Environment.NewLine, plan));
@@ -104,6 +81,10 @@ namespace SansPost.Tests.Postgres
 
             // Kursor musi zawężać zakres indeksu (Index Cond), a nie tylko filtrować od początku (koszt jak OFFSET).
             Assert.Contains(plan, line => line.Contains("Index Cond", StringComparison.Ordinal) && line.Contains("createdat <=", StringComparison.Ordinal));
+
+            // Liczniki w feedzie korzystają z indeksów komentarzy/polubień, a nie z pełnego skanu tabel.
+            Assert.Contains(plan, line => line.Contains("UX_likes_post_user", StringComparison.Ordinal));
+            Assert.Contains(plan, line => line.Contains("IX_comments_post_thread", StringComparison.Ordinal));
         }
     }
 }

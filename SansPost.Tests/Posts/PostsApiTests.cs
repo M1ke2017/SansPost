@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
+using SansPost.Features;
 using SansPost.Features.Posts;
 using SansPost.Tests.TestInfrastructure;
 
@@ -23,8 +24,8 @@ namespace SansPost.Tests.Posts
         private static async Task<PostDetailsResponse> ReadPostAsync(HttpResponseMessage response) =>
             (await response.Content.ReadFromJsonAsync<PostDetailsResponse>(SansPostFactory.Json))!;
 
-        private static async Task<PostFeedResponse> ReadFeedAsync(HttpResponseMessage response) =>
-            (await response.Content.ReadFromJsonAsync<PostFeedResponse>(SansPostFactory.Json))!;
+        private static async Task<KeysetPage<PostSummaryResponse>> ReadFeedAsync(HttpResponseMessage response) =>
+            (await response.Content.ReadFromJsonAsync<KeysetPage<PostSummaryResponse>>(SansPostFactory.Json))!;
 
         private static HttpRequestMessage Put(int postId, object body, string? ifMatch)
         {
@@ -201,7 +202,12 @@ namespace SansPost.Tests.Posts
             var client = await _factory.CreateAuthenticatedApiClientAsync(TestUsers.UniqueName());
             var created = await ReadPostAsync(await client.PostAsJsonAsync("/api/posts", Body("Do usunięcia")));
 
-            Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/posts/{created.Id}")).StatusCode);
+            var withoutIfMatch = await client.DeleteAsync($"/api/posts/{created.Id}");
+            Assert.Equal((HttpStatusCode)428, withoutIfMatch.StatusCode);
+
+            var delete = new HttpRequestMessage(HttpMethod.Delete, $"/api/posts/{created.Id}");
+            delete.Headers.IfMatch.Add(EntityTagHeaderValue.Parse("\"1\""));
+            Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(delete)).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/posts/{created.Id}")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(Put(created.Id, Body("Wskrzeszenie"), "\"1\""))).StatusCode);
         }

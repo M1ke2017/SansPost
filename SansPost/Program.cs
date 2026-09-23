@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using SansPost.Features.Comments;
 using SansPost.Features.Identity;
 using SansPost.Features.Posts;
+using SansPost.Features.Profiles;
 using SansPost.Features.Reactions;
 using SansPost.Infrastructure.Persistence;
 using SansPost.Infrastructure.Security;
@@ -34,6 +35,7 @@ public class Program
         builder.Services.AddScoped<IPostService, PostService>();
         builder.Services.AddScoped<ICommentService, CommentService>();
         builder.Services.AddScoped<ILikeService, LikeService>();
+        builder.Services.AddScoped<IProfileService, ProfileService>();
 
         var app = builder.Build();
 

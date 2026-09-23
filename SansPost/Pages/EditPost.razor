@@ -64,7 +64,7 @@ else
         try
         {
             var userId = (await AuthState).User.GetUserId();
-            var existing = await PostService.GetByIdAsync(Id);
+            var existing = await PostService.GetByIdAsync(Id, userId);
 
             if (existing is not null && existing.AuthorId == userId)
             {

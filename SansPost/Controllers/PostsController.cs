@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Net.Http.Headers;
 using SansPost.Features.Posts;
 using SansPost.Infrastructure.Security;
 
 namespace SansPost.Controllers
 {
-    // Optimistic concurrency przez standardowe HTTP: GET → ETag, PUT/DELETE → If-Match.
+    // Optimistic concurrency przez standardowe HTTP: GET → ETag, PUT/DELETE → wymagany If-Match.
     [Route("api/posts")]
     public class PostsController : ApiControllerBase
     {
@@ -28,7 +27,7 @@ namespace SansPost.Controllers
         [HttpGet("{postId:int}")]
         public async Task<IActionResult> GetById(int postId, CancellationToken cancellationToken)
         {
-            var post = await _postService.GetByIdAsync(postId, cancellationToken);
+            var post = await _postService.GetByIdAsync(postId, User.GetUserId(), cancellationToken);
             if (post is null)
                 return NotFound();
 
@@ -88,12 +87,10 @@ namespace SansPost.Controllers
                 return Unauthorized();
 
             // Edycja bez wskazania wersji mogłaby po cichu nadpisać cudze zmiany (lost update).
-            if (!TryGetIfMatchVersion(out var expectedVersion, out var ifMatchError))
-                return ifMatchError!;
-            if (expectedVersion is null)
-                return Problem(detail: "Wymagany nagłówek If-Match z ETag pobranym przez GET.", statusCode: StatusCodes.Status428PreconditionRequired);
+            if (RequireIfMatch(out var expectedVersion) is { } ifMatchError)
+                return ifMatchError;
 
-            var result = await _postService.UpdateAsync(userId, postId, expectedVersion.Value, request, cancellationToken);
+            var result = await _postService.UpdateAsync(userId, postId, expectedVersion, request, cancellationToken);
             if (!result.Succeeded)
                 return this.ToProblem(result);
 
@@ -107,9 +104,9 @@ namespace SansPost.Controllers
             if (User.GetUserId() is not int userId)
                 return Unauthorized();
 
-            // If-Match opcjonalny: jeśli podany, usunięcie wymaga zgodnej wersji.
-            if (!TryGetIfMatchVersion(out var expectedVersion, out var ifMatchError))
-                return ifMatchError!;
+            // Usuwa się tylko wersję, którą klient widział — tak samo jak przy edycji.
+            if (RequireIfMatch(out var expectedVersion) is { } ifMatchError)
+                return ifMatchError;
 
             var result = await _postService.DeleteAsync(userId, postId, expectedVersion, cancellationToken);
             return result.Succeeded ? NoContent() : this.ToProblem(result);
@@ -117,45 +114,8 @@ namespace SansPost.Controllers
 
         private async Task<IActionResult> FeedAsync(PostFeedQuery query, CancellationToken cancellationToken)
         {
-            var result = await _postService.GetFeedAsync(query, cancellationToken);
+            var result = await _postService.GetFeedAsync(query, User.GetUserId(), cancellationToken);
             return result.Succeeded ? Ok(result.Value) : this.ToProblem(result);
-        }
-
-        private void SetETag(int version) => Response.Headers.ETag = PostETag.Format(version);
-
-        // true + null = brak nagłówka; false = nagłówek nieprawidłowy (odpowiedź 400 w error).
-        private bool TryGetIfMatchVersion(out int? version, out IActionResult? error)
-        {
-            version = null;
-            error = null;
-
-            var header = Request.Headers.IfMatch.ToString();
-            if (string.IsNullOrEmpty(header))
-                return true;
-
-            if (PostETag.TryParse(header, out var parsed))
-            {
-                version = parsed;
-                return true;
-            }
-
-            error = Problem(detail: "Nieprawidłowy nagłówek If-Match. Oczekiwany pojedynczy ETag, np. \"3\".", statusCode: StatusCodes.Status400BadRequest);
-            return false;
-        }
-    }
-
-    public static class PostETag
-    {
-        // Silny ETag = wersja posta, np. "3".
-        public static string Format(int version) => new EntityTagHeaderValue($"\"{version}\"").ToString();
-
-        public static bool TryParse(string header, out int version)
-        {
-            version = 0;
-            if (!EntityTagHeaderValue.TryParse(header, out var tag) || tag.IsWeak || tag == EntityTagHeaderValue.Any)
-                return false;
-
-            return int.TryParse(tag.Tag.AsSpan().Trim('"'), out version) && version > 0;
         }
     }
 }

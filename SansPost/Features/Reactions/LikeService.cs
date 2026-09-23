@@ -1,56 +1,97 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Reactions
 {
-    public sealed record LikeSummaryResponse(int PostId, int Count, bool LikedByCurrentUser);
+    public sealed record LikeSummaryResponse(int PostId, int LikeCount, bool LikedByCurrentUser);
 
+    // API "desired state" zamiast toggle: Like = "po operacji post JEST polubiony", Unlike = "NIE JEST".
+    // Obie operacje są idempotentne — bezpieczne przy retry i równoległych requestach.
     public interface ILikeService
     {
         // null = post nie istnieje.
-        Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? currentUserId, CancellationToken cancellationToken = default);
+        Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default);
 
-        Task<ServiceResult<LikeSummaryResponse>> ToggleAsync(int actorUserId, int postId, CancellationToken cancellationToken = default);
+        Task<ServiceResult<LikeSummaryResponse>> LikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default);
+
+        Task<ServiceResult<LikeSummaryResponse>> UnlikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default);
     }
 
     public class LikeService : ILikeService
     {
-        private readonly ApplicationDbContext _context;
+        private const string PostNotFoundMessage = "Post nie istnieje.";
 
-        public LikeService(ApplicationDbContext context)
+        private readonly ApplicationDbContext _context;
+        private readonly TimeProvider _time;
+
+        public LikeService(ApplicationDbContext context, TimeProvider time)
         {
             _context = context;
+            _time = time;
         }
 
-        public async Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? currentUserId, CancellationToken cancellationToken = default)
+        public async Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default)
         {
-            if (!await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
-                return null;
-
-            var count = await _context.Likes.CountAsync(l => l.PostId == postId, cancellationToken);
-            var liked = currentUserId is int userId
-                && await _context.Likes.AnyAsync(l => l.PostId == postId && l.UserId == userId, cancellationToken);
-
-            return new LikeSummaryResponse(postId, count, liked);
+            // Jedno zapytanie: liczba polubień + stan dla bieżącego użytkownika, bez ładowania rekordów Like.
+            return await _context.Posts
+                .AsNoTracking()
+                .Where(p => p.Id == postId)
+                .Select(p => new LikeSummaryResponse(
+                    p.Id,
+                    _context.Likes.Count(l => l.PostId == p.Id),
+                    viewerUserId != null && _context.Likes.Any(l => l.PostId == p.Id && l.UserId == viewerUserId)))
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
-        public async Task<ServiceResult<LikeSummaryResponse>> ToggleAsync(int actorUserId, int postId, CancellationToken cancellationToken = default)
+        // Pojedynczy atomowy INSERT ... ON CONFLICT DO NOTHING: równoległe PUT tego samego użytkownika
+        // nie tworzą duplikatu ani wyjątku UNIQUE. Składnia działa w PostgreSQL i SQLite.
+        public async Task<ServiceResult<LikeSummaryResponse>> LikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default)
         {
             if (!await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
-                return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, "Post nie istnieje.");
+                return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
 
-            var existing = await _context.Likes
-                .FirstOrDefaultAsync(l => l.PostId == postId && l.UserId == actorUserId, cancellationToken);
+            var now = _time.GetUtcNow().UtcDateTime;
+            try
+            {
+                await _context.Database.ExecuteSqlInterpolatedAsync(
+                    $"INSERT INTO likes (postid, userid, createdat) VALUES ({postId}, {actorUserId}, {now}) ON CONFLICT (postid, userid) DO NOTHING",
+                    cancellationToken);
+            }
+            catch (DbException)
+            {
+                // Post usunięty między sprawdzeniem a INSERT → naruszenie FK; polubienie nie powstało.
+                if (await PostExistsAsync(postId, cancellationToken))
+                    throw;
 
-            if (existing is not null)
-                _context.Likes.Remove(existing);
-            else
-                _context.Likes.Add(new Like { PostId = postId, UserId = actorUserId });
+                return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
+            }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            return await SummaryResultAsync(postId, actorUserId, cancellationToken);
+        }
 
+        // Pojedynczy atomowy DELETE; brak rekordu to też sukces (stan docelowy osiągnięty).
+        public async Task<ServiceResult<LikeSummaryResponse>> UnlikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default)
+        {
+            if (!await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
+                return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
+
+            await _context.Likes
+                .Where(l => l.PostId == postId && l.UserId == actorUserId)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            return await SummaryResultAsync(postId, actorUserId, cancellationToken);
+        }
+
+        private async Task<ServiceResult<LikeSummaryResponse>> SummaryResultAsync(int postId, int actorUserId, CancellationToken cancellationToken)
+        {
             var summary = await GetSummaryAsync(postId, actorUserId, cancellationToken);
-            return ServiceResult<LikeSummaryResponse>.Success(summary!);
+            return summary is null
+                ? ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage)
+                : ServiceResult<LikeSummaryResponse>.Success(summary);
         }
+
+        private Task<bool> PostExistsAsync(int postId, CancellationToken cancellationToken) =>
+            _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken);
     }
 }

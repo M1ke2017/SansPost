@@ -22,7 +22,9 @@ namespace SansPost.Tests.Security
             { "GET", "/api/posts/mine" },
             { "POST", "/api/posts/1/comments" },
             { "DELETE", "/api/comments/1" },
-            { "POST", "/api/posts/1/likes/toggle" },
+            { "PUT", "/api/posts/1/like" },
+            { "DELETE", "/api/posts/1/like" },
+            { "PUT", "/api/comments/1" },
             { "GET", "/api/auth/me" },
             { "PUT", "/api/users/1/role" },
             { "PUT", "/api/users/1/subscription" }

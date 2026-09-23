@@ -22,7 +22,7 @@
 
     private async Task LoadMore()
     {
-        var result = await PostService.GetFeedAsync(new PostFeedQuery { AuthorId = userId, Cursor = nextCursor });
+        var result = await PostService.GetFeedAsync(new PostFeedQuery { AuthorId = userId, Cursor = nextCursor }, userId);
         if (!result.Succeeded)
             return;
 
