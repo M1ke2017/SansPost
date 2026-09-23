@@ -1,9 +1,23 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
 <PageTitle>SansPost</PageTitle>
 
 <div class="page">
     <main>
+        <div class="auth-bar" style="text-align: right; padding: 0.5rem 1rem;">
+            <AuthorizeView>
+                <Authorized>
+                    <span>Zalogowano jako @context.User.Identity?.Name</span>
+                    <form method="post" action="auth/logout" style="display: inline;">
+                        <AntiforgeryField />
+                        <button type="submit">Wyloguj</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login">Zaloguj się</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
 
         <article class="content px-4">
             @Body

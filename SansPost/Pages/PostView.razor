@@ -1,7 +1,6 @@
-﻿@page "/post-view/{Id:int}"
-@inject HttpClient Http
-@inject NavigationManager Navigation
-@using SansPost.Models
+@page "/post-view/{Id:int}"
+@inject IPostService PostService
+@inject ILogger<PostView> Logger
 
 <link href="css/postview.css" rel="stylesheet" />
 
@@ -18,7 +17,8 @@
     {
         <div class="register-text">
             <h1>@post.Title</h1>
-            <h3 style="color: #ffcc00;">@post.Category</h3>
+            <h3 style="color: #ffcc00;">@post.Category.DisplayName()</h3>
+            <p>@post.AuthorUsername · @post.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")@(post.UpdatedAt is null ? "" : " · edytowano")</p>
 
             <p style="margin-top: 2rem;">@post.Content</p>
 
@@ -33,11 +33,12 @@
                 <input type="text" class="comment-input-line" placeholder="Dodaj komentarz..." />
             </div>
 
-            
-            <div>
-                <a class="action-button" href="@($"/edit-post/{Id}")">Edytuj</a>
-            </div>
-            
+            @if (isOwner)
+            {
+                <div>
+                    <a class="action-button" href="@($"/edit-post/{Id}")">Edytuj</a>
+                </div>
+            }
 
         </div>
     }
@@ -46,28 +47,28 @@
 @code {
     [Parameter]
     public int Id { get; set; }
-    private Post? post;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private PostDetailsResponse? post;
+    private bool isOwner;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            post = await Http.GetFromJsonAsync<Post>($"/post/{Id}");
+            post = await PostService.GetByIdAsync(Id);
+            isOwner = post is not null && post.AuthorId == (await AuthState).User.GetUserId();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Błąd ładowania posta: {ex.Message}");
+            Logger.LogError(ex, "Błąd ładowania posta {PostId}.", Id);
         }
         finally
         {
             isLoading = false;
         }
-
     }
-    private void EditPost(int id)
-    {
-        Navigation.NavigateTo($"/edit-post/{id}");
-    }
-
 }

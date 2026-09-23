@@ -1,17 +1,33 @@
-﻿@page "/user-panel"
-@using SansPost.Models
-@inject HttpClient Http
+@page "/user-panel"
+@attribute [Authorize]
+@inject IPostService PostService
 @inject NavigationManager Navigation
 
 @code {
-    private List<Post>? userPosts;
-    private List<Post>? likedPosts;
-    private bool showLikedPosts = false;
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private readonly List<PostSummaryResponse> userPosts = new();
+    private string? nextCursor;
+    private int userId;
 
     protected override async Task OnInitializedAsync()
     {
-        userPosts = await Http.GetFromJsonAsync<List<Post>>("/my-posts");
-        likedPosts = await Http.GetFromJsonAsync<List<Post>>("/liked-posts");
+        if ((await AuthState).User.GetUserId() is not int id)
+            return;
+
+        userId = id;
+        await LoadMore();
+    }
+
+    private async Task LoadMore()
+    {
+        var result = await PostService.GetFeedAsync(new PostFeedQuery { AuthorId = userId, Cursor = nextCursor });
+        if (!result.Succeeded)
+            return;
+
+        userPosts.AddRange(result.Value!.Items);
+        nextCursor = result.Value.NextCursor;
     }
 }
 
@@ -21,52 +37,31 @@
     <div class="register-text">
         <h2>Witaj w swoim panelu</h2>
 
-        <button class="auth-btn" @onclick="@(() => Navigation.NavigateTo("/profile"))">Mój Profil</button>
-        <button class="auth-btn" @onclick="@(() => Navigation.NavigateTo("/add-post"))">Dodaj Post</button>
-        <button class="auth-btn" @onclick="@(() => showLikedPosts = !showLikedPosts)">
-            @(showLikedPosts ? "Moje Posty" : "Polubione Posty")
-        </button>
+        <button class="auth-btn" @onclick="@(() => Navigation.NavigateTo("/post-from"))">Dodaj Post</button>
 
-        <h3>@(showLikedPosts ? "Polubione Posty" : "Twoje Posty")</h3>
+        <h3>Twoje Posty</h3>
 
         <div class="home-container">
-            @if (showLikedPosts)
+            @if (userPosts.Any())
             {
-                @if (likedPosts != null && likedPosts.Any())
+                @foreach (var post in userPosts)
                 {
-                    @foreach (var post in likedPosts)
-                    {
-                        <div class="post-box">
-                            <h4>@post.Title</h4>
-                            <p>@post.Content</p>
-                            <span>Kategoria: @post.Category</span>
-                            <span>Data: @post.CreatedAt.ToString("dd-MM-yyyy")</span>
-                        </div>
-                    }
-                }
-                else
-                {
-                    <p>Nie masz polubionych postów.</p>
+                    <div class="post-box">
+                        <h4>@post.Title</h4>
+                        <p>@post.ContentPreview</p>
+                        <span>Kategoria: @post.Category.DisplayName()</span>
+                        <span>Data: @post.CreatedAt.ToString("dd-MM-yyyy")</span>
+                    </div>
                 }
             }
             else
             {
-                @if (userPosts != null && userPosts.Any())
-                {
-                    @foreach (var post in userPosts)
-                    {
-                        <div class="post-box">
-                            <h4>@post.Title</h4>
-                            <p>@post.Content</p>
-                            <span>Kategoria: @post.Category</span>
-                            <span>Data: @post.CreatedAt.ToString("dd-MM-yyyy")</span>
-                        </div>
-                    }
-                }
-                else
-                {
-                    <p>Nie masz jeszcze postów.</p>
-                }
+                <p>Nie masz jeszcze postów.</p>
+            }
+
+            @if (nextCursor is not null)
+            {
+                <button class="auth-btn" @onclick="LoadMore">Załaduj więcej</button>
             }
         </div>
     </div>

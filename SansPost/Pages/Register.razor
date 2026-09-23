@@ -1,5 +1,5 @@
-﻿@page "/register"
-@inject HttpClient Http
+@page "/register"
+@using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Navigation
 
 <link rel="stylesheet" href="css/logres.css">
@@ -13,18 +13,20 @@
             <p class="error">@errorMessage</p>
         }
 
-        <form @onsubmit="RegisterUser">
-            <!--<label for="username">Nazwa użytkownika</label>-->
-            <input type="text" id="username" placeholder="Podaj nazwę" @bind="username" required>
+        @* Zwykły HTTP POST do AccountController (antiforgery + rate limiting). *@
+        <form method="post" action="auth/register">
+            <AntiforgeryField />
 
-          
+            <input type="text" id="username" name="Username" placeholder="Podaj nazwę"
+                   minlength="3" maxlength="50" pattern="[\p{L}\p{N}._\-]{3,50}" autocomplete="username" required>
 
             <label for="email">Email</label>
-            <input type="email" id="email" placeholder="Podaj email" @bind="email" required>
+            <input type="email" id="email" name="Email" placeholder="Podaj email" maxlength="254" autocomplete="email" required>
 
             <label for="password">Hasło</label>
             <div class="password-container">
-                <input type="@passwordInputType" id="password" placeholder="Podaj hasło" @bind="password" required>
+                <input type="@passwordInputType" id="password" name="Password" placeholder="Podaj hasło (8–64 znaki)"
+                       minlength="@PasswordPolicy.MinLength" maxlength="@PasswordPolicy.MaxLength" autocomplete="new-password" required>
                 <button type="button" class="toggle-password" @onclick="TogglePassword">
                     @passwordToggleIcon
                 </button>
@@ -32,15 +34,14 @@
 
             <label for="confirmPassword">Potwierdź hasło</label>
             <div class="password-container">
-                <input type="@confirmPasswordInputType" id="confirmPassword" placeholder="Powtórz hasło" @bind="confirmPassword" required>
+                <input type="@confirmPasswordInputType" id="confirmPassword" name="ConfirmPassword" placeholder="Powtórz hasło"
+                       maxlength="@PasswordPolicy.MaxLength" autocomplete="new-password" required>
                 <button type="button" class="toggle-password" @onclick="ToggleConfirmPassword">
                     @confirmPasswordToggleIcon
                 </button>
             </div>
 
-            <button type="submit" class="auth-btn" disabled="@isSubmitting">
-                @(isSubmitting ? "Rejestrowanie..." : "Zarejestruj się")
-            </button>
+            <button type="submit" class="auth-btn">Zarejestruj się</button>
         </form>
 
         <p>Masz już konto? <a href="/login">Zaloguj się</a></p>
@@ -48,12 +49,7 @@
 </div>
 
 @code {
-    private string ? username;
-    private string ? email;
-    private string ? password;
-    private string confirmPassword = "";
-    private bool isSubmitting = false;
-    private string errorMessage = "";
+    private string? errorMessage;
 
     private bool showPassword = false;
     private bool showConfirmPassword = false;
@@ -63,42 +59,18 @@
     private string passwordToggleIcon => showPassword ? "👁️" : "🙈";
     private string confirmPasswordToggleIcon => showConfirmPassword ? "👁️" : "🙈";
 
-    private async Task RegisterUser()
+    protected override void OnInitialized()
     {
-        isSubmitting = true;
-        errorMessage = "";
-
-        if (password != confirmPassword)
-        {
-            errorMessage = "Hasła nie są identyczne!";
-            isSubmitting = false;
-         
+        var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
+        if (!query.TryGetValue("error", out var error))
             return;
-            
-        }
 
-        var registerData = new { Username = username, Email = email, Password = password };
-        Console.WriteLine(registerData);
-        try
+        errorMessage = error.ToString() switch
         {
-            var response = await Http.PostAsJsonAsync("/users/register", registerData);
-            var responseText = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                Navigation.NavigateTo("/login");
-            }
-            else
-            {
-                errorMessage = "Błąd rejestracji! Sprawdź dane.";
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Błąd: {ex.Message}";
-        }
-
-        isSubmitting = false;
+            "mismatch" => "Hasła nie są identyczne!",
+            "conflict" => "Nie można utworzyć konta z podanym emailem lub nazwą użytkownika.",
+            _ => $"Sprawdź dane: nazwa 3–50 znaków (litery, cyfry, . _ -), poprawny email, hasło {PasswordPolicy.MinLength}–{PasswordPolicy.MaxLength} znaków."
+        };
     }
 
     private void TogglePassword()

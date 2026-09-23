@@ -5,13 +5,13 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using SansPost.Data;
+using SansPost.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace SansPost.Migrations
 {
-    [DbContext(typeof(AppliactionDbContext))]
+    [DbContext(typeof(ApplicationDbContext))]
     [Migration("20250311181954_InitialCreate")]
     partial class InitialCreate
     {

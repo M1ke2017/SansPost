@@ -1,7 +1,6 @@
-﻿@page "/posts"
-@using SansPost.Models
-@inject HttpClient Http
-@inject NavigationManager Navigation
+@page "/posts"
+@inject IPostService PostService
+@inject ILogger<Posts> Logger
 
 <link rel="stylesheet" href="css/posts.css">
 
@@ -9,40 +8,39 @@
     <div class="main-content">
         <h2>Przeglądaj posty</h2>
 
+        <div class="filters">
+            <select @onchange="OnCategoryChanged">
+                <option value="">Wszystkie kategorie</option>
+                @foreach (var category in Enum.GetValues<PostCategory>())
+                {
+                    <option value="@category">@category.DisplayName()</option>
+                }
+            </select>
+        </div>
+
         <div class="grid-container">
-            @if (currentPage == 0)
+            @foreach (var post in posts)
             {
-                <!-- Strona zachęty -->
-                @foreach (var post in introPosts)
-                {
-                    <div class="post-card">
-                        <span class="category">@post.Category</span>
-                        <h3>@post.Title</h3>
-                        <p>@post.Content</p>
-                        <a href="#" class="read-more">Więcej</a>
-                    </div>
-                }
-            }
-            else
-            {
-                @foreach (var post in PaginatedPosts)
-                {
-                    <div class="post-card">
-                        <span class="category">@post.Category</span>
-                        <h3>@post.Title</h3>
-                        <p>@post.Content</p>
-                        <a href="@($"/post-view/{post.Id}")" class="auth-btn">Więcej</a>
-                    </div>
-                }
-
+                <div class="post-card">
+                    <span class="category">@post.Category.DisplayName()</span>
+                    <h3>@post.Title</h3>
+                    <p>@post.ContentPreview@(post.IsContentTruncated ? "…" : "")</p>
+                    <a href="@($"/post-view/{post.Id}")" class="auth-btn">Więcej</a>
+                </div>
             }
         </div>
 
-        <div class="pagination">
-            <button @onclick="PreviousPage" disabled="@(currentPage == 0)">⬅ Poprzednia</button>
-            <span>Strona @((currentPage + 1)) z @TotalPages</span>
-            <button @onclick="NextPage" disabled="@(currentPage >= TotalPages - 1)">➡ Następna</button>
-        </div>
+        @if (!isLoading && posts.Count == 0)
+        {
+            <p>Brak postów.</p>
+        }
+
+        @if (nextCursor is not null)
+        {
+            <div class="pagination">
+                <button @onclick="LoadMore" disabled="@isLoading">Załaduj więcej</button>
+            </div>
+        }
 
         <div class="register-section">
             <h3>Podziel się z nami przemyśleniami</h3>
@@ -52,58 +50,48 @@
 </div>
 
 @code {
-    private List<Post> posts = new();
-    private List<Post> introPosts = new()
+    private readonly List<PostSummaryResponse> posts = new();
+    private PostCategory? category;
+    private string? nextCursor;
+    private bool isLoading;
+
+    protected override Task OnInitializedAsync() => LoadAsync(reset: true);
+
+    private Task OnCategoryChanged(ChangeEventArgs e)
     {
-        new Post { Category = "Technologia", Title = "Tytuł posta", Content = "Przykładowy fragment posta..." },
-        new Post { Category = "Sport", Title = "Mecz finałowy", Content = "Krótki opis meczu finałowego..." },
-        new Post { Category = "Wiadomości", Title = "Najważniejsze wydarzenia", Content = "Dowiedz się, co się dzieje na świecie..." },
-        new Post { Category = "Sport", Title = "Nowe wyniki", Content = "Sprawdź najnowsze wyniki..." },
-        new Post { Category = "Technologia", Title = "Nowinki technologiczne", Content = "Odkryj nowe innowacje..." },
-        new Post { Category = "Wiadomości", Title = "Polityka", Content = "Co się dzieje w świecie polityki..." },
-        new Post { Category = "Lifestyle", Title = "Zdrowy styl życia", Content = "Najlepsze sposoby na zdrowie..." },
-        new Post { Category = "Podróże", Title = "Najlepsze miejsca do odwiedzenia", Content = "Odkryj niesamowite lokalizacje..." },
-        new Post { Category = "Edukacja", Title = "Najlepsze kursy online", Content = "Znajdź idealne kursy dla siebie..." }
-    };
+        category = Enum.TryParse<PostCategory>(e.Value?.ToString(), out var parsed) ? parsed : null;
+        return LoadAsync(reset: true);
+    }
 
-    private int currentPage = 0;
-    private int pageSize = 9;
+    private Task LoadMore() => LoadAsync(reset: false);
 
-    private int TotalPages => (int)Math.Ceiling(posts.Count / (double)pageSize) + 1;
-
-    private IEnumerable<Post> PaginatedPosts =>
-        posts.Skip((currentPage - 1) * pageSize).Take(pageSize);
-
-    protected override async Task OnInitializedAsync()
+    private async Task LoadAsync(bool reset)
     {
+        isLoading = true;
         try
         {
-            var response = await Http.GetFromJsonAsync<ApiResponse<List<Post>>>("/api/posts");
-
-            if (response != null && response.Success && response.Data != null)
+            var result = await PostService.GetFeedAsync(new PostFeedQuery
             {
-                posts = response.Data;
+                Category = category,
+                Cursor = reset ? null : nextCursor
+            });
+
+            if (reset)
+                posts.Clear();
+
+            if (result.Succeeded)
+            {
+                posts.AddRange(result.Value!.Items);
+                nextCursor = result.Value.NextCursor;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Błąd pobierania postów: {ex.Message}");
+            Logger.LogError(ex, "Błąd pobierania postów.");
         }
-    }
-
-    private void NextPage()
-    {
-        if (currentPage < TotalPages - 1)
+        finally
         {
-            currentPage++;
-        }
-    }
-
-    private void PreviousPage()
-    {
-        if (currentPage > 0)
-        {
-            currentPage--;
+            isLoading = false;
         }
     }
 }

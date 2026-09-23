@@ -1,0 +1,7 @@
+@* Ukryte pole antiforgery dla natywnych formularzy POST (/auth/login, /auth/register, /auth/logout). *@
+<input type="hidden" name="__RequestVerificationToken" value="@Token" />
+
+@code {
+    [CascadingParameter(Name = "AntiforgeryToken")]
+    private string? Token { get; set; }
+}

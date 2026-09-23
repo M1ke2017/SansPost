@@ -1,13 +1,8 @@
-﻿@page "/edit-post/{Id:int}"
-@inject HttpClient Http
+@page "/edit-post/{Id:int}"
+@attribute [Authorize]
+@inject IPostService PostService
 @inject NavigationManager Navigation
-@inject IJSRuntime JS
-@inject CustomAuthStateProvider AuthProvider
-@using Microsoft.EntityFrameworkCore.Metadata.Internal
-@using SansPost.Services
-@using SansPost.Models
-@using SansPost.Models.Enum
-@using System.Net.Http.Headers
+@inject ILogger<EditPost> Logger
 
 <link href="css/editpost.css" rel="stylesheet" />
 
@@ -24,51 +19,68 @@ else
     <div class="edit-container">
         <h2>Edytuj post</h2>
 
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <p>@message</p>
+        }
+
         <form class="edit-form" @onsubmit="UpdatePost">
             <input @bind="post.Title" placeholder="Tytuł" />
 
-            <select @bind="post.Category">
-                <option disabled selected value="">-- wybierz kategorię --</option>
-                @foreach (var category in Categories)
+            <select @bind="selectedCategory">
+                <option disabled value="">-- wybierz kategorię --</option>
+                @foreach (var category in Enum.GetValues<PostCategory>())
                 {
-                    <option value="@category">@category</option>
+                    <option value="@category">@category.DisplayName()</option>
                 }
             </select>
 
             <textarea @bind="post.Content" placeholder="Treść posta"></textarea>
 
             <div class="button-row">
-                <button type="submit" class="save-button" href="/posts">Zapisz zmiany</button>
+                <button type="submit" class="save-button">Zapisz zmiany</button>
                 <button type="button" class="delete-button" @onclick="DeletePost">Usuń post</button>
             </div>
 
         </form>
     </div>
-
-
 }
 
 @code {
     [Parameter]
     public int Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
     private PostRequest? post;
+    private int version;
+    private string selectedCategory = "";
     private bool isLoading = true;
-    private List<string> Categories = Enum.GetNames(typeof(PostCategory)).ToList();
     private string? message;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var response = await Http.GetFromJsonAsync<PostRequest>($"/post/{Id}");
-            if (response != null)
-                post = response;
-            else
-                message = "Nie znaleziono posta.";
+            var userId = (await AuthState).User.GetUserId();
+            var existing = await PostService.GetByIdAsync(Id);
+
+            if (existing is not null && existing.AuthorId == userId)
+            {
+                post = new PostRequest
+                {
+                    Title = existing.Title,
+                    Content = existing.Content,
+                    ImageUrl = existing.ImageUrl
+                };
+                selectedCategory = existing.Category.ToString();
+                version = existing.Version;
+            }
         }
         catch (Exception ex)
         {
-            message = $"Błąd: {ex.Message}";
+            Logger.LogError(ex, "Błąd ładowania posta {PostId}.", Id);
         }
         finally
         {
@@ -78,35 +90,35 @@ else
 
     private async Task UpdatePost()
     {
-        var request = new HttpRequestMessage(HttpMethod.Put, $"edit-post/{Id}")
-            {
-                Content = JsonContent.Create(post)
-            };
+        var userId = (await AuthState).User.GetUserId();
+        if (post is null || userId is null)
+            return;
 
-        
-        var token = await AuthProvider.GetTokenAsync();
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        post.Category = Enum.TryParse<PostCategory>(selectedCategory, out var category) ? category : null;
 
-        var response = await Http.SendAsync(request);
-
-        if (response.IsSuccessStatusCode)
+        // Wersja z chwili wczytania — jeśli ktoś zmienił post w międzyczasie, zapis zostanie odrzucony.
+        var result = await PostService.UpdateAsync(userId.Value, Id, version, post);
+        if (result.Succeeded)
         {
+            version = result.Value!.Version;
             message = "Post zaktualizowany!";
         }
         else
         {
-            message = "Błąd podczas aktualizacji.";
+            message = result.Message;
         }
     }
 
-
     private async Task DeletePost()
     {
-        var response = await Http.DeleteAsync($"delete/{Id}");
-        if (response.IsSuccessStatusCode)
-            Navigation.NavigateTo("/");
+        var userId = (await AuthState).User.GetUserId();
+        if (userId is null)
+            return;
+
+        var result = await PostService.DeleteAsync(userId.Value, Id, version);
+        if (result.Succeeded)
+            Navigation.NavigateTo("/posts");
         else
-            message = "Nie udało się usunąć posta.";
+            message = result.Message ?? "Nie udało się usunąć posta.";
     }
 }
-

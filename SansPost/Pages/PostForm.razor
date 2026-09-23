@@ -1,82 +1,8 @@
-﻿@page "/post-from"
-@using Blazored.LocalStorage
-@using Microsoft.IdentityModel.Tokens
-@using SansPost.Models
-@using System.Net.Http.Headers
-@using SansPost.Models.Enum
-@inject ILocalStorageService LocalStorage
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject HttpClient Http
+@page "/post-from"
+@attribute [Authorize]
+@inject IPostService PostService
 @inject NavigationManager Navigation
-
-@code {
-    private PostRequest newPost = new();
-    private bool isSubmitting = false;
-    private List<string> categories = new() { "Technologia", "Sport", "Edukacja", "Lifestyle", "Podróże" };
-    private string errorMessage = "";
-
-    private async Task SubmitPost()
-    {
-        isSubmitting = true;
-
-        try
-        {
-            
-            var token = await LocalStorage.GetItemAsync<string>("authToken"); 
-            if (string.IsNullOrEmpty(token))
-            {
-                errorMessage = "Brak autoryzacji! Zaloguj się ponownie.";
-                isSubmitting = false;
-                return;
-            }
-
-            var request = new HttpRequestMessage(HttpMethod.Post, "/add-post")
-                {
-                    Content = JsonContent.Create(newPost)
-                };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            var response = await Http.SendAsync(request);
-            var responseText = await response.Content.ReadAsStringAsync();
-
-            Console.WriteLine($"API Response: {responseText}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                
-                Navigation.NavigateTo("/posts");
-            }
-            else
-            {
-                errorMessage = $"Błąd dodawania posta! Kod: {response.StatusCode}";
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Błąd: {ex.Message}";
-            Console.WriteLine($"Error: {ex}");
-        }
-
-        isSubmitting = false;
-    }
-
-    
-    protected override async Task OnInitializedAsync()
-    {
-        var token = await LocalStorage.GetItemAsync<string>("authToken");
-
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            Navigation.NavigateTo("/login"); 
-            return;
-        }
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-       
-
-    }
-}
+@inject ILogger<PostForm> Logger
 
 <link rel="stylesheet" href="css/addpost.css">
 
@@ -89,17 +15,16 @@
             <p class="error">@errorMessage</p>
         }
 
-       
         <form @onsubmit="SubmitPost">
             <label for="title">Tytuł</label>
             <input type="text" id="title" placeholder="Podaj tytuł" @bind="newPost.Title" required />
 
             <label for="category">Kategoria</label>
-            <select id="category" @bind="newPost.Category" required>
+            <select id="category" @bind="selectedCategory" required>
                 <option value="" disabled>Wybierz kategorię</option>
-                @foreach (var category in categories)
+                @foreach (var category in Enum.GetValues<PostCategory>())
                 {
-                    <option value="@category.ToString()">@category</option>
+                    <option value="@category">@category.DisplayName()</option>
                 }
             </select>
 
@@ -117,3 +42,43 @@
         <button class="cancel-btn" @onclick="@(() => Navigation.NavigateTo("/posts"))">Anuluj</button>
     </div>
 </div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private readonly PostRequest newPost = new();
+    private string selectedCategory = "";
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+
+    private async Task SubmitPost()
+    {
+        var userId = (await AuthState).User.GetUserId();
+        if (userId is null)
+            return;
+
+        isSubmitting = true;
+        errorMessage = "";
+
+        try
+        {
+            newPost.Category = Enum.TryParse<PostCategory>(selectedCategory, out var category) ? category : null;
+
+            var result = await PostService.CreateAsync(userId.Value, newPost);
+            if (result.Succeeded)
+                Navigation.NavigateTo("/posts");
+            else
+                errorMessage = result.Message ?? "Błąd dodawania posta!";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd dodawania posta.");
+            errorMessage = "Wystąpił błąd. Spróbuj ponownie.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}
