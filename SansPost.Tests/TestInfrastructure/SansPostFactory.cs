@@ -42,24 +42,32 @@ namespace SansPost.Tests.TestInfrastructure
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            _connection.Open();
-
             // "Testing": bez User Secrets, cookie Secure=Always, produkcyjny exception handler.
             builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(Settings));
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
-                services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
+                services.AddDbContext<ApplicationDbContext>(ConfigureDatabase);
             });
         }
+
+        // Domyślnie SQLite in-memory (szybkie testy). PostgresApiFactory podmienia na prawdziwy PostgreSQL.
+        protected virtual void ConfigureDatabase(DbContextOptionsBuilder options)
+        {
+            if (_connection.State != System.Data.ConnectionState.Open)
+                _connection.Open();
+            options.UseSqlite(_connection);
+        }
+
+        protected virtual void InitializeDatabase(ApplicationDbContext context) => context.Database.EnsureCreated();
 
         protected override IHost CreateHost(IHostBuilder builder)
         {
             var host = base.CreateHost(builder);
 
             using var scope = host.Services.CreateScope();
-            scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.EnsureCreated();
+            InitializeDatabase(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());
 
             return host;
         }

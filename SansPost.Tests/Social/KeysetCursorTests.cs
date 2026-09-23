@@ -13,6 +13,16 @@ namespace SansPost.Tests.Social
             Assert.Equal(original, decoded);
         }
 
+        [Fact]
+        public void RankedCursor_RoundTripsScoreAndAsOf()
+        {
+            var asOf = new DateTime(2026, 9, 23, 18, 30, 0, DateTimeKind.Utc);
+            var original = new KeysetCursor("posts.Popular", asOf.AddHours(-3), 7, Rank: -12_345, AsOf: asOf);
+
+            Assert.True(KeysetCursor.TryDecode(original.Encode(), "posts.Popular", out var decoded));
+            Assert.Equal(original, decoded);
+        }
+
         [Theory]
         [InlineData("posts.Newest", "posts.Oldest")]
         [InlineData("posts.Newest", "comments")]

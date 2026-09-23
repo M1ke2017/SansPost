@@ -4,14 +4,17 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace SansPost.Features
 {
-    // Nieprzezroczysty kursor keyset pagination: (zakres, CreatedAt, Id) ostatniego elementu strony.
-    // Scope wiąże kursor z konkretną listą i kierunkiem (np. "posts.Newest", "comments") — kursor z innej listy jest odrzucany.
+    // Nieprzezroczysty kursor keyset pagination: pełny klucz sortowania ostatniego elementu strony.
+    //   Scope   — wiąże kursor z listą i kierunkiem (np. "posts.Newest", "comments", "search.posts.<hash>").
+    //   Rank    — całkowity wynik rankingu (search/popular); liczba całkowita, bo float nie nadaje się na separator kursora.
+    //   AsOf    — moment odniesienia rankingu zależnego od czasu (popular), stały dla wszystkich stron.
     // Nie jest podpisany — manipulacja daje tylko inną stronę publicznych danych.
-    public sealed record KeysetCursor(string Scope, DateTime CreatedAt, int Id)
+    public sealed record KeysetCursor(string Scope, DateTime CreatedAt, int Id, long? Rank = null, DateTime? AsOf = null)
     {
         public string Encode()
         {
-            var raw = string.Create(CultureInfo.InvariantCulture, $"{Scope}|{CreatedAt.Ticks}|{Id}");
+            var raw = string.Create(CultureInfo.InvariantCulture,
+                $"{Scope}|{CreatedAt.Ticks}|{Id}|{Rank}|{AsOf?.Ticks}");
             return WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(raw));
         }
 
@@ -21,22 +24,47 @@ namespace SansPost.Features
             try
             {
                 var parts = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(value)).Split('|');
-                if (parts.Length != 3
+                if (parts.Length != 5
                     || parts[0] != expectedScope
-                    || !long.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
-                    || ticks > DateTime.MaxValue.Ticks
+                    || !TryParseTicks(parts[1], out var createdAt)
                     || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var id))
                 {
                     return false;
                 }
 
-                cursor = new KeysetCursor(expectedScope, new DateTime(ticks, DateTimeKind.Utc), id);
+                long? rank = null;
+                if (parts[3].Length > 0)
+                {
+                    if (!long.TryParse(parts[3], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var parsedRank))
+                        return false;
+                    rank = parsedRank;
+                }
+
+                DateTime? asOf = null;
+                if (parts[4].Length > 0)
+                {
+                    if (!TryParseTicks(parts[4], out var parsedAsOf))
+                        return false;
+                    asOf = parsedAsOf;
+                }
+
+                cursor = new KeysetCursor(expectedScope, createdAt, id, rank, asOf);
                 return true;
             }
             catch (FormatException)
             {
                 return false;
             }
+        }
+
+        private static bool TryParseTicks(string value, out DateTime result)
+        {
+            result = default;
+            if (!long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var ticks) || ticks > DateTime.MaxValue.Ticks)
+                return false;
+
+            result = new DateTime(ticks, DateTimeKind.Utc);
+            return true;
         }
     }
 

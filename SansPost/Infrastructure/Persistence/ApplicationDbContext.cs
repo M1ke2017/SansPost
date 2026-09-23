@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using NpgsqlTypes;
 using SansPost.Features.Comments;
 using SansPost.Features.Identity;
 using SansPost.Features.Posts;
@@ -16,6 +18,34 @@ namespace SansPost.Infrastructure.Persistence
         public DbSet<Comment> Comments { get; set; }
         public DbSet<Like> Likes { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+
+        // Elementy specyficzne dla PostgreSQL (FTS, operator classes). Szybkie testy na SQLite ich nie mapują;
+        // wyszukiwanie jest testowane wyłącznie na PostgreSQL (Testcontainers).
+        private static void ConfigurePostgresDiscovery(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Post>(post =>
+            {
+                // Generowana kolumna STORED utrzymywana przez PostgreSQL przy każdym INSERT/UPDATE tytułu lub treści.
+                // Shadow property: nie jest częścią domeny ani DTO. Aplikacja nigdy jej nie zapisuje ani nie odczytuje
+                // po zapisie (brak RETURNING kilku kB tsvector przy każdej edycji).
+                var searchVector = post.Property<NpgsqlTsVector>(TextSearch.PostSearchVector)
+                    .HasComputedColumnSql(TextSearch.PostSearchVectorSql, stored: true)
+                    .ValueGeneratedNever();
+                searchVector.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+                searchVector.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
+
+                // WHERE searchvector @@ websearch_to_tsquery(...)
+                post.HasIndex(TextSearch.PostSearchVector)
+                    .HasMethod("gin")
+                    .HasDatabaseName("IX_posts_search");
+            });
+
+            // Prefix lookup autorów: normalizedusername LIKE 'PREFIX%'. Istniejący UNIQUE index (collation bazy)
+            // nie obsługuje LIKE poza collation "C" — text_pattern_ops porównuje bajtowo i obsługuje prefiksy.
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.NormalizedUsername, "IX_users_username_prefix")
+                .HasOperators("text_pattern_ops");
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -133,6 +163,9 @@ namespace SansPost.Infrastructure.Persistence
                     .HasForeignKey(t => t.ReplacedByTokenId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
+
+            if (Database.IsNpgsql())
+                ConfigurePostgresDiscovery(modelBuilder);
 
             // Nazwy tabel i kolumn małymi literami (zgodnie z istniejącymi migracjami).
             foreach (var entity in modelBuilder.Model.GetEntityTypes())

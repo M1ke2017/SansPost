@@ -24,7 +24,10 @@ namespace SansPost.Features.Posts
     public enum PostSort
     {
         Newest,
-        Oldest
+        Oldest,
+
+        // Zaangażowanie (polubienia, komentarze) z karą za wiek — liczone w SQL. Formuła: PostLimits.Popular*.
+        Popular
     }
 
     // Parametry feedu (query string). Keyset pagination: Cursor z poprzedniej odpowiedzi.
@@ -70,4 +73,7 @@ namespace SansPost.Features.Posts
         bool LikedByCurrentUser);
 
     public sealed record PostQuotaResponse(int Limit, int Used, int Remaining);
+
+    // Discovery kategorii: wszystkie wartości zamkniętego zestawu, także bez postów.
+    public sealed record CategorySummaryResponse(PostCategory Category, int PostCount, DateTime? LatestPostAt);
 }

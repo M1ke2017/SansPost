@@ -83,6 +83,79 @@ namespace SansPost.Tests.Postgres
             await context.SaveChangesAsync();
         }
 
+        public async Task<int> SeedPostAsync(int userId, string title, string content,
+            PostCategory category = PostCategory.General, DateTime? createdAt = null)
+        {
+            await using var context = CreateContext();
+            var post = new Post
+            {
+                UserId = userId,
+                Title = title,
+                Content = content,
+                Category = category,
+                CreatedAt = createdAt ?? DateTime.UtcNow
+            };
+            context.Posts.Add(post);
+            await context.SaveChangesAsync();
+            return post.Id;
+        }
+
+        public async Task<List<int>> CreateUsersAsync(int count, string prefix = "u")
+        {
+            var ids = new List<int>();
+            for (var i = 0; i < count; i++)
+                ids.Add(await CreateUserAsync(prefix));
+            return ids;
+        }
+
+        // Wielu użytkowników bez kosztu BCrypt — wyłącznie dane testowe (hash nie jest poprawny, logowanie niemożliwe).
+        public async Task<List<int>> CreateUsersFastAsync(int count, string prefix = "f", string? emailPrefix = null)
+        {
+            await using var context = CreateContext();
+            var users = Enumerable.Range(0, count).Select(_ =>
+            {
+                var username = TestUsers.UniqueName(prefix);
+                var email = $"{emailPrefix ?? username}{Guid.NewGuid():N}@example.com";
+                return new User
+                {
+                    Username = username,
+                    NormalizedUsername = IdentityNormalizer.Normalize(username),
+                    Email = email,
+                    NormalizedEmail = IdentityNormalizer.Normalize(email),
+                    PasswordHash = "test-data-no-login",
+                    CreatedAt = DateTime.UtcNow
+                };
+            }).ToList();
+
+            context.Users.AddRange(users);
+            await context.SaveChangesAsync();
+            return users.Select(u => u.Id).ToList();
+        }
+
+        public async Task AddLikesAsync(int postId, IEnumerable<int> userIds)
+        {
+            await using var context = CreateContext();
+            foreach (var userId in userIds)
+                context.Likes.Add(new SansPost.Features.Reactions.Like { PostId = postId, UserId = userId, CreatedAt = DateTime.UtcNow });
+            await context.SaveChangesAsync();
+        }
+
+        public async Task AddCommentsAsync(int postId, int userId, int count)
+        {
+            await using var context = CreateContext();
+            for (var i = 0; i < count; i++)
+                context.Comments.Add(new SansPost.Features.Comments.Comment { PostId = postId, UserId = userId, Content = $"K{i}", CreatedAt = DateTime.UtcNow });
+            await context.SaveChangesAsync();
+        }
+
+        public async Task<string> CreateMigratedDatabaseAsync(string name)
+        {
+            var connectionString = await CreateDatabaseAsync(name);
+            await using var context = CreateContext(connectionString);
+            await context.Database.MigrateAsync();
+            return connectionString;
+        }
+
         public async Task<int> CountPostsAsync(int userId)
         {
             await using var context = CreateContext();

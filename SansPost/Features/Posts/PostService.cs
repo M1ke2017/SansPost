@@ -15,6 +15,8 @@ namespace SansPost.Features.Posts
 
         Task<PostQuotaResponse?> GetQuotaAsync(int userId, CancellationToken cancellationToken = default);
 
+        Task<IReadOnlyList<CategorySummaryResponse>> GetCategoriesAsync(CancellationToken cancellationToken = default);
+
         Task<ServiceResult<PostDetailsResponse>> CreateAsync(int actorUserId, PostRequest request, CancellationToken cancellationToken = default);
 
         // expectedVersion = wersja, którą klient edytował (ETag / If-Match).
@@ -87,6 +89,10 @@ namespace SansPost.Features.Posts
             if (query.AuthorId is { } authorId)
                 posts = posts.Where(p => p.UserId == authorId);
 
+            // Ten sam feed (i te same filtry) dla wszystkich trybów — różni się tylko klucz sortowania.
+            if (query.Sort == PostSort.Popular)
+                return await GetPopularPageAsync(posts, query, cursorScope, cursor, viewerUserId, cancellationToken);
+
             // Keyset pagination: stabilny porządek (CreatedAt, Id), bez OFFSET.
             // Postać "createdat <= c AND (createdat < c OR id < i)" daje PostgreSQL warunek zakresu na indeksie (Index Cond),
             // więc skan zaczyna się od kursora zamiast od początku feedu.
@@ -112,6 +118,77 @@ namespace SansPost.Features.Posts
 
             var nextCursor = hasMore ? new KeysetCursor(cursorScope, page[^1].CreatedAt, page[^1].Id).Encode() : null;
             return ServiceResult<KeysetPage<PostSummaryResponse>>.Success(new KeysetPage<PostSummaryResponse>(page, nextCursor, hasMore));
+        }
+
+        // Popular: ranking w SQL, klucz (score DESC, createdat DESC, id DESC), score jako bigint.
+        private async Task<ServiceResult<KeysetPage<PostSummaryResponse>>> GetPopularPageAsync(
+            IQueryable<Post> posts, PostFeedQuery query, string cursorScope, KeysetCursor? cursor, int? viewerUserId, CancellationToken cancellationToken)
+        {
+            if (cursor is not null && (cursor.Rank is null || cursor.AsOf is null))
+                return ServiceResult<KeysetPage<PostSummaryResponse>>.Fail(ServiceError.Validation, "Nieprawidłowy kursor.");
+
+            // Moment odniesienia stały dla wszystkich stron — inaczej wynik zależny od czasu przesuwałby się między requestami.
+            var asOf = cursor?.AsOf ?? _time.GetUtcNow().UtcDateTime;
+            var windowStart = asOf.AddDays(-PostLimits.PopularWindowDays);
+
+            var scored = posts
+                .Where(p => p.CreatedAt <= asOf && p.CreatedAt > windowStart)
+                .Select(p => new Scored<Post>
+                {
+                    Entity = p,
+                    Score = (long)Math.Round(
+                        (PostLimits.PopularHoursPerEngagementUnit
+                            * Math.Log(1
+                                + _context.Likes.Count(l => l.PostId == p.Id)
+                                + PostLimits.PopularCommentWeight * _context.Comments.Count(c => c.PostId == p.Id))
+                         - (asOf - p.CreatedAt).TotalHours)
+                        * PostLimits.ScoreScale)
+                });
+
+            if (cursor is not null)
+            {
+                var rank = cursor.Rank!.Value;
+                scored = scored.Where(r => r.Score < rank
+                    || (r.Score == rank && (r.Entity.CreatedAt < cursor.CreatedAt
+                        || (r.Entity.CreatedAt == cursor.CreatedAt && r.Entity.Id < cursor.Id))));
+            }
+
+            var page = await scored
+                .OrderByDescending(r => r.Score)
+                .ThenByDescending(r => r.Entity.CreatedAt)
+                .ThenByDescending(r => r.Entity.Id)
+                .Take(query.Limit + 1)
+                .Select(ScoredProjection.Of(ToSummary(viewerUserId)))
+                .ToListAsync(cancellationToken);
+
+            var hasMore = page.Count > query.Limit;
+            if (hasMore)
+                page.RemoveAt(page.Count - 1);
+
+            var nextCursor = hasMore
+                ? new KeysetCursor(cursorScope, page[^1].Item.CreatedAt, page[^1].Item.Id, page[^1].Score, asOf).Encode()
+                : null;
+
+            return ServiceResult<KeysetPage<PostSummaryResponse>>.Success(
+                new KeysetPage<PostSummaryResponse>(page.Select(r => r.Item).ToList(), nextCursor, hasMore));
+        }
+
+        public async Task<IReadOnlyList<CategorySummaryResponse>> GetCategoriesAsync(CancellationToken cancellationToken = default)
+        {
+            // Jeden GROUP BY w SQL; kategorie bez postów uzupełniane z enuma (zamknięty zestaw, bez tabeli Categories).
+            var stats = await _context.Posts
+                .AsNoTracking()
+                .GroupBy(p => p.Category)
+                .Select(g => new { Category = g.Key, Count = g.Count(), Latest = g.Max(p => p.CreatedAt) })
+                .ToListAsync(cancellationToken);
+
+            return Enum.GetValues<PostCategory>()
+                .Select(category =>
+                {
+                    var stat = stats.FirstOrDefault(s => s.Category == category);
+                    return new CategorySummaryResponse(category, stat?.Count ?? 0, stat?.Latest);
+                })
+                .ToList();
         }
 
         public async Task<PostDetailsResponse?> GetByIdAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default)
