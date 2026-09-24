@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SansPost", "SansPost\SansPo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SansPost.Tests", "SansPost.Tests\SansPost.Tests.csproj", "{8B8D54B3-FA4A-4D6C-9F5A-CFA7CB068ECE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SansPost.E2E", "SansPost.E2E\SansPost.E2E.csproj", "{BA771CCF-1287-4908-BBD3-819DE526B349}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{8B8D54B3-FA4A-4D6C-9F5A-CFA7CB068ECE}.Release|x64.Build.0 = Release|Any CPU
 		{8B8D54B3-FA4A-4D6C-9F5A-CFA7CB068ECE}.Release|x86.ActiveCfg = Release|Any CPU
 		{8B8D54B3-FA4A-4D6C-9F5A-CFA7CB068ECE}.Release|x86.Build.0 = Release|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Debug|x64.Build.0 = Debug|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Debug|x86.Build.0 = Debug|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Release|x64.ActiveCfg = Release|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Release|x64.Build.0 = Release|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Release|x86.ActiveCfg = Release|Any CPU
+		{BA771CCF-1287-4908-BBD3-819DE526B349}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

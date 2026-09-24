@@ -194,7 +194,13 @@
         }, 400);
     });
 
+    // Znacznik "circuit podłączony" (po pierwszym interaktywnym renderze layoutu) — dla testów E2E i diagnostyki.
+    function markInteractive() {
+        document.documentElement.setAttribute("data-interactive", "1");
+    }
+
     window.sansPost = {
+        markInteractive: markInteractive,
         bindScroller: bindScroller,
         scrollToId: scrollToId,
         playBrand: playBrand,

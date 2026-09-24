@@ -160,6 +160,7 @@
         {
             try
             {
+                await JS.InvokeVoidAsync("sansPost.markInteractive");
                 await JS.InvokeVoidAsync("sansPost.playBrand");
             }
             catch (JSDisconnectedException)
