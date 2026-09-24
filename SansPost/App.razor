@@ -10,15 +10,28 @@
                         }
                         else
                         {
-                            <p>Nie masz uprawnień do tej strony.</p>
+                            <PageTitle>Brak dostępu · SansPost</PageTitle>
+                            <EmptyState Title="Brak dostępu" HeadingLevel="1" IconName="@Icons.Lock"
+                                        Text="Ta część SansPost jest dostępna tylko dla uprawnionych kont.">
+                                <a class="btn btn-primary" href="/">Wróć do odkrywania</a>
+                            </EmptyState>
                         }
                     </NotAuthorized>
+                    <Authorizing>
+                        <p class="muted" role="status">Sprawdzanie uprawnień…</p>
+                    </Authorizing>
                 </AuthorizeRouteView>
+                @* Po nawigacji fokus trafia na nagłówek strony — czytnik ogłasza nowy widok, Tab zaczyna od treści. *@
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
             </Found>
             <NotFound>
-                <PageTitle>Not Found</PageTitle>
+                <PageTitle>Nie znaleziono · SansPost</PageTitle>
                 <LayoutView Layout="@typeof(MainLayout)">
-                    <p>Sorry, there's nothing at this address.</p>
+                    <EmptyState Title="Nie ma tu nic do czytania" HeadingLevel="1" IconName="@Icons.Compass"
+                                Text="Ten adres nie prowadzi do żadnej strony SansPost. Może link jest nieaktualny?">
+                        <a class="btn btn-primary" href="/">Wróć do odkrywania</a>
+                        <a class="btn" href="/search">Szukaj</a>
+                    </EmptyState>
                 </LayoutView>
             </NotFound>
         </Router>

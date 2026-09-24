@@ -114,7 +114,7 @@ namespace SansPost.Tests.Postgres
             await using var context = CreateContext();
             var users = Enumerable.Range(0, count).Select(_ =>
             {
-                var username = TestUsers.UniqueName(prefix);
+                var username = TestUsers.RawName(prefix); // wstawienie bezpośrednio do bazy, bez rejestracji
                 var email = $"{emailPrefix ?? username}{Guid.NewGuid():N}@example.com";
                 return new User
                 {

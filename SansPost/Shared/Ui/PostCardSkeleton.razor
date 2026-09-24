@@ -1,0 +1,22 @@
+@* Szkielet karty na czas pierwszego wczytania feedu (zamiast globalnego spinnera). *@
+<div role="status" aria-live="polite">
+    <span class="visually-hidden">Wczytywanie postów…</span>
+    <ul class="post-list" aria-hidden="true">
+        @for (var i = 0; i < Count; i++)
+        {
+            <li class="post-card is-skeleton">
+                <div class="post-card-meta">
+                    <span class="skeleton avatar avatar-sm"></span>
+                    <span class="skeleton skeleton-line" style="width: 120px"></span>
+                </div>
+                <span class="skeleton skeleton-title"></span>
+                <span class="skeleton skeleton-line"></span>
+                <span class="skeleton skeleton-line" style="width: 82%"></span>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter] public int Count { get; set; } = 3;
+}

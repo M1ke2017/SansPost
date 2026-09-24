@@ -5,6 +5,7 @@ using SansPost.Features.Comments;
 using SansPost.Features;
 using SansPost.Features.Identity;
 using SansPost.Features.Moderation;
+using SansPost.Features.Notifications;
 using SansPost.Features.Posts;
 using SansPost.Features.Reactions;
 
@@ -23,6 +24,7 @@ namespace SansPost.Infrastructure.Persistence
         public DbSet<Report> Reports { get; set; }
         public DbSet<ModerationAction> ModerationActions { get; set; }
         public DbSet<RegistrationGate> RegistrationGates { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         private const string PublishedOnly = "status = 'Published'";
 
@@ -253,6 +255,29 @@ namespace SansPost.Infrastructure.Persistence
                     .WithMany()
                     .HasForeignKey(t => t.ReplacedByTokenId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Notification>(notification =>
+            {
+                EnumAsText(notification, n => n.Type, "type", "notifications");
+
+                // CASCADE tylko dla fizycznego usunięcia (poziom bazy) — spójnie z komentarzami i polubieniami.
+                // Aplikacja usuwa wyłącznie miękko (Status), więc ukrycie/usunięcie posta lub komentarza NIE kasuje historii.
+                notification.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+                notification.HasOne(n => n.Actor).WithMany().HasForeignKey(n => n.ActorUserId).OnDelete(DeleteBehavior.Cascade);
+                notification.HasOne(n => n.Post).WithMany().HasForeignKey(n => n.PostId).OnDelete(DeleteBehavior.Cascade);
+                notification.HasOne(n => n.Comment).WithMany().HasForeignKey(n => n.CommentId).OnDelete(DeleteBehavior.Cascade);
+
+                // Lista odbiorcy: WHERE userid = @u ORDER BY createdat DESC, id DESC (+ keyset).
+                notification.HasIndex(n => new { n.UserId, n.CreatedAt, n.Id })
+                    .IsDescending(false, true, true)
+                    .HasDatabaseName("IX_notifications_user_feed");
+
+                // Licznik nieprzeczytanych: COUNT(*) WHERE userid = @u AND readat IS NULL — indeks tylko nieprzeczytanych
+                // (maleje wraz z czytaniem, zamiast rosnąć z całą historią jak (userid, readat)).
+                notification.HasIndex(n => n.UserId)
+                    .HasFilter("readat IS NULL")
+                    .HasDatabaseName("IX_notifications_unread");
             });
 
             if (Database.IsNpgsql())

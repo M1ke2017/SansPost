@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Coś poszło nie tak · SansPost</title>
+    <script>
+        (function () {
+            var theme = null;
+            try { theme = localStorage.getItem("sp-theme"); } catch (e) { }
+            if (theme !== "light" && theme !== "dark") {
+                theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-theme", theme);
+        })();
+    </script>
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+    <!-- Statyczna strona błędu 500 dla żądań stron (nie API): bez szczegółów wyjątku i stack trace. -->
+    <main class="app-main">
+        <div class="state">
+            <span class="state-icon">!</span>
+            <h1 class="state-title">Coś poszło nie tak</h1>
+            <p class="state-text">Nie udało się wyświetlić tej strony. Spróbuj ponownie za chwilę.</p>
+            <div class="state-actions">
+                <button type="button" class="btn btn-primary" onclick="location.reload()">Spróbuj ponownie</button>
+                <a class="btn" href="/">Wróć do SansPost</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

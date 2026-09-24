@@ -1,0 +1,25 @@
+@implements IDisposable
+@inject ToastService Toasts
+
+@* Region aria-live istnieje zawsze — dopiero wtedy czytniki ogłaszają dodane komunikaty. *@
+<div class="toast-region" role="status" aria-live="polite">
+    @foreach (var toast in Toasts.Items)
+    {
+        <div class="toast toast-@toast.Variant.ToString().ToLowerInvariant()" @key="toast.Id">
+            <Icon Name="@(toast.Variant == AlertVariant.Danger ? Icons.AlertCircle : Icons.CheckCircle)" />
+            <span class="toast-body">@toast.Text</span>
+            <button type="button" class="toast-close" aria-label="Zamknij powiadomienie" @onclick="() => Toasts.Dismiss(toast.Id)">
+                <Icon Name="@Icons.X" Size="16" />
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Toasts.Changed += OnChanged;
+
+    // Zmiany przychodzą także z timera (auto-dismiss) — poza kontekstem renderowania.
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Toasts.Changed -= OnChanged;
+}

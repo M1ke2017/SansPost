@@ -28,7 +28,7 @@ namespace SansPost.Tests.Postgres
         }
 
         private Task<ServiceResult<T>> CommentsAsync<T>(Func<CommentService, Task<ServiceResult<T>>> action) =>
-            WithContextAsync(context => action(new CommentService(context, TimeProvider.System, TestServices.Guard(context))));
+            WithContextAsync(context => action(SansPost.Tests.TestInfrastructure.TestServices.Comments(context)));
 
         private Task<ServiceResult<LikeSummaryResponse>> LikesAsync(Func<LikeService, Task<ServiceResult<LikeSummaryResponse>>> action) =>
             WithContextAsync(context => action(new LikeService(context, TimeProvider.System, TestServices.Guard(context))));
@@ -48,10 +48,10 @@ namespace SansPost.Tests.Postgres
             CommentsAsync(s => s.UpdateAsync(userId, commentId, version, new CommentRequest { Content = content }));
 
         private Task<ServiceResult> DeleteCommentAsync(int userId, int commentId, int version) =>
-            WithContextAsync(context => new CommentService(context, TimeProvider.System, TestServices.Guard(context)).DeleteAsync(userId, commentId, version));
+            WithContextAsync(context => SansPost.Tests.TestInfrastructure.TestServices.Comments(context).DeleteAsync(userId, commentId, version));
 
         private Task<CommentResponse?> GetCommentAsync(int commentId) =>
-            WithContextAsync(context => new CommentService(context, TimeProvider.System, TestServices.Guard(context)).GetByIdAsync(commentId));
+            WithContextAsync(context => SansPost.Tests.TestInfrastructure.TestServices.Comments(context).GetByIdAsync(commentId));
 
         private Task<int> CountAsync(Func<ApplicationDbContext, Task<int>> query) => WithContextAsync(query);
 
@@ -167,7 +167,7 @@ namespace SansPost.Tests.Postgres
             Assert.Equal(0, orphans);
             // Soft delete: komentarze mogą fizycznie istnieć przy usuniętym poście, ale żaden nie jest publicznie widoczny.
             var visible = await WithContextAsync(context =>
-                new CommentService(context, TimeProvider.System, TestServices.Guard(context)).GetRecentByAuthorAsync(commenterId, 50));
+                SansPost.Tests.TestInfrastructure.TestServices.Comments(context).GetRecentByAuthorAsync(commenterId, 50));
             Assert.Empty(visible);
         }
 

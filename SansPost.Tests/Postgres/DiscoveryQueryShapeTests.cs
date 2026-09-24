@@ -216,7 +216,7 @@ namespace SansPost.Tests.Postgres
             AssertPlanUses(await NaturalPlanAsync(db, Assert.Single(authorCapture.Commands)), "IX_posts_author_feed");
 
             var (_, threadCapture) = await CaptureAsync(db, context =>
-                new SansPost.Features.Comments.CommentService(context, TimeProvider.System, SansPost.Tests.TestInfrastructure.TestServices.Guard(context))
+                SansPost.Tests.TestInfrastructure.TestServices.Comments(context)
                     .GetByPostAsync(4000, new SansPost.Features.Comments.CommentPageQuery()));
             AssertPlanUses(await NaturalPlanAsync(db, threadCapture.Commands[^1]), "IX_comments_post_thread");
 

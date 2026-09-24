@@ -1,0 +1,270 @@
+@using SansPost.Features.Notifications
+@implements IDisposable
+@inject UiServices Ui
+@inject NavigationManager Navigation
+@inject ToastService Toasts
+@inject IJSRuntime JS
+@inject ILogger<NotificationBell> Logger
+
+@* Powiadomienia w nagłówku: dzwonek z licznikiem nieprzeczytanych i panel ostatnich powiadomień.
+   Bez realtime (poza zakresem): licznik odświeżany przy wejściu, nawigacji i otwarciu panelu. *@
+<div class="menu notif">
+    <button type="button" class="btn btn-ghost btn-icon notif-trigger" id="notif-trigger" aria-haspopup="true"
+            aria-expanded="@(open ? "true" : "false")" aria-controls="notif-panel" aria-label="@TriggerLabel" @onclick="ToggleAsync">
+        <Icon Name="@Icons.Bell" />
+        @if (unread > 0)
+        {
+            <span class="notif-badge" aria-hidden="true">@(unread > 9 ? "9+" : unread.ToString())</span>
+        }
+    </button>
+
+    @if (open)
+    {
+        <button type="button" class="menu-backdrop" tabindex="-1" aria-hidden="true" @onclick="CloseAsync"></button>
+        <section class="menu-panel notif-panel" id="notif-panel" tabindex="-1" aria-labelledby="notif-title" @onkeydown="PanelKeyDown">
+            <div class="notif-head">
+                <h2 id="notif-title" class="section-title">Powiadomienia</h2>
+                @if (unread > 0)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="MarkAllAsync" disabled="@busy">Oznacz wszystkie jako przeczytane</button>
+                }
+            </div>
+
+            @if (loading && items.Count == 0)
+            {
+                <p class="muted text-sm notif-empty" role="status">Wczytywanie…</p>
+            }
+            else if (error is not null)
+            {
+                <p class="text-sm notif-empty" role="alert">@error</p>
+            }
+            else if (items.Count == 0)
+            {
+                <p class="muted text-sm notif-empty">Na razie cisza. Gdy ktoś skomentuje Twój post, zobaczysz to tutaj.</p>
+            }
+            else
+            {
+                <ul class="list-plain notif-list">
+                    @foreach (var item in items)
+                    {
+                        var notification = item;
+                        <li @key="notification.Id">
+                            <button type="button" class="notif-item @(notification.IsRead ? "" : "is-unread")" @onclick="() => OpenAsync(notification)">
+                                <Avatar Username="@notification.ActorUsername" Size="sm" />
+                                <span class="notif-body">
+                                    <span class="notif-text">
+                                        Nowy komentarz od <strong>@notification.ActorUsername</strong>
+                                        @if (notification.TargetAvailable && notification.PostTitle is not null)
+                                        {
+                                            <span> pod Twoim postem „@notification.PostTitle”</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="muted"> — ta treść nie jest już dostępna</span>
+                                        }
+                                    </span>
+                                    <TimeAgo Value="notification.CreatedAt" Class="text-xs subtle" />
+                                </span>
+                                @if (!notification.IsRead)
+                                {
+                                    <span class="notif-dot"><span class="visually-hidden">Nieprzeczytane</span></span>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+                @if (nextCursor is not null)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm btn-block" @onclick="LoadMoreAsync" disabled="@loading">Starsze powiadomienia</button>
+                }
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    private readonly List<NotificationResponse> items = new();
+    private string? nextCursor;
+    private int unread;
+    private bool open;
+    private bool loading;
+    private bool busy;
+    private string? error;
+    private bool focusPanel;
+
+    private string TriggerLabel => unread > 0 ? $"Powiadomienia, nieprzeczytane: {unread}" : "Powiadomienia";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        await RefreshCountAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusPanel)
+        {
+            focusPanel = false;
+            await JS.InvokeVoidAsync("sansPost.focusSelector", "#notif-panel");
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => _ = InvokeAsync(async () =>
+    {
+        open = false;
+        await RefreshCountAsync();
+        StateHasChanged();
+    });
+
+    private async Task RefreshCountAsync()
+    {
+        if (Viewer is null)
+            return;
+
+        try
+        {
+            var userId = Viewer.UserId;
+            unread = await Ui.Run((INotificationService s) => s.GetUnreadCountAsync(userId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Nie udało się odczytać liczby powiadomień.");
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (open)
+        {
+            await CloseAsync();
+            return;
+        }
+
+        open = true;
+        focusPanel = true;
+        items.Clear();
+        nextCursor = null;
+        await LoadMoreAsync();
+        await RefreshCountAsync();
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (Viewer is null)
+            return;
+
+        loading = true;
+        error = null;
+        try
+        {
+            var userId = Viewer.UserId;
+            var cursor = nextCursor;
+            var page = await Ui.Run((INotificationService s) => s.GetAsync(userId, new NotificationPageQuery { Cursor = cursor, Limit = 10 }));
+            if (!page.Succeeded)
+            {
+                error = UiErrors.Describe(page);
+                return;
+            }
+
+            items.AddRange(page.Value!.Items.Where(n => items.All(e => e.Id != n.Id)).ToList());
+            nextCursor = page.Value.NextCursor;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wczytywania powiadomień.");
+            error = UiErrors.Generic;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    // Klik: oznacz jako przeczytane, potem przejdź do posta. Niedostępny cel → komunikat zamiast błędu.
+    private async Task OpenAsync(NotificationResponse notification)
+    {
+        if (Viewer is null || busy)
+            return;
+
+        busy = true;
+        try
+        {
+            var userId = Viewer.UserId;
+            var result = await Ui.Run((INotificationService s) => s.MarkReadAsync(userId, notification.Id));
+            var current = result.Succeeded ? result.Value! : notification;
+            Replace(current);
+            await RefreshCountAsync();
+
+            if (!current.TargetAvailable)
+            {
+                Toasts.Show(UiErrors.NotAvailable, AlertVariant.Info);
+                return;
+            }
+
+            open = false;
+            var anchor = current.CommentId is int commentId ? $"#comment-{commentId}" : "#comments";
+            Navigation.NavigateTo(UiText.PostUrl(current.PostId) + anchor);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd otwierania powiadomienia.");
+            Toasts.Error(UiErrors.Generic);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task MarkAllAsync()
+    {
+        if (Viewer is null)
+            return;
+
+        busy = true;
+        try
+        {
+            var userId = Viewer.UserId;
+            await Ui.Run((INotificationService s) => s.MarkAllReadAsync(userId));
+            var now = DateTime.UtcNow;
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (!items[i].IsRead)
+                    items[i] = items[i] with { ReadAt = now };
+            }
+            unread = 0;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd oznaczania powiadomień.");
+            Toasts.Error(UiErrors.Generic);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Replace(NotificationResponse updated)
+    {
+        var index = items.FindIndex(n => n.Id == updated.Id);
+        if (index >= 0)
+            items[index] = updated;
+    }
+
+    private async Task CloseAsync()
+    {
+        open = false;
+        await JS.InvokeVoidAsync("sansPost.focusSelector", "#notif-trigger");
+    }
+
+    private async Task PanelKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            await CloseAsync();
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

@@ -57,7 +57,7 @@ namespace SansPost.Tests.Security
 
             var panel = await client.GetAsync("/user-panel");
             Assert.Equal(HttpStatusCode.OK, panel.StatusCode);
-            Assert.Contains("Witaj w swoim panelu", await panel.Content.ReadAsStringAsync());
+            Assert.Contains("Twoje konto", await panel.Content.ReadAsStringAsync());
         }
 
         [Fact]

@@ -115,17 +115,19 @@ namespace SansPost.Infrastructure.Security
             services.AddOptions<PublicDemoOptions>()
                 .Bind(configuration.GetSection(PublicDemoOptions.SectionName))
                 .Validate(o => o.MaxPublicAccounts > 0, "PublicDemo:MaxPublicAccounts musi być większe od 0.")
+                .Validate(o => o.FeaturedPostId is null or > 0, "PublicDemo:FeaturedPostId musi być dodatnim identyfikatorem posta.")
                 .ValidateOnStart();
 
             // Bootstrap admina: przy Enabled = true dane muszą spełniać te same reguły co rejestracja.
             services.AddOptions<BootstrapAdminOptions>()
                 .Bind(configuration.GetSection(BootstrapAdminOptions.SectionName))
-                .Validate(o => !o.Enabled || (RequestValidator.Validate(new RegisterRequest
+                // Admin z konfiguracji operatora nie przechodzi przez publiczny generator przydomków (to nie jest konto publiczne).
+                .Validate(o => !o.Enabled || (!string.IsNullOrWhiteSpace(o.Username) && (RequestValidator.Validate(new RegisterRequest
                     {
                         Username = o.Username,
                         Email = o.Email,
                         Password = o.Password
-                    }) ?? PasswordPolicy.Validate(o.Password)) is null,
+                    }) ?? PasswordPolicy.Validate(o.Password)) is null),
                     "BootstrapAdmin jest włączony, ale Username/Email/Password są niepoprawne. " +
                     "Podaj je przez User Secrets lub zmienne środowiskowe (BootstrapAdmin__Username, ...).")
                 .ValidateOnStart();
@@ -157,6 +159,17 @@ namespace SansPost.Infrastructure.Security
                     {
                         context.HttpContext.Response.Headers.RetryAfter =
                             ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    // Formularze przeglądarki (/auth/login, /auth/register): zamiast pustej strony 429 — powrót do formularza
+                    // z komunikatem. REST API (/api/*) zachowuje 429 + ProblemDetails.
+                    var path = context.HttpContext.Request.Path;
+                    if (path.StartsWithSegments("/auth/login") || path.StartsWithSegments("/auth/register"))
+                    {
+                        context.HttpContext.Response.StatusCode = StatusCodes.Status303SeeOther;
+                        context.HttpContext.Response.Headers.Location = path.StartsWithSegments("/auth/login")
+                            ? "/login?error=rate-limited"
+                            : "/register?error=rate-limited";
                     }
 
                     return ValueTask.CompletedTask;

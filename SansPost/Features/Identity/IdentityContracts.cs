@@ -3,12 +3,13 @@ using System.ComponentModel.DataAnnotations;
 namespace SansPost.Features.Identity
 {
     // Jedyne pola, które klient może podać przy rejestracji. Role/Subscription/UserId/PasswordHash ustala serwer.
+    // Username = przydomek z generatora SansPost (WesternAliases). Pusty → serwer przydziela wolny przydomek.
+    // Podany → musi być DOKŁADNIE jednym z zatwierdzonych przydomków (serwis weryfikuje; nie ufamy ukrytemu polu formularza).
     public sealed class RegisterRequest
     {
-        [Required(ErrorMessage = "Nazwa użytkownika jest wymagana.")]
         [RegularExpression(@"^[\p{L}\p{N}._-]{3,50}$",
             ErrorMessage = "Nazwa użytkownika: 3–50 znaków, litery, cyfry oraz . _ -")]
-        public string Username { get; set; } = string.Empty;
+        public string? Username { get; set; }
 
         [Required(ErrorMessage = "Email jest wymagany.")]
         [EmailAddress(ErrorMessage = "Nieprawidłowy adres email.")]
@@ -20,6 +21,8 @@ namespace SansPost.Features.Identity
             ErrorMessage = "Hasło musi mieć od 8 do 64 znaków.")]
         public string Password { get; set; } = string.Empty;
     }
+
+    public sealed record AliasSuggestionResponse(string Alias);
 
     public sealed class LoginRequest
     {

@@ -21,16 +21,23 @@ namespace SansPost.Features.Identity
         public const string CapacityReachedCode = "registration-capacity-reached";
         public const string RegistrationDisabledCode = "registration-disabled";
         public const string IdentityTakenCode = "registration-identity-taken";
+        public const string AliasTakenCode = "alias-taken";
+        public const string AliasNotCuratedCode = "alias-not-curated";
+        public const string AliasPoolExhaustedCode = "alias-pool-exhausted";
 
         private const string DuplicateIdentityMessage = "Nie można utworzyć konta z podanym emailem lub nazwą użytkownika.";
 
+        private const string AliasTakenMessage = "Ten przydomek został właśnie zajęty. Wylosuj inny.";
+
         private readonly ApplicationDbContext _context;
         private readonly PublicDemoOptions _demo;
+        private readonly IAliasGenerator _aliases;
 
-        public AuthService(ApplicationDbContext context, IOptions<PublicDemoOptions> demo)
+        public AuthService(ApplicationDbContext context, IOptions<PublicDemoOptions> demo, IAliasGenerator aliases)
         {
             _context = context;
             _demo = demo.Value;
+            _aliases = aliases;
         }
 
         public async Task<ServiceResult<UserResponse>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -41,10 +48,22 @@ namespace SansPost.Features.Identity
             if ((RequestValidator.Validate(request) ?? PasswordPolicy.Validate(request.Password)) is { } error)
                 return ServiceResult<UserResponse>.Fail(ServiceError.Validation, error);
 
+            // Domena kont demo jest zarezerwowana (znacznik seeda) — publiczna rejestracja nie może jej użyć.
+            if (Demo.DemoContent.IsDemoEmail(request.Email))
+                return ServiceResult<UserResponse>.Fail(ServiceError.Validation, "Ten adres email nie może zostać użyty.");
+
+            // Nazwa konta wyłącznie z zatwierdzonego słownika — także gdy klient zmodyfikuje request (ukryte pole, REST).
+            var requestedAlias = string.IsNullOrWhiteSpace(request.Username) ? null : request.Username.Trim();
+            if (requestedAlias is not null && !WesternAliases.IsCurated(requestedAlias))
+            {
+                return ServiceResult<UserResponse>.Fail(ServiceError.Validation,
+                    "Przydomek musi pochodzić z generatora SansPost.", AliasNotCuratedCode);
+            }
+
             var user = new User
             {
-                Username = request.Username.Trim(),
-                NormalizedUsername = IdentityNormalizer.Normalize(request.Username),
+                Username = requestedAlias ?? string.Empty,
+                NormalizedUsername = requestedAlias is null ? string.Empty : IdentityNormalizer.Normalize(requestedAlias),
                 Email = request.Email.Trim(),
                 NormalizedEmail = IdentityNormalizer.Normalize(request.Email),
                 PasswordHash = PasswordHasher.Hash(request.Password),
@@ -66,8 +85,26 @@ namespace SansPost.Features.Identity
                     "Limit kont publicznej wersji demo został osiągnięty.", CapacityReachedCode);
             }
 
-            if (await IdentityTakenAsync(user, cancellationToken))
+            if (await EmailTakenAsync(user, cancellationToken))
                 return ServiceResult<UserResponse>.Fail(ServiceError.Conflict, DuplicateIdentityMessage, IdentityTakenCode);
+
+            if (requestedAlias is null)
+            {
+                // Przydział pod blokadą bramy — równoległe rejestracje nie dostaną tego samego przydomka.
+                if (await _aliases.SuggestAsync(cancellationToken) is not { } assigned)
+                {
+                    return ServiceResult<UserResponse>.Fail(ServiceError.Conflict,
+                        "Brak wolnych przydomków. Rejestracja jest chwilowo niedostępna.", AliasPoolExhaustedCode);
+                }
+
+                user.Username = assigned;
+                user.NormalizedUsername = IdentityNormalizer.Normalize(assigned);
+            }
+            else if (await AliasTakenAsync(user, cancellationToken))
+            {
+                // Przydomek wyświetlony w formularzu zajął w międzyczasie ktoś inny — 409, nie 500.
+                return ServiceResult<UserResponse>.Fail(ServiceError.Conflict, AliasTakenMessage, AliasTakenCode);
+            }
 
             _context.Users.Add(user);
             try
@@ -79,7 +116,9 @@ namespace SansPost.Features.Identity
                 // Ostatnia linia obrony — UNIQUE index na znormalizowanych polach.
                 _context.ChangeTracker.Clear();
                 await transaction.RollbackAsync(cancellationToken);
-                if (!await IdentityTakenAsync(user, cancellationToken))
+                if (await AliasTakenAsync(user, cancellationToken))
+                    return ServiceResult<UserResponse>.Fail(ServiceError.Conflict, AliasTakenMessage, AliasTakenCode);
+                if (!await EmailTakenAsync(user, cancellationToken))
                     throw;
 
                 return ServiceResult<UserResponse>.Fail(ServiceError.Conflict, DuplicateIdentityMessage, IdentityTakenCode);
@@ -124,9 +163,11 @@ namespace SansPost.Features.Identity
         private Task<int> CountPublicAccountsAsync(CancellationToken cancellationToken) =>
             _context.Users.CountAsync(u => u.Role == UserRole.User, cancellationToken);
 
-        private Task<bool> IdentityTakenAsync(User user, CancellationToken cancellationToken) =>
-            _context.Users.AnyAsync(
-                u => u.NormalizedEmail == user.NormalizedEmail || u.NormalizedUsername == user.NormalizedUsername,
-                cancellationToken);
+        private Task<bool> EmailTakenAsync(User user, CancellationToken cancellationToken) =>
+            _context.Users.AnyAsync(u => u.NormalizedEmail == user.NormalizedEmail, cancellationToken);
+
+        // Przydomki są publiczne (profile), więc informacja "zajęty" niczego nie ujawnia — w odróżnieniu od emaila.
+        private Task<bool> AliasTakenAsync(User user, CancellationToken cancellationToken) =>
+            _context.Users.AnyAsync(u => u.NormalizedUsername == user.NormalizedUsername, cancellationToken);
     }
 }

@@ -33,10 +33,12 @@ public class Program
 
         // Features — wspólne dla Controllers i Blazor UI
         builder.Services.AddScoped<IAuthService, AuthService>();
+        builder.Services.AddScoped<IAliasGenerator, AliasGenerator>();
         builder.Services.AddScoped<IApiTokenService, ApiTokenService>();
         builder.Services.AddScoped<IUserService, UserService>();
         builder.Services.AddScoped<IPostService, PostService>();
         builder.Services.AddScoped<ICommentService, CommentService>();
+        builder.Services.AddScoped<SansPost.Features.Notifications.INotificationService, SansPost.Features.Notifications.NotificationService>();
         builder.Services.AddScoped<ILikeService, LikeService>();
         builder.Services.AddScoped<IProfileService, ProfileService>();
         builder.Services.AddScoped<ISearchService, PostgresSearchService>();
@@ -49,6 +51,15 @@ public class Program
         builder.Services.AddScoped<AdminBootstrapper>();
         builder.Services.AddHostedService<AdminBootstrapHostedService>();
 
+        // Publiczne demo: treści startowe (po bootstrapie admina — post powitalny może mieć autora-admina) i post przypięty.
+        builder.Services.AddScoped<SansPost.Features.Demo.DemoContentSeeder>();
+        builder.Services.AddHostedService<SansPost.Features.Demo.DemoContentHostedService>();
+        builder.Services.AddScoped<SansPost.Features.Demo.IFeaturedPostLocator, SansPost.Features.Demo.FeaturedPostLocator>();
+
+        // UI: powiadomienia (toast) w obrębie jednego circuitu; osobny scope DI na każdą operację UI (DbContext per operacja).
+        builder.Services.AddScoped<SansPost.Shared.Ui.ToastService>();
+        builder.Services.AddSingleton<SansPost.Shared.Ui.UiServices>();
+
         // Blazor: circuit okresowo sprawdza aktualność sesji (ban/zmiana roli wylogowuje także otwartą kartę).
         builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingAuthStateProvider>();
 
@@ -58,6 +69,18 @@ public class Program
         {
             // Wyjątki jako ogólny ProblemDetails 500 — bez komunikatu i stack trace.
             app.UseExceptionHandler();
+
+            // Strony (nie /api): statyczna strona błędu HTML zamiast ProblemDetails JSON — bez szczegółów wyjątku.
+            app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), pages => pages.UseExceptionHandler(new ExceptionHandlerOptions
+            {
+                ExceptionHandler = async context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    await context.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "error.html"));
+                }
+            }));
+
             app.UseHsts();
         }
 

@@ -7,6 +7,9 @@ namespace SansPost.Features.Identity
     public interface IUserService
     {
         Task<UserResponse?> GetByIdAsync(int userId, CancellationToken cancellationToken = default);
+
+        // Stan własnego konta dla UI (np. komunikat o zawieszeniu). null = konto nie istnieje.
+        Task<AccountStatus?> GetAccountStatusAsync(int userId, CancellationToken cancellationToken = default);
     }
 
     public class UserService : IUserService
@@ -27,5 +30,12 @@ namespace SansPost.Features.Identity
 
             return user is null ? null : UserResponse.From(user, DateTime.UtcNow);
         }
+
+        public Task<AccountStatus?> GetAccountStatusAsync(int userId, CancellationToken cancellationToken = default) =>
+            _context.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => (AccountStatus?)u.Status)
+                .FirstOrDefaultAsync(cancellationToken);
     }
 }

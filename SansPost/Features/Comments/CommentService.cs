@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SansPost.Features.Identity;
+using SansPost.Features.Notifications;
 using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Comments
@@ -34,12 +35,14 @@ namespace SansPost.Features.Comments
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
         private readonly IWriteGuard _writeGuard;
+        private readonly INotificationService _notifications;
 
-        public CommentService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard)
+        public CommentService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard, INotificationService notifications)
         {
             _context = context;
             _time = time;
             _writeGuard = writeGuard;
+            _notifications = notifications;
         }
 
         // Publicznie widoczny komentarz = Published na Published poście. Jedno źródło dla wszystkich odczytów.
@@ -109,7 +112,8 @@ namespace SansPost.Features.Comments
                 .ToListAsync(cancellationToken);
         }
 
-        // Bez jawnej transakcji: pojedynczy INSERT. FK comments→posts jest ostatecznym zabezpieczeniem integralności.
+        // Bez jawnej transakcji: komentarz i (opcjonalnie) powiadomienie dla autora posta w JEDNYM SaveChanges —
+        // atomowo: nie ma powiadomienia bez komentarza. FK comments→posts jest ostatecznym zabezpieczeniem integralności.
         public async Task<ServiceResult<CommentResponse>> AddAsync(int actorUserId, int postId, CommentRequest request, CancellationToken cancellationToken = default)
         {
             var normalized = Normalize(request);
@@ -118,7 +122,11 @@ namespace SansPost.Features.Comments
             if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
                 return ServiceResult<CommentResponse>.From(denied);
 
-            if (!await PublishedPostExistsAsync(postId, cancellationToken))
+            var postAuthorId = await _context.Posts
+                .Where(p => p.Id == postId && p.Status == ContentStatus.Published)
+                .Select(p => (int?)p.UserId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (postAuthorId is null)
                 return ServiceResult<CommentResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
 
             var comment = new Comment
@@ -132,6 +140,7 @@ namespace SansPost.Features.Comments
             };
 
             _context.Comments.Add(comment);
+            _notifications.StageCommentOnPost(postAuthorId.Value, comment);
             try
             {
                 await _context.SaveChangesAsync(cancellationToken);

@@ -1,91 +1,199 @@
 @page "/register"
 @using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.Extensions.Options
+@implements IDisposable
 @inject NavigationManager Navigation
-@inject IAuthService AuthService
+@inject PersistentComponentState ApplicationState
+@inject ILogger<Register> Logger
+@inject UiServices Ui
+@inject IOptions<PublicDemoOptions> DemoOptions
 
-<link rel="stylesheet" href="css/logres.css">
+<PageTitle>Załóż konto · SansPost</PageTitle>
 
-<div class="home-container">
-    <div class="register-text">
-        <h2>Rejestracja</h2>
+<div class="auth-shell stack">
+    <div class="page-header" style="margin-bottom: 0">
+        <div>
+            <h1>Załóż konto</h1>
+            <p>Konto pozwala publikować posty, komentować, reagować i zgłaszać treści.</p>
+        </div>
+    </div>
 
+    @if (availability == Availability.Checking)
+    {
+        <p class="muted" role="status">Sprawdzanie dostępności rejestracji…</p>
+    }
+    else if (availability == Availability.Disabled)
+    {
+        @* Formularz nie udaje, że działa — pokazujemy stan i alternatywę. *@
+        <EmptyState Title="Rejestracja jest obecnie wyłączona" IconName="@Icons.Lock" Variant="AlertVariant.Warning"
+                    Text="Nowe konta są chwilowo niedostępne. Nadal możesz przeglądać wszystkie posty i dyskusje.">
+            <a class="btn btn-primary" href="/">Przeglądaj posty</a>
+            <a class="btn" href="/login">Mam już konto</a>
+        </EmptyState>
+    }
+    else if (availability == Availability.CapacityReached)
+    {
+        <EmptyState Title="Limit kont został osiągnięty" IconName="@Icons.Users" Variant="AlertVariant.Warning"
+                    Text="Publiczna wersja SansPost ma ograniczoną liczbę kont i wszystkie miejsca są zajęte. Wszystkie treści możesz czytać bez konta.">
+            <a class="btn btn-primary" href="/">Przeglądaj posty</a>
+            <a class="btn" href="/login">Mam już konto</a>
+        </EmptyState>
+    }
+    else
+    {
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <p class="error">@errorMessage</p>
+            <Alert Variant="@errorVariant">@errorMessage</Alert>
         }
 
-        @* Zwykły HTTP POST do AccountController (antiforgery + rate limiting). *@
-        <form method="post" action="auth/register">
-            <AntiforgeryField />
+        <div class="card">
+            <div class="card-body">
+                @* Zwykły HTTP POST do AccountController (antiforgery + rate limiting). *@
+                <form method="post" action="auth/register" class="stack" data-loading-form>
+                    <AntiforgeryField />
 
-            <input type="text" id="username" name="Username" placeholder="Podaj nazwę"
-                   minlength="3" maxlength="50" pattern="[\p{L}\p{N}._\-]{3,50}" autocomplete="username" required>
+                    @* Przydomek z zatwierdzonego słownika — nie da się go wpisać ręcznie. Pole ukryte jest tylko nośnikiem:
+                       serwer i tak weryfikuje, że to jeden z przydomków SansPost. *@
+                    <div class="field">
+                        <span class="field-label" id="alias-label">Twój przydomek</span>
+                        <div class="alias-box">
+                            <output class="alias-value" id="alias-value" aria-labelledby="alias-label" aria-live="polite">@alias</output>
+                            <button type="button" class="btn btn-sm" @onclick="RerollAsync" disabled="@rolling"
+                                    aria-describedby="alias-hint" aria-busy="@(rolling ? "true" : "false")">
+                                <Icon Name="@Icons.Refresh" Size="16" /> Losuj inny
+                            </button>
+                        </div>
+                        <span class="field-hint" id="alias-hint">Przydomki pochodzą ze słownika SansPost — widoczne publicznie i stałe po rejestracji.</span>
+                        <input type="hidden" name="Username" value="@alias" />
+                    </div>
 
-            <label for="email">Email</label>
-            <input type="email" id="email" name="Email" placeholder="Podaj email" maxlength="254" autocomplete="email" required>
+                    <div class="field">
+                        <label class="field-label" for="email">Email</label>
+                        <input class="input" type="email" id="email" name="Email" maxlength="254" autocomplete="email" required
+                               aria-describedby="email-hint" aria-invalid="@(identityTaken ? "true" : null)" />
+                        <span class="field-hint" id="email-hint">Nie jest nigdzie wyświetlany.</span>
+                    </div>
 
-            <label for="password">Hasło</label>
-            <div class="password-container">
-                <input type="@passwordInputType" id="password" name="Password" placeholder="Podaj hasło (8–64 znaki)"
-                       minlength="@PasswordPolicy.MinLength" maxlength="@PasswordPolicy.MaxLength" autocomplete="new-password" required>
-                <button type="button" class="toggle-password" @onclick="TogglePassword">
-                    @passwordToggleIcon
-                </button>
+                    <div class="field">
+                        <label class="field-label" for="password">Hasło</label>
+                        <PasswordInput Id="password" Name="Password" Autocomplete="new-password" DescribedBy="password-hint"
+                                       MinLength="PasswordPolicy.MinLength" MaxLength="PasswordPolicy.MaxLength" />
+                        <span class="field-hint" id="password-hint">@PasswordPolicy.MinLength–@PasswordPolicy.MaxLength znaków.</span>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="confirmPassword">Powtórz hasło</label>
+                        <PasswordInput Id="confirmPassword" Name="ConfirmPassword" Autocomplete="new-password"
+                                       MaxLength="PasswordPolicy.MaxLength" Invalid="passwordMismatch"
+                                       DescribedBy="@(passwordMismatch ? "confirm-error" : null)" />
+                        @if (passwordMismatch)
+                        {
+                            <span class="field-error" id="confirm-error"><Icon Name="@Icons.AlertCircle" Size="16" /> Hasła nie są identyczne.</span>
+                        }
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block" data-loading-text="Tworzenie konta…">Załóż konto</button>
+                </form>
             </div>
+        </div>
+    }
 
-            <label for="confirmPassword">Potwierdź hasło</label>
-            <div class="password-container">
-                <input type="@confirmPasswordInputType" id="confirmPassword" name="ConfirmPassword" placeholder="Powtórz hasło"
-                       maxlength="@PasswordPolicy.MaxLength" autocomplete="new-password" required>
-                <button type="button" class="toggle-password" @onclick="ToggleConfirmPassword">
-                    @confirmPasswordToggleIcon
-                </button>
-            </div>
-
-            <button type="submit" class="auth-btn">Zarejestruj się</button>
-        </form>
-
-        <p>Masz już konto? <a href="/login">Zaloguj się</a></p>
-    </div>
+    <p class="muted text-sm" style="text-align: center">Masz już konto? <a href="/login">Zaloguj się</a></p>
 </div>
 
 @code {
+    private enum Availability { Checking, Open, Disabled, CapacityReached }
+
+    private Availability availability = Availability.Checking;
     private string? errorMessage;
+    private AlertVariant errorVariant = AlertVariant.Danger;
+    private bool passwordMismatch;
+    private bool identityTaken;
+    private string? alias;
+    private bool rolling;
+    private PersistingComponentStateSubscription persisting;
 
-    private bool showPassword = false;
-    private bool showConfirmPassword = false;
-
-    private string passwordInputType => showPassword ? "text" : "password";
-    private string confirmPasswordInputType => showConfirmPassword ? "text" : "password";
-    private string passwordToggleIcon => showPassword ? "👁️" : "🙈";
-    private string confirmPasswordToggleIcon => showConfirmPassword ? "👁️" : "🙈";
+    private const string AliasStateKey = "register-alias";
 
     protected override async Task OnInitializedAsync()
     {
-        if (!await AuthService.IsRegistrationAvailableAsync())
-            errorMessage = "Rejestracja jest obecnie niedostępna (limit publicznej wersji demo lub wyłączona).";
+        // Przydomek z prerenderu przechodzi do circuitu — bez "przeskoku" na inny po podłączeniu.
+        if (!ApplicationState.TryTakeFromJson<string>(AliasStateKey, out alias) || alias is null)
+            alias = await Ui.Run((IAliasGenerator s) => s.SuggestAsync());
+        persisting = ApplicationState.RegisterOnPersisting(() =>
+        {
+            ApplicationState.PersistAsJson(AliasStateKey, alias);
+            return Task.CompletedTask;
+        });
+
+        // Tylko informacja tak/nie (bez liczby kont). Serwer i tak rozstrzyga limit atomowo przy zapisie.
+        availability = !DemoOptions.Value.RegistrationEnabled ? Availability.Disabled
+            : await Ui.Run((IAuthService s) => s.IsRegistrationAvailableAsync()) ? Availability.Open
+            : Availability.CapacityReached;
+
+        // Cała przestrzeń przydomków zajęta — formularz nie może udawać, że zadziała.
+        if (availability == Availability.Open && alias is null)
+            availability = Availability.CapacityReached;
 
         var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
         if (!query.TryGetValue("error", out var error))
             return;
 
-        errorMessage = error.ToString() switch
+        switch (error.ToString())
         {
-            "mismatch" => "Hasła nie są identyczne!",
-            "conflict" => "Nie można utworzyć konta z podanym emailem lub nazwą użytkownika.",
-            "capacity" => "Publiczna wersja demo osiągnęła limit kont. Rejestracja jest chwilowo niedostępna.",
-            "disabled" => "Rejestracja jest obecnie wyłączona.",
-            _ => $"Sprawdź dane: nazwa 3–50 znaków (litery, cyfry, . _ -), poprawny email, hasło {PasswordPolicy.MinLength}–{PasswordPolicy.MaxLength} znaków."
-        };
+            case "capacity":
+                availability = Availability.CapacityReached;
+                break;
+            case "disabled":
+                availability = Availability.Disabled;
+                break;
+            case "mismatch":
+                passwordMismatch = true;
+                errorMessage = "Hasła nie są identyczne. Wpisz je ponownie.";
+                break;
+            case "conflict":
+                identityTaken = true;
+                errorMessage = "Nie można utworzyć konta z tym adresem email. Użyj innego.";
+                break;
+            case "alias-taken":
+                errorVariant = AlertVariant.Warning;
+                errorMessage = "Ten przydomek został właśnie zajęty. Wylosowaliśmy dla Ciebie nowy.";
+                break;
+            case "rate-limited":
+                errorVariant = AlertVariant.Warning;
+                errorMessage = "Zbyt wiele prób w krótkim czasie. Odczekaj chwilę i spróbuj ponownie.";
+                break;
+            default:
+                errorMessage = $"Sprawdź dane: poprawny email i hasło {PasswordPolicy.MinLength}–{PasswordPolicy.MaxLength} znaków.";
+                break;
+        }
     }
 
-    private void TogglePassword()
+    // "Losuj inny": nowa propozycja z tego samego słownika. Niczego nie tworzy ani nie rezerwuje.
+    private async Task RerollAsync()
     {
-        showPassword = !showPassword;
+        rolling = true;
+        try
+        {
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var next = await Ui.Run((IAliasGenerator s) => s.SuggestAsync());
+                if (next is not null && next != alias)
+                {
+                    alias = next;
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Nie udało się wylosować przydomka.");
+        }
+        finally
+        {
+            rolling = false;
+        }
     }
 
-    private void ToggleConfirmPassword()
-    {
-        showConfirmPassword = !showConfirmPassword;
-    }
+    public void Dispose() => persisting.Dispose();
 }

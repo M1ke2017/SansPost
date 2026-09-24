@@ -2,44 +2,64 @@
 @using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Navigation
 
-<link rel="stylesheet" href="css/logres.css">
+<PageTitle>Logowanie · SansPost</PageTitle>
 
-<div class="home-container">
-    <div class="register-text">
-        <h2>Logowanie</h2>
-
-        @if (registered)
-        {
-            <p>Konto utworzone. Możesz się zalogować.</p>
-        }
-
-        @if (!string.IsNullOrEmpty(errorMessage))
-        {
-            <p class="error">@errorMessage</p>
-        }
-
-        @* Zwykły HTTP POST — cookie ustawia AccountController, nie circuit SignalR. *@
-        <form method="post" action="auth/login">
-            <AntiforgeryField />
-            <input type="hidden" name="ReturnUrl" value="@returnUrl" />
-
-            <label for="email">Email</label>
-            <input type="email" id="email" name="Email" placeholder="Podaj email" autocomplete="username" required>
-
-            <label for="password">Hasło</label>
-            <input type="password" id="password" name="Password" placeholder="Podaj hasło" autocomplete="current-password" required>
-
-            <button type="submit" class="auth-btn">Zaloguj się</button>
-        </form>
-
-        <p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
+<div class="auth-shell stack">
+    <div class="page-header" style="margin-bottom: 0">
+        <div>
+            <h1>Zaloguj się</h1>
+            <p>Czytać możesz bez konta. Zaloguj się, aby publikować, komentować i reagować.</p>
+        </div>
     </div>
+
+    @if (registered)
+    {
+        <Alert Variant="AlertVariant.Success" Title="Konto utworzone">Możesz się teraz zalogować.</Alert>
+    }
+    @if (sessionEnded)
+    {
+        <Alert Variant="AlertVariant.Info" Title="Sesja zakończona">Zaloguj się ponownie, aby kontynuować.</Alert>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <Alert Variant="@errorVariant">@errorMessage</Alert>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            @* Zwykły HTTP POST — cookie ustawia AccountController, nie circuit SignalR. *@
+            <form method="post" action="auth/login" class="stack" data-loading-form>
+                <AntiforgeryField />
+                <input type="hidden" name="ReturnUrl" value="@returnUrl" />
+
+                <div class="field">
+                    <label class="field-label" for="email">Email</label>
+                    <input class="input" type="email" id="email" name="Email" autocomplete="username" required
+                           aria-invalid="@(invalidCredentials ? "true" : null)" />
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="password">Hasło</label>
+                    <PasswordInput Id="password" Name="Password" Autocomplete="current-password" Invalid="invalidCredentials" />
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block" data-loading-text="Logowanie…">
+                    <Icon Name="@Icons.LogIn" /> Zaloguj się
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <p class="muted text-sm" style="text-align: center">Nie masz konta? <a href="/register">Załóż je w minutę</a></p>
 </div>
 
 @code {
     private string? returnUrl;
     private string? errorMessage;
+    private AlertVariant errorVariant = AlertVariant.Danger;
     private bool registered;
+    private bool sessionEnded;
+    private bool invalidCredentials;
 
     protected override void OnInitialized()
     {
@@ -47,8 +67,20 @@
 
         returnUrl = query.TryGetValue("returnUrl", out var value) ? value.ToString() : null;
         registered = query.ContainsKey("registered");
+        sessionEnded = query.ContainsKey("ended");
 
-        if (query.ContainsKey("error"))
-            errorMessage = "Nieprawidłowy email lub hasło.";
+        if (!query.TryGetValue("error", out var error))
+            return;
+
+        if (error == "rate-limited")
+        {
+            errorVariant = AlertVariant.Warning;
+            errorMessage = "Zbyt wiele prób logowania. Odczekaj chwilę i spróbuj ponownie.";
+            return;
+        }
+
+        // Jedna, ogólna odpowiedź — bez ujawniania, czy konto istnieje lub jest zablokowane.
+        invalidCredentials = true;
+        errorMessage = "Nieprawidłowy email lub hasło.";
     }
 }

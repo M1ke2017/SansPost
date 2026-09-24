@@ -1,0 +1,111 @@
+@using SansPost.Features.Reactions
+@inject UiServices Ui
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+
+@* Wizualnie toggle (aria-pressed), ale do serwera trafia jawny stan docelowy: Like (PUT) albo Unlike (DELETE) —
+   idempotentnie, więc powtórzone kliknięcie nie odwraca stanu. Optymistyczny feedback z wycofaniem przy błędzie. *@
+@if (Viewer is null)
+{
+    @if (GuestLink)
+    {
+        <a class="like-button" href="@UiText.LoginUrl(ReturnUrl)" aria-label="@($"{UiText.Likes(count)}. Zaloguj się, aby polubić")">
+            <Icon Name="@Icons.Heart" />
+            <span aria-hidden="true">@UiText.Number(count)</span>
+        </a>
+    }
+    else
+    {
+        <span class="stat" aria-label="@UiText.Likes(count)" role="img">
+            <Icon Name="@Icons.Heart" />
+            <span aria-hidden="true">@UiText.Number(count)</span>
+        </span>
+    }
+}
+else
+{
+    <button type="button" class="like-button" aria-pressed="@(liked ? "true" : "false")" aria-busy="@(busy ? "true" : "false")"
+            aria-label="@($"Polub post, {UiText.Likes(count)}")" disabled="@(!Viewer.CanWrite)"
+            title="@(Viewer.CanWrite ? null : UiErrors.Suspended)" @onclick="ToggleAsync">
+        <Icon Name="@Icons.Heart" />
+        <span aria-hidden="true">@UiText.Number(count)</span>
+    </button>
+}
+
+@code {
+    [CascadingParameter] public ViewerContext? Viewer { get; set; }
+
+    [Parameter, EditorRequired] public int PostId { get; set; }
+    [Parameter] public bool Liked { get; set; }
+    [Parameter] public int Count { get; set; }
+
+    // Szczegóły posta: gość widzi link do logowania; w feedzie tylko licznik.
+    [Parameter] public bool GuestLink { get; set; }
+    [Parameter] public EventCallback<(bool Liked, int Count)> OnChanged { get; set; }
+
+    private bool liked;
+    private int count;
+    private bool busy;
+    private int initializedFor = -1;
+
+    private string ReturnUrl => "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+    protected override void OnParametersSet()
+    {
+        // Stan lokalny inicjowany z parametrów tylko dla nowego posta — rodzic nie nadpisuje trwającej interakcji.
+        if (initializedFor != PostId)
+        {
+            initializedFor = PostId;
+            liked = Liked;
+            count = Count;
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (busy || Viewer is null)
+            return;
+
+        busy = true;
+        var previous = (liked, count);
+        var target = !liked;
+
+        liked = target;
+        count = Math.Max(0, count + (target ? 1 : -1));
+
+        try
+        {
+            var result = target
+                ? await Ui.Run((ILikeService s) => s.LikeAsync(Viewer.UserId, PostId))
+                : await Ui.Run((ILikeService s) => s.UnlikeAsync(Viewer.UserId, PostId));
+
+            if (result.Succeeded)
+            {
+                // Źródło prawdy: licznik z serwera (inni użytkownicy mogli reagować w międzyczasie).
+                liked = result.Value!.LikedByCurrentUser;
+                count = result.Value.LikeCount;
+                await OnChanged.InvokeAsync((liked, count));
+            }
+            else
+            {
+                (liked, count) = previous;
+                if (UiErrors.EndsSession(result))
+                {
+                    Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+                    return;
+                }
+
+                Toasts.Error(UiErrors.Describe(result, notFound: "Ten post nie jest już dostępny."));
+            }
+        }
+        catch (Exception)
+        {
+            (liked, count) = previous;
+            Toasts.Error(UiErrors.Generic);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

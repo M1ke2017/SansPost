@@ -1,0 +1,11 @@
+@* Jeden zestaw ikon liniowych (24×24, stroke) dla całej aplikacji. Ikony są dekoracyjne (aria-hidden):
+   znaczenie zawsze niesie tekst lub aria-label kontrolki. *@
+<svg class="icon @Class" width="@Size" height="@Size" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+     stroke-width="@StrokeWidth" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">@((MarkupString)Icons.Path(Name))</svg>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 18;
+    [Parameter] public string StrokeWidth { get; set; } = "1.8";
+    [Parameter] public string? Class { get; set; }
+}

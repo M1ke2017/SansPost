@@ -1,0 +1,62 @@
+@* Dekoracyjna sylwetka pogranicza (własne SVG, bez zdjęć i clipartów): horyzont, wydmy, linia telegraficzna,
+   kaktusy i małe miasteczko. Dzień: słońce; noc (data-theme="dark"): księżyc i gwiazdy — przełącza CSS.
+   Czysta dekoracja: aria-hidden, bez fokusu i zdarzeń wskaźnika, pozycjonowana absolutnie (nie zmienia layoutu). *@
+<svg class="frontier-scene frontier-@Variant @Class" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMax slice"
+     aria-hidden="true" focusable="false">
+    <g class="scene-sky">
+        <circle class="scene-sun" cx="250" cy="96" r="30" />
+        <path class="scene-moon" d="M262 70a30 30 0 1 0 22 50 24 24 0 1 1-22-50z" />
+        <g class="scene-stars">
+            <circle cx="120" cy="40" r="1.6" /><circle cx="400" cy="30" r="1.2" /><circle cx="520" cy="62" r="1.6" />
+            <circle cx="700" cy="34" r="1.2" /><circle cx="880" cy="52" r="1.6" /><circle cx="1060" cy="28" r="1.2" />
+            <circle cx="330" cy="70" r="1" /><circle cx="970" cy="80" r="1" />
+        </g>
+    </g>
+
+    <path class="scene-far" d="M0 150C170 128 330 158 520 142S880 118 1200 146V200H0Z" />
+
+    @if (Variant == "town")
+    {
+        <g class="scene-town">
+            <path d="M790 150V118h6v-8h34v8h6v32z" />
+            <path d="M842 150V102h6v-8h46v8h6v32z" />
+            <path d="M906 150v-26h38v26zM902 124l22-12 22 12z" />
+            <path d="M952 150v-34h26v34zM957 116l8-18 8 18z" />
+            <rect x="1002" y="100" width="32" height="18" rx="3" />
+            <path d="M1006 118l-6 32h4l5-32zM1030 118l6 32h-4l-5-32z" />
+        </g>
+    }
+
+    <g class="scene-telegraph">
+        <path d="M60 150V112M50 118h20M300 146V110M290 116h20M540 144V108M530 114h20" />
+        <path class="scene-wire" d="M60 118q120 14 240-2M300 116q120 14 240-2" />
+    </g>
+
+    <path class="scene-near" d="M0 172C260 160 520 184 800 168S1080 162 1200 172V200H0Z" />
+
+    <g class="scene-cactus">
+        <path d="M170 176V140" style="stroke-width: 11px" />
+        <path d="M170 158h-10v-12M170 150h10v-10" style="stroke-width: 7px" />
+        @if (Variant != "compact")
+        {
+            <path d="M680 178V150" style="stroke-width: 9px" />
+            <path d="M680 164h8v-9" style="stroke-width: 6px" />
+            <path d="M1140 176V146" style="stroke-width: 10px" />
+            <path d="M1140 162h-9v-10M1140 156h9v-8" style="stroke-width: 6px" />
+        }
+    </g>
+
+    @if (Variant == "signpost")
+    {
+        <g class="scene-signpost">
+            <path d="M960 178V112" style="stroke-width: 5px" />
+            <path d="M960 118h52l8 8-8 8h-52zM960 142h-46l-8 8 8 8h46z" />
+        </g>
+    }
+</svg>
+
+@code {
+    // town (strona główna), signpost (kategorie, puste stany), trail (wyszukiwarka), compact (małe banery)
+    [Parameter] public string Variant { get; set; } = "town";
+    [Parameter] public string? Class { get; set; }
+}

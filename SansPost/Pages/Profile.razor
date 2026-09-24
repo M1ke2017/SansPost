@@ -1,53 +1,92 @@
 @page "/u/{Username}"
 @using SansPost.Features.Profiles
-@inject IProfileService ProfileService
+@inject UiServices Ui
+@inject ILogger<Profile> Logger
 
-<link rel="stylesheet" href="css/logres.css">
+<PageTitle>@(profile is null ? "Profil" : profile.Username) · SansPost</PageTitle>
 
-<div class="home-container">
-    <div class="register-text">
-        @if (isLoading)
-        {
-            <p>Ładowanie profilu...</p>
-        }
-        else if (profile is null)
-        {
-            <p class="error">Nie znaleziono użytkownika.</p>
-        }
-        else
-        {
-            <h2>@profile.Username</h2>
-            <p>Dołączył(a): @profile.JoinedAt.ToLocalTime().ToString("dd-MM-yyyy")</p>
-            <p>Posty: @profile.PostCount · Komentarze: @profile.CommentCount</p>
-
-            <h3>Ostatnie posty</h3>
-            @if (profile.RecentPosts.Count == 0)
-            {
-                <p>Brak postów.</p>
-            }
-            @foreach (var post in profile.RecentPosts)
-            {
-                <div class="post-box">
-                    <h4><a href="@($"/post-view/{post.Id}")">@post.Title</a></h4>
-                    <span>@post.Category.DisplayName() · ❤ @post.LikeCount · 💬 @post.CommentCount</span>
+@if (isLoading)
+{
+    <p class="muted" role="status">Wczytywanie profilu…</p>
+}
+else if (loadFailed)
+{
+    <EmptyState Title="Nie udało się wczytać profilu" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger"
+                Text="@UiErrors.Generic">
+        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+    </EmptyState>
+}
+else if (profile is null)
+{
+    <EmptyState Title="Nie znaleziono użytkownika" HeadingLevel="1" IconName="@Icons.User"
+                Text="Taki profil nie istnieje. Sprawdź nazwę albo poszukaj autora w wyszukiwarce.">
+        <a class="btn btn-primary" href="/search">Szukaj autorów</a>
+    </EmptyState>
+}
+else
+{
+    <div class="stack-lg">
+        <section class="card">
+            <div class="card-body profile-head">
+                <Avatar Username="@profile.Username" Size="lg" />
+                <div class="stack-sm" style="min-width: 0">
+                    <h1>@profile.Username</h1>
+                    <div class="stats">
+                        <span><Icon Name="@Icons.Calendar" Size="15" Class="inline-icon subtle" /> Na SansPost od @UiText.MonthYear(profile.JoinedAt)</span>
+                        <span><strong>@UiText.Number(profile.PostCount)</strong>@PostsWord(profile.PostCount)</span>
+                        <span><strong>@UiText.Number(profile.CommentCount)</strong>@CommentsWord(profile.CommentCount)</span>
+                    </div>
                 </div>
-            }
+            </div>
+        </section>
 
-            <h3>Ostatnie komentarze</h3>
-            @if (profile.RecentComments.Count == 0)
-            {
-                <p>Brak komentarzy.</p>
-            }
-            @foreach (var comment in profile.RecentComments)
-            {
-                <div class="post-box">
-                    <p>@comment.ContentPreview</p>
-                    <span>pod <a href="@($"/post-view/{comment.PostId}")">@comment.PostTitle</a> · @comment.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy")</span>
+        <div class="layout-with-aside">
+            <section aria-labelledby="recent-posts">
+                <h2 id="recent-posts" class="section-title" style="margin-bottom: var(--space-3)">Ostatnie posty</h2>
+                @if (profile.RecentPosts.Count == 0)
+                {
+                    <EmptyState Title="Brak postów" Text="@($"{profile.Username} nie opublikował(a) jeszcze żadnego posta.")" />
+                }
+                else
+                {
+                    <ul class="post-list">
+                        @foreach (var post in profile.RecentPosts)
+                        {
+                            <li @key="post.Id"><PostCard Post="PostCardModel.From(post)" ShowAuthor="false" HeadingLevel="3" /></li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <aside class="aside" aria-labelledby="recent-comments">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 id="recent-comments" class="section-title">Ostatnie komentarze</h2>
+                        @if (profile.RecentComments.Count == 0)
+                        {
+                            <p class="muted text-sm" style="margin-top: var(--space-3)">Brak komentarzy.</p>
+                        }
+                        else
+                        {
+                            <ul class="activity-list">
+                                @foreach (var comment in profile.RecentComments)
+                                {
+                                    <li @key="comment.Id" class="stack-sm">
+                                        <p class="text-sm" style="white-space: pre-line">@comment.ContentPreview</p>
+                                        <span class="text-xs subtle">
+                                            pod <a href="@($"{UiText.PostUrl(comment.PostId)}#comment-{comment.Id}")">@comment.PostTitle</a>
+                                            · <TimeAgo Value="comment.CreatedAt" />
+                                        </span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
                 </div>
-            }
-        }
+            </aside>
+        </div>
     </div>
-</div>
+}
 
 @code {
     [Parameter]
@@ -58,11 +97,40 @@
 
     private PublicProfileResponse? profile;
     private bool isLoading = true;
+    private bool loadFailed;
+
+    private string? loadedFor;
 
     protected override async Task OnParametersSetAsync()
     {
-        isLoading = true;
-        profile = await ProfileService.GetByUsernameAsync(Username, (await AuthState).User.GetUserId());
-        isLoading = false;
+        if (string.Equals(loadedFor, Username, StringComparison.Ordinal))
+            return;
+
+        loadedFor = Username;
+        await LoadAsync();
     }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        loadFailed = false;
+        try
+        {
+            var viewerId = (await AuthState).User.GetUserId();
+            profile = await Ui.Run((IProfileService s) => s.GetByUsernameAsync(Username, viewerId));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wczytywania profilu.");
+            loadFailed = true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // Liczba jest wyróżniona osobno — tu tylko forma słowa.
+    private static string PostsWord(int count) => UiText.Posts(count)[UiText.Number(count).Length..];
+    private static string CommentsWord(int count) => UiText.Comments(count)[UiText.Number(count).Length..];
 }

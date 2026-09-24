@@ -1,0 +1,332 @@
+@page "/search"
+@using SansPost.Features.Search
+@implements IDisposable
+@inject UiServices Ui
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<Search> Logger
+
+<PageTitle>@(string.IsNullOrWhiteSpace(Q) ? "Szukaj" : $"„{Q}” — szukaj") · SansPost</PageTitle>
+
+<div class="page-header has-compass">
+    <div>
+        <h1>Szukaj</h1>
+        <p>Idź tropem słów: wyszukiwanie w tytułach i treści postów oraz w przydomkach autorów.</p>
+    </div>
+    @* Róża wiatrów — dekoracja motywu tropu. *@
+    <svg class="page-compass" width="96" height="96" viewBox="0 0 96 96" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="48" cy="48" r="40" /><circle cx="48" cy="48" r="30" stroke-dasharray="2 5" />
+        <path d="M48 6l6 36 36 6-36 6-6 36-6-36-36-6 36-6z" fill="currentColor" fill-opacity="0.18" />
+        <path d="M48 20l3 25 25 3-25 3-3 25-3-25-25-3 25-3z" />
+    </svg>
+</div>
+
+<form class="search-bar" role="search" @onsubmit="SubmitNowAsync">
+    <div class="field" style="flex: 1">
+        <label class="visually-hidden" for="search-query">Czego szukasz?</label>
+        <div class="input-with-action search-input">
+            <Icon Name="@Icons.Search" Size="18" Class="search-input-icon" />
+            <input @ref="inputRef" id="search-query" class="input" type="search" placeholder="Np. keyset, Gruzja, planszówki…"
+                   maxlength="@SearchLimits.QueryMaxLength" autocomplete="off" value="@input" @oninput="OnInput"
+                   aria-describedby="search-hint" />
+            @if (!string.IsNullOrEmpty(input))
+            {
+                <button type="button" class="btn btn-ghost btn-icon btn-sm input-action" aria-label="Wyczyść wyszukiwanie" @onclick="ClearAsync">
+                    <Icon Name="@Icons.X" Size="16" />
+                </button>
+            }
+        </div>
+    </div>
+    <div class="field search-category">
+        <label class="visually-hidden" for="search-category">Kategoria</label>
+        <select id="search-category" class="select" value="@(CategoryValue?.ToString() ?? "")" @onchange="OnCategoryChanged">
+            <option value="">Wszystkie kategorie</option>
+            @foreach (var category in CategoryMeta.All)
+            {
+                <option value="@category">@category.DisplayName()</option>
+            }
+        </select>
+    </div>
+</form>
+
+<p id="search-hint" class="text-sm subtle search-hint" role="status" aria-live="polite">
+    @if (isSearching)
+    {
+        <span class="cluster"><span class="spinner" aria-hidden="true" style="width: 14px; height: 14px"></span> Szukanie…</span>
+    }
+    else if (tooShort)
+    {
+        <span>Wpisz co najmniej @SearchLimits.QueryMinLength znaki.</span>
+    }
+    else if (hasSearched && error is null)
+    {
+        <span>@ResultSummary</span>
+    }
+</p>
+
+@if (string.IsNullOrWhiteSpace(Q))
+{
+    <section aria-labelledby="browse-title" class="stack">
+        <h2 id="browse-title" class="section-title">Albo przeglądaj kategorie</h2>
+        <nav class="chip-row" aria-label="Kategorie" style="flex-wrap: wrap">
+            @foreach (var category in CategoryMeta.All)
+            {
+                <a class="chip @CategoryMeta.CssClass(category)" href="@CategoryMeta.Url(category)">
+                    <Icon Name="@CategoryMeta.Icon(category)" Size="15" /> @category.DisplayName()
+                </a>
+            }
+        </nav>
+    </section>
+}
+else if (error is not null)
+{
+    <Alert Variant="@errorVariant">@error</Alert>
+}
+else if (hasSearched)
+{
+    <div class="stack-lg search-results">
+        @if (authors.Count > 0)
+        {
+            <section aria-labelledby="authors-title" class="stack-sm">
+                <h2 id="authors-title" class="section-title">Autorzy</h2>
+                <ul class="author-chips list-plain">
+                    @foreach (var author in authors)
+                    {
+                        <li @key="author.UserId">
+                            <a class="author-chip" href="@UiText.ProfileUrl(author.Username)">
+                                <Avatar Username="@author.Username" Size="sm" />
+                                <span class="truncate">@author.Username</span>
+                                <span class="subtle text-xs nowrap">@UiText.Posts(author.PostCount)</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+
+        <section aria-labelledby="posts-title" class="stack-sm">
+            <h2 id="posts-title" class="section-title">Posty</h2>
+            @if (results.Count == 0)
+            {
+                <EmptyState Title="@($"Brak postów dla „{Q}”")" IconName="@Icons.Search"
+                            Text="@(CategoryValue is PostCategory c ? $"W kategorii {c.DisplayName()} nic nie pasuje. Spróbuj bez filtra kategorii albo innych słów." : "Spróbuj innych lub krótszych słów.")">
+                    @if (CategoryValue is not null)
+                    {
+                        <button type="button" class="btn" @onclick="ClearCategoryAsync">Szukaj we wszystkich kategoriach</button>
+                    }
+                    <button type="button" class="btn btn-ghost" @onclick="ClearAsync">Wyczyść wyszukiwanie</button>
+                </EmptyState>
+            }
+            else
+            {
+                <ul class="post-list" aria-label="Wyniki wyszukiwania">
+                    @foreach (var item in results)
+                    {
+                        <li @key="item.Id" id="@($"result-{item.Id}")"><PostCard Post="item" HeadingLevel="3" /></li>
+                    }
+                </ul>
+                <LoadMore HasMore="nextCursor is not null" IsLoading="isLoadingMore" OnClick="LoadMoreAsync" Label="Więcej wyników" Status="@moreStatus" />
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(350);
+
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    // Stan wyszukiwania w adresie: wynik można udostępnić, a "wstecz" wraca do poprzedniej frazy.
+    [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
+    [SupplyParameterFromQuery(Name = "category")] public string? Category { get; set; }
+
+    private ElementReference inputRef;
+    private string input = "";
+    private CancellationTokenSource? debounce;
+    private (string?, string?) searchedFor = ("\0", null);
+    private int searchSequence;
+
+    private readonly List<PostCardModel> results = new();
+    private readonly List<UserSearchResult> authors = new();
+    private string? nextCursor;
+    private bool isSearching;
+    private bool isLoadingMore;
+    private bool hasSearched;
+    private bool tooShort;
+    private string? error;
+    private AlertVariant errorVariant = AlertVariant.Warning;
+    private string? moreStatus;
+
+    private PostCategory? CategoryValue => CategoryMeta.TryParseSlug(Category, out var parsed) ? parsed : null;
+
+    private string ResultSummary => results.Count == 0 && authors.Count == 0
+        ? "Brak wyników."
+        : $"{(nextCursor is null ? "" : "Co najmniej ")}{UiText.Plural(results.Count, "wynik", "wyniki", "wyników")} wśród postów"
+          + (authors.Count > 0 ? $" i {UiText.Plural(authors.Count, "autor", "autorów", "autorów")}." : ".");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = (Q?.Trim(), Category);
+        if (key == searchedFor)
+            return;
+
+        searchedFor = key;
+        input = Q ?? "";
+        await RunSearchAsync();
+    }
+
+    private async Task RunSearchAsync()
+    {
+        var sequence = ++searchSequence;
+        var query = Q?.Trim() ?? "";
+
+        results.Clear();
+        authors.Clear();
+        nextCursor = null;
+        error = null;
+        moreStatus = null;
+        hasSearched = false;
+        tooShort = query.Length is > 0 and < SearchLimits.QueryMinLength;
+
+        if (query.Length < SearchLimits.QueryMinLength)
+            return;
+
+        isSearching = true;
+        try
+        {
+            var viewerId = (await AuthState).User.GetUserId();
+            var posts = await Ui.Run((ISearchService s) => s.SearchPostsAsync(new PostSearchQuery { Q = query, Category = CategoryValue }, viewerId));
+            var users = CategoryValue is null
+                ? await Ui.Run((ISearchService s) => s.SearchUsersAsync(query, 6))
+                : null;
+
+            // Wynik starszego zapytania nie nadpisuje nowszego (szybkie pisanie).
+            if (sequence != searchSequence)
+                return;
+
+            if (!posts.Succeeded)
+            {
+                error = UiErrors.Describe(posts);
+                errorVariant = UiErrors.Variant(posts) == AlertVariant.Danger ? AlertVariant.Warning : UiErrors.Variant(posts);
+                return;
+            }
+
+            results.AddRange(posts.Value!.Items.Select(PostCardModel.From));
+            nextCursor = posts.Value.NextCursor;
+            if (users is { Succeeded: true })
+                authors.AddRange(users.Value!);
+            hasSearched = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wyszukiwania.");
+            if (sequence == searchSequence)
+            {
+                error = UiErrors.Generic;
+                errorVariant = AlertVariant.Danger;
+            }
+        }
+        finally
+        {
+            if (sequence == searchSequence)
+                isSearching = false;
+        }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (nextCursor is null)
+            return;
+
+        isLoadingMore = true;
+        try
+        {
+            var before = results.Count;
+            var viewerId = (await AuthState).User.GetUserId();
+            var page = await Ui.Run((ISearchService s) => s.SearchPostsAsync(
+                new PostSearchQuery { Q = Q?.Trim(), Category = CategoryValue, Cursor = nextCursor }, viewerId));
+
+            if (!page.Succeeded)
+            {
+                error = UiErrors.Describe(page);
+                return;
+            }
+
+            results.AddRange(page.Value!.Items.Where(r => results.All(e => e.Id != r.Id)).Select(PostCardModel.From).ToList());
+            nextCursor = page.Value.NextCursor;
+            moreStatus = $"Wczytano {UiText.Plural(results.Count - before, "kolejny wynik", "kolejne wyniki", "kolejnych wyników")}.";
+
+            if (nextCursor is null && results.Count > before)
+                await JS.InvokeVoidAsync("sansPost.focusSelector", $"#result-{results[before].Id} .post-card-title a");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd doładowania wyników wyszukiwania.");
+            error = UiErrors.Generic;
+        }
+        finally
+        {
+            isLoadingMore = false;
+        }
+    }
+
+    // Debounce: zapytanie po chwili bez pisania, nie przy każdym znaku.
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        input = e.Value?.ToString() ?? "";
+        debounce?.Cancel();
+        debounce = new CancellationTokenSource();
+        var token = debounce.Token;
+
+        try
+        {
+            await Task.Delay(Debounce, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        Navigate(input, Category, replace: true);
+    }
+
+    private void SubmitNowAsync()
+    {
+        debounce?.Cancel();
+        Navigate(input, Category, replace: false);
+    }
+
+    private void OnCategoryChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        var slug = Enum.TryParse<PostCategory>(value, out var parsed) ? CategoryMeta.Slug(parsed) : null;
+        Navigate(input, slug, replace: true);
+    }
+
+    private void ClearCategoryAsync() => Navigate(input, null, replace: true);
+
+    private async Task ClearAsync()
+    {
+        debounce?.Cancel();
+        input = "";
+        Navigate("", Category, replace: true);
+        await inputRef.FocusAsync();
+    }
+
+    private void Navigate(string? query, string? category, bool replace)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(query))
+            parts.Add("q=" + Uri.EscapeDataString(query.Trim()));
+        if (!string.IsNullOrEmpty(category))
+            parts.Add("category=" + Uri.EscapeDataString(category));
+
+        Navigation.NavigateTo(parts.Count == 0 ? "/search" : "/search?" + string.Join("&", parts), replace: replace);
+    }
+
+    public void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+    }
+}

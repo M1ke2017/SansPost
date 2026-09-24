@@ -13,7 +13,9 @@ namespace SansPost.Tests.Controllers
         private readonly Mock<IApiTokenService> _tokenService = new();
         private readonly Mock<IUserService> _userService = new();
 
-        private AuthController CreateController() => new(_authService.Object, _tokenService.Object, _userService.Object);
+        private readonly Mock<IAliasGenerator> _aliases = new();
+
+        private AuthController CreateController() => new(_authService.Object, _tokenService.Object, _userService.Object, _aliases.Object);
 
         private static UserResponse SampleUser(int id) =>
             new(id, "user", UserRole.User, SubscriptionType.Free, DateTime.UtcNow);

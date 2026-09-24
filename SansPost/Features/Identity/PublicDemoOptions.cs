@@ -9,6 +9,14 @@ namespace SansPost.Features.Identity
 
         // Liczba zwykłych kont (Role = User, w dowolnym statusie). Admini nie zajmują slotów.
         public int MaxPublicAccounts { get; set; } = 100;
+
+        // Opcjonalny post przypięty na stronie głównej (np. "Witaj w SansPost") — zwykły post utworzony w aplikacji,
+        // wskazany tylko identyfikatorem. Treść nie jest zaszyta w UI. Ukryty/usunięty post po prostu się nie wyświetla.
+        public int? FeaturedPostId { get; set; }
+
+        // Treści startowe (konta demo z przydomkami, posty, komentarze, reakcje) tworzone raz przy starcie — DemoContentSeeder.
+        // Konta demo zajmują publiczne sloty (Role = User). Domyślnie wyłączone.
+        public bool SeedContent { get; set; }
     }
 
     // Sekcja "BootstrapAdmin" — jednorazowe utworzenie pierwszego administratora.

@@ -1,0 +1,44 @@
+@inject IJSRuntime JS
+
+@* Pasek szyldów kategorii: natywny poziomy scroll (swipe na mobile) + strzałki na szerszych ekranach.
+   Stan strzałek (początek/koniec) liczy sanspost.js z scrollLeft / clientWidth / scrollWidth — po scrollu, resize,
+   kliknięciu i zmianie listy. Strzałki są zwykłymi <button> (Enter/Space, widoczny fokus). *@
+<div class="sign-strip" @ref="strip" data-scroller>
+    <button type="button" class="strip-btn strip-btn-left" data-scroll="-1" aria-label="Przewiń kategorie w lewo" disabled>
+        <Icon Name="@Icons.ArrowLeft" Size="16" />
+    </button>
+    <nav class="sign-row" aria-label="Kategorie" data-scroller-track>
+        <a class="sign sign-all @(Current is null ? "active" : "")" href="/" aria-current="@(Current is null ? "page" : null)">
+            <Icon Name="@Icons.Compass" Size="16" /> Wszystkie
+        </a>
+        @foreach (var category in CategoryMeta.All)
+        {
+            <a class="sign @CategoryMeta.CssClass(category) @(category == Current ? "active" : "")" href="@CategoryMeta.Url(category)"
+               aria-current="@(category == Current ? "page" : null)">
+                <Icon Name="@CategoryMeta.Icon(category)" Size="16" /> @category.DisplayName()
+            </a>
+        }
+    </nav>
+    <button type="button" class="strip-btn strip-btn-right" data-scroll="1" aria-label="Przewiń kategorie w prawo" disabled>
+        <Icon Name="@Icons.ArrowLeft" Size="16" Class="flip-x" />
+    </button>
+</div>
+
+@code {
+    // null = "Wszystkie" (strona główna).
+    [Parameter] public PostCategory? Current { get; set; }
+
+    private ElementReference strip;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Po każdym renderze: nowa aktywna kategoria może wymagać przewinięcia do widoku i odświeżenia strzałek.
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.bindScroller", strip);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

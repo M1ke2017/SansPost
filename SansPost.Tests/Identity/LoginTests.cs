@@ -16,29 +16,29 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task ValidCredentials_ReturnUserWithoutSecrets()
         {
-            await _db.RegisterAsync("gosia");
+            await _db.RegisterAsync("SilverFox");
 
-            var user = await AuthenticateAsync("gosia@example.com", TestUsers.Password);
+            var user = await AuthenticateAsync("SilverFox@example.com", TestUsers.Password);
 
             Assert.NotNull(user);
-            Assert.Equal("gosia", user!.Username);
+            Assert.Equal("SilverFox", user!.Username);
             Assert.Equal(UserRole.User, user.Role);
         }
 
         [Fact]
         public async Task EmailLookup_IsCaseAndWhitespaceInsensitive()
         {
-            await _db.RegisterAsync("henryk");
+            await _db.RegisterAsync("IronHawk");
 
-            Assert.NotNull(await AuthenticateAsync("  HENRYK@Example.com ", TestUsers.Password));
+            Assert.NotNull(await AuthenticateAsync("  IRONHAWK@Example.com ", TestUsers.Password));
         }
 
         [Fact]
         public async Task WrongPassword_IsRejected()
         {
-            await _db.RegisterAsync("iga");
+            await _db.RegisterAsync("AmberWren");
 
-            Assert.Null(await AuthenticateAsync("iga@example.com", "wrong-password-123"));
+            Assert.Null(await AuthenticateAsync("AmberWren@example.com", "wrong-password-123"));
         }
 
         [Fact]

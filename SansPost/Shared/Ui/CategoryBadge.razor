@@ -1,0 +1,19 @@
+@if (Link)
+{
+    <a class="badge category-badge @CategoryMeta.CssClass(Category)" href="@CategoryMeta.Url(Category)">
+        <Icon Name="@CategoryMeta.Icon(Category)" Size="13" StrokeWidth="2" />
+        <span class="truncate">@Category.DisplayName()</span>
+    </a>
+}
+else
+{
+    <span class="badge category-badge @CategoryMeta.CssClass(Category)">
+        <Icon Name="@CategoryMeta.Icon(Category)" Size="13" StrokeWidth="2" />
+        <span class="truncate">@Category.DisplayName()</span>
+    </span>
+}
+
+@code {
+    [Parameter, EditorRequired] public PostCategory Category { get; set; }
+    [Parameter] public bool Link { get; set; } = true;
+}

@@ -17,7 +17,11 @@ namespace SansPost.Tests.TestInfrastructure
 
         public static IWriteGuard Guard(ApplicationDbContext context) => new WriteGuard(context, GenerousLimiter);
 
+        // Komentarze z prawdziwym serwisem powiadomień na tym samym DbContext (jak w DI: jeden scope).
+        public static SansPost.Features.Comments.CommentService Comments(ApplicationDbContext context, TimeProvider? time = null) =>
+            new(context, time ?? TimeProvider.System, Guard(context), new SansPost.Features.Notifications.NotificationService(context, time ?? TimeProvider.System));
+
         public static AuthService Auth(ApplicationDbContext context, PublicDemoOptions? demo = null) =>
-            new(context, Options.Create(demo ?? new PublicDemoOptions { MaxPublicAccounts = int.MaxValue }));
+            new(context, Options.Create(demo ?? new PublicDemoOptions { MaxPublicAccounts = int.MaxValue }), new AliasGenerator(context));
     }
 }

@@ -1,80 +1,129 @@
+@page "/new"
 @page "/post-from"
 @attribute [Authorize]
-@inject IPostService PostService
+@inject UiServices Ui
 @inject NavigationManager Navigation
+@inject ToastService Toasts
 @inject ILogger<PostForm> Logger
 
-<link rel="stylesheet" href="css/addpost.css">
+<PageTitle>Nowy post · SansPost</PageTitle>
 
-<div class="home-container">
-    <div class="register-text">
-        <h2>Dodaj Nowy Post</h2>
+<div class="narrow">
+    <a class="back-link" href="/"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
 
-        @if (!string.IsNullOrEmpty(errorMessage))
-        {
-            <p class="error">@errorMessage</p>
-        }
-
-        <form @onsubmit="SubmitPost">
-            <label for="title">Tytuł</label>
-            <input type="text" id="title" placeholder="Podaj tytuł" @bind="newPost.Title" required />
-
-            <label for="category">Kategoria</label>
-            <select id="category" @bind="selectedCategory" required>
-                <option value="" disabled>Wybierz kategorię</option>
-                @foreach (var category in Enum.GetValues<PostCategory>())
-                {
-                    <option value="@category">@category.DisplayName()</option>
-                }
-            </select>
-
-            <label for="content">Treść</label>
-            <textarea id="content" placeholder="Treść posta" @bind="newPost.Content" required></textarea>
-
-            <label for="imageUrl">Obrazek (opcjonalnie)</label>
-            <input type="text" id="imageUrl" placeholder="Podaj URL obrazka" @bind="newPost.ImageUrl" />
-
-            <button type="submit" class="auth-btn" disabled="@isSubmitting">
-                @(isSubmitting ? "Dodawanie..." : "Dodaj Post")
-            </button>
-        </form>
-
-        <button class="cancel-btn" @onclick="@(() => Navigation.NavigateTo("/posts"))">Anuluj</button>
+    <div class="page-header">
+        <div>
+            <h1>@(draft.Category == PostCategory.Feedback ? "Zostaw opinię" : "Nowy post")</h1>
+            <p>@(draft.Category == PostCategory.Feedback
+                ? "Co działa, co przeszkadza, czego brakuje? Opinia trafi do kategorii Feedback jako zwykły post."
+                : "Dodaj wiadomość do SansPost — o technologii, grach, podróżach, pomysłach albo własnym projekcie.")</p>
+        </div>
     </div>
+
+    @if (quota is { Remaining: <= 0 })
+    {
+        <EmptyState Title="Wykorzystano limit postów" IconName="@Icons.FileText" Variant="AlertVariant.Warning"
+                    Text="@($"Twoje konto może mieć jednocześnie {UiText.Posts(quota.Limit)}. Usuń któryś ze starszych, aby opublikować nowy.")">
+            <a class="btn btn-primary" href="/me">Przejdź do swoich postów</a>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="stack">
+            @if (Viewer?.IsSuspended == true)
+            {
+                <Alert Variant="AlertVariant.Warning" Title="Publikowanie jest wyłączone">@UiErrors.Suspended</Alert>
+            }
+            @if (errorMessage is not null)
+            {
+                <Alert Variant="@errorVariant" Focusable="true" @ref="errorAlert">@errorMessage</Alert>
+            }
+
+            <div class="card">
+                <div class="card-body">
+                    <PostEditor Draft="draft" OnValidSubmit="SubmitAsync" Busy="isSubmitting" Disabled="@(Viewer?.CanWrite == false)"
+                                SubmitLabel="Opublikuj" BusyLabel="Publikowanie…">
+                        <Actions>
+                            <a class="btn btn-ghost" href="/">Anuluj</a>
+                            @if (quota is not null)
+                            {
+                                <span class="spacer"></span>
+                                <span class="text-sm subtle">Wykorzystano @quota.Used z @quota.Limit postów</span>
+                            }
+                        </Actions>
+                    </PostEditor>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthState { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
 
-    private readonly PostRequest newPost = new();
-    private string selectedCategory = "";
-    private bool isSubmitting = false;
-    private string errorMessage = "";
+    private readonly PostDraft draft = new();
+    private PostQuotaResponse? quota;
+    private bool isSubmitting;
+    private string? errorMessage;
+    private AlertVariant errorVariant = AlertVariant.Danger;
+    private Alert? errorAlert;
+    private bool focusError;
 
-    private async Task SubmitPost()
+    // Z kategorii ("Napisz w tej kategorii", "Zostaw opinię") — kategoria wybrana z góry, do zmiany w formularzu.
+    [SupplyParameterFromQuery(Name = "category")] public string? CategorySlug { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
-        var userId = (await AuthState).User.GetUserId();
-        if (userId is null)
+        if (CategoryMeta.TryParseSlug(CategorySlug, out var preselected))
+            draft.Category = preselected;
+
+        if ((await AuthState).User.GetUserId() is int userId)
+            quota = await Ui.Run((IPostService s) => s.GetQuotaAsync(userId));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusError && errorAlert is not null)
+        {
+            focusError = false;
+            await errorAlert.Element.FocusAsync();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if ((await AuthState).User.GetUserId() is not int userId)
             return;
 
         isSubmitting = true;
-        errorMessage = "";
-
+        errorMessage = null;
         try
         {
-            newPost.Category = Enum.TryParse<PostCategory>(selectedCategory, out var category) ? category : null;
-
-            var result = await PostService.CreateAsync(userId.Value, newPost);
+            var result = await Ui.Run((IPostService s) => s.CreateAsync(userId, draft.ToRequest()));
             if (result.Succeeded)
-                Navigation.NavigateTo("/posts");
-            else
-                errorMessage = result.Message ?? "Błąd dodawania posta!";
+            {
+                Toasts.Success("Post opublikowany.");
+                Navigation.NavigateTo(UiText.PostUrl(result.Value!.Id));
+                return;
+            }
+
+            if (UiErrors.EndsSession(result))
+            {
+                Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+                return;
+            }
+
+            errorMessage = UiErrors.Describe(result);
+            errorVariant = UiErrors.Variant(result);
+            focusError = true;
+            quota = await Ui.Run((IPostService s) => s.GetQuotaAsync(userId));
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Błąd dodawania posta.");
-            errorMessage = "Wystąpił błąd. Spróbuj ponownie.";
+            errorMessage = UiErrors.Generic;
+            focusError = true;
         }
         finally
         {

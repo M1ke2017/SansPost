@@ -1,0 +1,50 @@
+@* Karta posta — charakterystyczny element produktu: autor, czas, kategoria, tytuł, podgląd (nigdy pełna treść),
+   liczniki i stan polubienia. Cała karta klikalna przez tytuł (stretched link); autor, kategoria i reakcja
+   pozostają osobnymi celami dla myszy i klawiatury. *@
+<article class="post-card @(Featured ? "is-featured" : "")" aria-labelledby="@TitleId">
+    @if (Featured)
+    {
+        <span class="featured-label"><Icon Name="@Icons.Pin" Size="14" StrokeWidth="2" /> Przypięte</span>
+    }
+
+    <div class="post-card-meta">
+        @if (ShowAuthor)
+        {
+            <a class="post-card-author" href="@UiText.ProfileUrl(Post.AuthorUsername)">
+                <Avatar Username="@Post.AuthorUsername" Size="sm" />
+                <span class="name">@Post.AuthorUsername</span>
+            </a>
+            <span class="dot" aria-hidden="true">·</span>
+        }
+        <TimeAgo Value="Post.CreatedAt" Class="nowrap" />
+        <CategoryBadge Category="Post.Category" />
+    </div>
+
+    @switch (HeadingLevel)
+    {
+        case 3: <h3 class="post-card-title" id="@TitleId"><a href="@UiText.PostUrl(Post.Id)">@Post.Title</a></h3> break;
+        default: <h2 class="post-card-title" id="@TitleId"><a href="@UiText.PostUrl(Post.Id)">@Post.Title</a></h2> break;
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Post.Preview))
+    {
+        <p class="post-card-preview">@Post.Preview@(Post.IsTruncated ? "…" : "")</p>
+    }
+
+    <div class="post-card-footer">
+        <LikeButton PostId="Post.Id" Liked="Post.LikedByCurrentUser" Count="Post.LikeCount" />
+        <a class="stat" href="@($"{UiText.PostUrl(Post.Id)}#comments")" aria-label="@UiText.Comments(Post.CommentCount) — przejdź do dyskusji">
+            <Icon Name="@Icons.Comment" />
+            <span aria-hidden="true">@UiText.Number(Post.CommentCount)</span>
+        </a>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public PostCardModel Post { get; set; } = default!;
+    [Parameter] public bool ShowAuthor { get; set; } = true;
+    [Parameter] public bool Featured { get; set; }
+    [Parameter] public int HeadingLevel { get; set; } = 2;
+
+    private string TitleId => $"post-{Post.Id}-title{(Featured ? "-featured" : "")}";
+}

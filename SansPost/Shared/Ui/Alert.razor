@@ -1,0 +1,50 @@
+@* Komunikat inline. Znaczenie niesie ikona + tekst (nie tylko kolor). Błędy/ostrzeżenia: role="alert". *@
+<div class="alert @VariantClass @Class" role="@Role" tabindex="@(Focusable ? "-1" : null)" @ref="Element">
+    <Icon Name="@IconName" />
+    <div class="alert-body">
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <span class="alert-title">@Title</span>
+        }
+        @if (ChildContent is not null)
+        {
+            <div>@ChildContent</div>
+        }
+        @if (Actions is not null)
+        {
+            <div class="alert-actions">@Actions</div>
+        }
+    </div>
+    @if (OnDismiss.HasDelegate)
+    {
+        <button type="button" class="btn btn-ghost btn-icon btn-sm alert-dismiss" aria-label="Zamknij komunikat" @onclick="OnDismiss">
+            <Icon Name="@Icons.X" Size="16" />
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public AlertVariant Variant { get; set; } = AlertVariant.Info;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    // Alert, na który przenosimy fokus (np. błąd zapisu formularza).
+    [Parameter] public bool Focusable { get; set; }
+
+    public ElementReference Element { get; private set; }
+
+    private string VariantClass => "alert-" + Variant.ToString().ToLowerInvariant();
+
+    private string Role => Variant is AlertVariant.Danger or AlertVariant.Warning ? "alert" : "status";
+
+    private string IconName => Variant switch
+    {
+        AlertVariant.Success => Icons.CheckCircle,
+        AlertVariant.Warning => Icons.AlertTriangle,
+        AlertVariant.Danger => Icons.AlertCircle,
+        _ => Icons.Info
+    };
+}

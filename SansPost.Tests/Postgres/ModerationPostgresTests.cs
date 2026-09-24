@@ -58,7 +58,7 @@ namespace SansPost.Tests.Postgres
         }
 
         private Task<CommentResponse> CreateCommentAsync(int userId, int postId, string content = "Komentarz") =>
-            WithAsync(async context => (await new CommentService(context, TimeProvider.System, TestServices.Guard(context))
+            WithAsync(async context => (await SansPost.Tests.TestInfrastructure.TestServices.Comments(context)
                 .AddAsync(userId, postId, new CommentRequest { Content = content })).Value!);
 
         // J — 20 równoległych identycznych zgłoszeń: najwyżej jedno Pending, zero błędów.
@@ -190,7 +190,7 @@ namespace SansPost.Tests.Postgres
 
             await using var context = _pg.CreateContext();
             var posts = PostgresFixture.CreatePostService(context);
-            var comments = new CommentService(context, TimeProvider.System, TestServices.Guard(context));
+            var comments = SansPost.Tests.TestInfrastructure.TestServices.Comments(context);
             var search = new PostgresSearchService(context);
             var visibleOnly = new[] { visible.Id };
 

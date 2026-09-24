@@ -1,0 +1,14 @@
+@* Licznik znaków. Twardy limit wymusza maxlength pola; licznik tylko informuje (od 90% w kolorze + tekst). *@
+<span id="@Id" class="counter @StateClass">
+    @UiText.Number(Length) / @UiText.Number(Max)<span class="visually-hidden"> znaków</span>
+</span>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter, EditorRequired] public int Max { get; set; }
+    [Parameter] public string? Id { get; set; }
+
+    private int Length => Value?.Length ?? 0;
+
+    private string StateClass => Length > Max ? "is-over" : Length >= Max * 0.9 ? "is-near" : "";
+}

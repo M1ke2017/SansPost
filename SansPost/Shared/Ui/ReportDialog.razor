@@ -1,0 +1,142 @@
+@using SansPost.Features.Moderation
+@inject UiServices Ui
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+@inject ILogger<ReportDialog> Logger
+
+@* Zgłoszenie posta/komentarza: powód, opcjonalne szczegóły, potwierdzenie. Bez wewnętrznych danych moderacji. *@
+<Modal @ref="modal" Title="@title">
+    <ChildContent>
+        <p class="muted text-sm">Zgłoszenie trafi do moderacji. Autor nie zobaczy, kto zgłosił treść.</p>
+
+        @if (errorMessage is not null)
+        {
+            <Alert Variant="@errorVariant">@errorMessage</Alert>
+        }
+
+        <fieldset class="stack-sm" style="border: 0; padding: 0; margin: 0">
+            <legend class="field-label" style="margin-bottom: var(--space-2)">Powód</legend>
+            @foreach (var value in Enum.GetValues<ReportReason>())
+            {
+                var option = value;
+                <label class="report-option">
+                    <input type="radio" name="report-reason" value="@option" checked="@(reason == option)"
+                           autofocus="@(option == ReportReason.Spam)" @onchange="() => reason = option" />
+                    <span>
+                        <span class="report-option-title">@Label(option)</span>
+                        <span class="report-option-hint">@Hint(option)</span>
+                    </span>
+                </label>
+            }
+        </fieldset>
+
+        <div class="field">
+            <label class="field-label" for="report-details">Szczegóły <span class="optional">(opcjonalnie)</span></label>
+            <textarea id="report-details" class="textarea textarea-sm" maxlength="@ModerationLimits.DetailsMaxLength"
+                      @bind="details" @bind:event="oninput" aria-describedby="report-details-hint"></textarea>
+            <span class="field-hint" id="report-details-hint">
+                <span>Pomóż moderacji zrozumieć problem.</span>
+                <CharCounter Value="@details" Max="ModerationLimits.DetailsMaxLength" />
+            </span>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn" @onclick="() => modal!.CloseAsync()">Anuluj</button>
+        <button type="button" class="btn btn-primary" disabled="@isBusy" aria-busy="@(isBusy ? "true" : "false")" @onclick="SubmitAsync">
+            @if (isBusy)
+            {
+                <span class="spinner" aria-hidden="true"></span>
+            }
+            Wyślij zgłoszenie
+        </button>
+    </Footer>
+</Modal>
+
+@code {
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    private Modal? modal;
+    private ReportTargetType targetType;
+    private int targetId;
+    private string title = "Zgłoś treść";
+    private ReportReason reason = ReportReason.Spam;
+    private string details = "";
+    private bool isBusy;
+    private string? errorMessage;
+    private AlertVariant errorVariant = AlertVariant.Danger;
+
+    public async Task OpenAsync(ReportTargetType type, int id)
+    {
+        targetType = type;
+        targetId = id;
+        title = type == ReportTargetType.Post ? "Zgłoś post" : "Zgłoś komentarz";
+        reason = ReportReason.Spam;
+        details = "";
+        errorMessage = null;
+        await modal!.ShowAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (Viewer is null || isBusy)
+            return;
+
+        isBusy = true;
+        errorMessage = null;
+        try
+        {
+            var result = await Ui.Run((IReportService s) => s.CreateAsync(Viewer.UserId, new CreateReportRequest
+            {
+                TargetType = targetType,
+                TargetId = targetId,
+                Reason = reason,
+                Details = string.IsNullOrWhiteSpace(details) ? null : details.Trim()
+            }));
+
+            if (result.Succeeded)
+            {
+                await modal!.CloseAsync();
+                Toasts.Success(result.Value!.Created
+                    ? "Dziękujemy. Zgłoszenie trafiło do moderacji."
+                    : "To zgłoszenie już czeka na moderację.");
+                return;
+            }
+
+            if (UiErrors.EndsSession(result))
+            {
+                Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+                return;
+            }
+
+            errorMessage = UiErrors.Describe(result, notFound: "Ta treść nie jest już dostępna.");
+            errorVariant = UiErrors.Variant(result);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wysyłania zgłoszenia.");
+            errorMessage = UiErrors.Generic;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    public static string Label(ReportReason reason) => reason switch
+    {
+        ReportReason.Spam => "Spam lub reklama",
+        ReportReason.Abuse => "Obraźliwe treści",
+        ReportReason.Harassment => "Nękanie",
+        ReportReason.InappropriateContent => "Nieodpowiednie treści",
+        _ => "Inny powód"
+    };
+
+    private static string Hint(ReportReason reason) => reason switch
+    {
+        ReportReason.Spam => "Masowe, powtarzalne lub reklamowe wpisy.",
+        ReportReason.Abuse => "Wulgaryzmy, obelgi, mowa nienawiści.",
+        ReportReason.Harassment => "Ataki lub uporczywe zaczepki wobec konkretnej osoby.",
+        ReportReason.InappropriateContent => "Treści nieodpowiednie dla publicznej przestrzeni.",
+        _ => "Opisz problem w szczegółach."
+    };
+}

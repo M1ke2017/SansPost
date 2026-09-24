@@ -1,18 +1,140 @@
-﻿@page "/"
+@page "/"
+@page "/posts"
+@using SansPost.Features.Demo
+@inject UiServices Ui
+@inject NavigationManager Navigation
+@inject ILogger<Index> Logger
 
-<PageTitle>Index</PageTitle>
+<PageTitle>SansPost — rozmowy, które mają sens</PageTitle>
 
-<div class="home-container">
-    <div class="welcome-text">
-        <h1>Witamy w <span>SansPost</span></h1>
-        <p>
-            Twój nowoczesny portal społecznościowy do dzielenia się przemyśleniami, nowościami i ciekawostkami! <br>
-            Dołącz do społeczności, publikuj posty i poznawaj nowych ludzi.
-        </p>
-        <div class="buttons">
-            <a href="/register" class="register-btn">Zarejestruj się</a>
-            <a href="/login" class="register-btn">Zaloguj się</a>
-            <a href="/no-reg-user" class="browse-btn">Przeglądaj posty</a>
+@* Główny plac SansPost: baner z pejzażem pogranicza. Gość dostaje wyjaśnienie i wejście; zalogowany — krótkie powitanie. *@
+@if (Viewer is null)
+{
+    <section class="frontier-banner" aria-labelledby="intro-title">
+        <span class="eyebrow"><Icon Name="@Icons.Signpost" Size="14" StrokeWidth="2" /> Główny plac</span>
+        <h1 id="intro-title">Rozmowy, które mają sens.</h1>
+        <p>SansPost to miejsce, gdzie ludzie zostawiają wiadomości, opinie i historie — o technologii, grach, podróżach, pomysłach i projektach. Czytasz bez konta; z kontem publikujesz, komentujesz i reagujesz.</p>
+        <div class="cluster">
+            <a class="btn btn-primary" href="/register">Dołącz do rozmowy</a>
+            <a class="btn" href="#feed-title">Przeglądaj posty</a>
         </div>
-    </div>
+        <FrontierScene Variant="town" />
+    </section>
+}
+else
+{
+    <section class="frontier-banner is-compact" aria-labelledby="feed-title">
+        <span class="eyebrow"><Icon Name="@Icons.Signpost" Size="14" StrokeWidth="2" /> Główny plac</span>
+        <h1 id="feed-title">Odkrywaj</h1>
+        <p>Świeże wiadomości ze wszystkich zakątków SansPost.</p>
+        <FrontierScene Variant="town" />
+    </section>
+}
+
+<div class="layout-with-aside">
+    <section aria-labelledby="@(Viewer is null ? "feed-title" : "feed-list-title")" class="stack">
+        <div class="spread">
+            <h2 id="@(Viewer is null ? "feed-title" : "feed-list-title")" class="@(Viewer is null ? "" : "visually-hidden")" tabindex="-1">@(Viewer is null ? "Odkrywaj" : "Posty")</h2>
+            <div class="segmented" role="group" aria-label="Sortowanie postów">
+                <button type="button" aria-pressed="@(SortValue == PostSort.Newest ? "true" : "false")" @onclick="() => SetSort(PostSort.Newest)">
+                    <Icon Name="@Icons.Clock" Size="16" /> Najnowsze
+                </button>
+                <button type="button" aria-pressed="@(SortValue == PostSort.Popular ? "true" : "false")" @onclick="() => SetSort(PostSort.Popular)">
+                    <Icon Name="@Icons.Trending" Size="16" /> Popularne
+                </button>
+            </div>
+        </div>
+
+        <CategoryStrip Current="null" />
+
+        @if (featured is not null)
+        {
+            <PostCard Post="featured" Featured="true" />
+        }
+
+        <FeedList Sort="SortValue" ExcludePostId="featured?.Id" Label="@(SortValue == PostSort.Popular ? "Popularne posty" : "Najnowsze posty")">
+            <Empty>
+                <EmptyState Title="Nie ma jeszcze postów" Text="SansPost dopiero się rozkręca. Zacznij pierwszą rozmowę.">
+                    <a class="btn btn-primary" href="/new"><Icon Name="@Icons.Cactus" /> Napisz post</a>
+                </EmptyState>
+            </Empty>
+        </FeedList>
+    </section>
+
+    <aside class="aside" aria-label="Kategorie i informacje">
+        @if (categories is not null)
+        {
+            <div class="card aside-categories">
+                <div class="card-body">
+                    <div class="spread" style="margin-bottom: var(--space-2)">
+                        <h2 class="section-title">Kategorie</h2>
+                        <a class="text-sm" href="/categories">Wszystkie</a>
+                    </div>
+                    <ul class="list-plain category-list">
+                        @foreach (var item in categories)
+                        {
+                            <li class="@CategoryMeta.CssClass(item.Category)">
+                                <a href="@CategoryMeta.Url(item.Category)">
+                                    <Icon Name="@CategoryMeta.Icon(item.Category)" Size="16" />
+                                    <span class="name">@item.Category.DisplayName()</span>
+                                    <span class="count" aria-label="@UiText.Posts(item.PostCount)">@UiText.Number(item.PostCount)</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+
+        @* Feedback: naturalne miejsce na opinie — zwykła kategoria, bez osobnego "formularza dla rekrutera". *@
+        <div class="card cat-feedback">
+            <div class="card-body stack-sm">
+                <h2 class="section-title"><Icon Name="@Icons.Megaphone" Size="15" Class="inline-icon" /> Feedback</h2>
+                <p class="text-sm">Co działa, co przeszkadza, czego brakuje? Uwagi o SansPost trafiają do kategorii Feedback — jak każda inna rozmowa.</p>
+                <div class="cluster">
+                    <a class="btn btn-sm" href="@CategoryMeta.Url(PostCategory.Feedback)">Czytaj opinie</a>
+                    <a class="btn btn-sm btn-ghost" href="@($"/new?category={CategoryMeta.Slug(PostCategory.Feedback)}")">Zostaw opinię</a>
+                </div>
+            </div>
+        </div>
+
+        <p class="demo-note">
+            <Icon Name="@Icons.Info" Size="16" />
+            <span>SansPost to projekt portfolio działający na żywo. Treści są prawdziwe, a liczba kont w tej wersji jest ograniczona.</span>
+        </p>
+    </aside>
 </div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+
+    private PostCardModel? featured;
+    private IReadOnlyList<CategorySummaryResponse>? categories;
+
+    private PostSort SortValue => string.Equals(Sort, "popular", StringComparison.OrdinalIgnoreCase) ? PostSort.Popular : PostSort.Newest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var viewerId = (await AuthState).User.GetUserId();
+            var featuredId = await Ui.Run((IFeaturedPostLocator s) => s.GetFeaturedPostIdAsync());
+            if (featuredId is int id && await Ui.Run((IPostService s) => s.GetByIdAsync(id, viewerId)) is { } post)
+                featured = PostCardModel.From(post);
+
+            categories = await Ui.Run((IPostService s) => s.GetCategoriesAsync());
+        }
+        catch (Exception ex)
+        {
+            // Dodatki strony głównej — feed działa niezależnie od nich.
+            Logger.LogWarning(ex, "Nie udało się wczytać wyróżnionego posta lub kategorii.");
+        }
+    }
+
+    // Sortowanie w adresie (?sort=popular) — link można udostępnić, a "wstecz" przywraca widok.
+    private void SetSort(PostSort sort) =>
+        Navigation.NavigateTo(sort == PostSort.Popular ? "/?sort=popular" : "/", replace: false);
+}

@@ -1,0 +1,116 @@
+@* Wspólny edytor posta (tworzenie i edycja): etykiety, liczniki, walidacja przy polach (tekst + ikona, nie sam kolor),
+   fokus na pierwszym błędnym polu. Walidacja kliencka jest wygodą — serwis waliduje ponownie. *@
+<form class="stack" @onsubmit="SubmitAsync" novalidate>
+    <div class="field">
+        <label class="field-label" for="post-title">Tytuł</label>
+        <input @ref="titleRef" id="post-title" class="input" type="text" maxlength="@PostLimits.TitleMaxLength"
+               @bind="Draft.Title" @bind:event="oninput" disabled="@Disabled" autocomplete="off"
+               aria-invalid="@(titleError is null ? null : "true")" aria-describedby="post-title-hint @(titleError is null ? "" : "post-title-error")" />
+        <span class="field-hint" id="post-title-hint">
+            <span>Konkretny tytuł pomaga innym trafić do rozmowy.</span>
+            <CharCounter Value="@Draft.Title" Max="PostLimits.TitleMaxLength" />
+        </span>
+        @if (titleError is not null)
+        {
+            <span class="field-error" id="post-title-error"><Icon Name="@Icons.AlertCircle" Size="16" /> @titleError</span>
+        }
+    </div>
+
+    <div class="field">
+        <label class="field-label" for="post-category">Kategoria</label>
+        <select @ref="categoryRef" id="post-category" class="select" @bind="CategoryValue" disabled="@Disabled"
+                aria-invalid="@(categoryError is null ? null : "true")" aria-describedby="@(categoryError is null ? null : "post-category-error")">
+            <option value="">Wybierz kategorię…</option>
+            @foreach (var category in CategoryMeta.All)
+            {
+                <option value="@category">@category.DisplayName() — @CategoryMeta.Description(category)</option>
+            }
+        </select>
+        @if (categoryError is not null)
+        {
+            <span class="field-error" id="post-category-error"><Icon Name="@Icons.AlertCircle" Size="16" /> @categoryError</span>
+        }
+    </div>
+
+    <div class="field">
+        <label class="field-label" for="post-content">Treść</label>
+        <textarea @ref="contentRef" id="post-content" class="textarea textarea-lg" maxlength="@PostLimits.ContentMaxLength"
+                  @bind="Draft.Content" @bind:event="oninput" disabled="@Disabled"
+                  aria-invalid="@(contentError is null ? null : "true")" aria-describedby="post-content-hint @(contentError is null ? "" : "post-content-error")"></textarea>
+        <span class="field-hint" id="post-content-hint">
+            <span>Zwykły tekst — puste linie dzielą akapity.</span>
+            <CharCounter Value="@Draft.Content" Max="PostLimits.ContentMaxLength" />
+        </span>
+        @if (contentError is not null)
+        {
+            <span class="field-error" id="post-content-error"><Icon Name="@Icons.AlertCircle" Size="16" /> @contentError</span>
+        }
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-lg" disabled="@(Disabled || Busy)" aria-busy="@(Busy ? "true" : "false")">
+            @if (Busy)
+            {
+                <span class="spinner" aria-hidden="true"></span>
+                <span>@BusyLabel</span>
+            }
+            else
+            {
+                @if (PublishIcon)
+                {
+                    <Icon Name="@Icons.Cactus" />
+                }
+                <span>@SubmitLabel</span>
+            }
+        </button>
+        @Actions
+    </div>
+</form>
+
+@code {
+    [Parameter, EditorRequired] public PostDraft Draft { get; set; } = default!;
+    [Parameter, EditorRequired] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public string SubmitLabel { get; set; } = "Opublikuj";
+    [Parameter] public string BusyLabel { get; set; } = "Publikowanie…";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    // Znak publikacji (kaktus) tylko przy tworzeniu — zapis edycji to zwykła akcja.
+    [Parameter] public bool PublishIcon { get; set; } = true;
+
+    private ElementReference titleRef;
+    private ElementReference categoryRef;
+    private ElementReference contentRef;
+    private string? titleError;
+    private string? categoryError;
+    private string? contentError;
+
+    private string CategoryValue
+    {
+        get => Draft.Category?.ToString() ?? "";
+        set => Draft.Category = Enum.TryParse<PostCategory>(value, out var category) ? category : null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (Busy || Disabled)
+            return;
+
+        var title = Draft.Title.Trim();
+        titleError = title.Length == 0 ? "Wpisz tytuł."
+            : title.Length < PostLimits.TitleMinLength ? $"Tytuł musi mieć co najmniej {PostLimits.TitleMinLength} znaki."
+            : null;
+        categoryError = Draft.Category is null ? "Wybierz kategorię." : null;
+        contentError = string.IsNullOrWhiteSpace(Draft.Content) ? "Napisz treść posta." : null;
+
+        if (titleError is not null)
+            await titleRef.FocusAsync();
+        else if (categoryError is not null)
+            await categoryRef.FocusAsync();
+        else if (contentError is not null)
+            await contentRef.FocusAsync();
+        else
+            await OnValidSubmit.InvokeAsync();
+    }
+}

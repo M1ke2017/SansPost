@@ -16,12 +16,27 @@ namespace SansPost.Controllers
         private readonly IAuthService _authService;
         private readonly IApiTokenService _tokenService;
         private readonly IUserService _userService;
+        private readonly IAliasGenerator _aliases;
 
-        public AuthController(IAuthService authService, IApiTokenService tokenService, IUserService userService)
+        public AuthController(IAuthService authService, IApiTokenService tokenService, IUserService userService, IAliasGenerator aliases)
         {
             _authService = authService;
             _tokenService = tokenService;
             _userService = userService;
+            _aliases = aliases;
+        }
+
+        // Propozycja przydomka dla formularza rejestracji ("Losuj inny"). Niczego nie tworzy ani nie rezerwuje.
+        // Rejestracja bez Username dostaje przydomek przydzielony przez serwer.
+        [AllowAnonymous]
+        [EnableRateLimiting(RateLimitPolicies.Search)]
+        [HttpGet("alias-suggestion")]
+        public async Task<IActionResult> SuggestAlias(CancellationToken cancellationToken)
+        {
+            var alias = await _aliases.SuggestAsync(cancellationToken);
+            return alias is null
+                ? Problem(detail: "Brak wolnych przydomków.", statusCode: StatusCodes.Status409Conflict)
+                : Ok(new AliasSuggestionResponse(alias));
         }
 
         [AllowAnonymous]

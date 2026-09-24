@@ -1,92 +1,488 @@
 @page "/admin/moderation"
 @attribute [Authorize(Roles = "Admin")]
 @using SansPost.Features.Moderation
-@inject IReportService ReportService
-@inject IModerationService ModerationService
+@inject UiServices Ui
+@inject ToastService Toasts
+@inject ILogger<AdminModeration> Logger
 
-@* Minimalna kolejka moderacji. Autoryzacja: [Authorize(Roles)] na stronie ORAZ sprawdzenie Admin w bazie w IModerationService. *@
-<div class="home-container">
-    <div class="register-text">
-        <h2>Moderacja — oczekujące zgłoszenia</h2>
+@* Autoryzacja: [Authorize(Roles)] na stronie ORAZ sprawdzenie Admin+Active w bazie w IModerationService (źródło prawdy). *@
+<PageTitle>Moderacja · SansPost</PageTitle>
 
-        @if (!string.IsNullOrEmpty(message))
-        {
-            <p>@message</p>
-        }
-
-        @if (items.Count == 0)
-        {
-            <p>Brak oczekujących zgłoszeń.</p>
-        }
-
-        @foreach (var item in items)
-        {
-            <div class="post-box">
-                <strong>@item.TargetType #@item.TargetId</strong> — @item.Reason (@item.TargetStatus)
-                <p>@item.TargetPreview</p>
-                <span>Autor: @item.TargetAuthorUsername · zgłosił: @item.ReporterUsername · @item.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</span>
-                @if (!string.IsNullOrEmpty(item.Details))
-                {
-                    <p>Szczegóły: @item.Details</p>
-                }
-                <div>
-                    <button @onclick="() => HideAsync(item)">Ukryj treść</button>
-                    <button @onclick="() => DismissAsync(item)">Odrzuć zgłoszenie</button>
-                </div>
-            </div>
-        }
-
-        @if (nextCursor is not null)
-        {
-            <button @onclick="LoadMoreAsync">Więcej</button>
-        }
+<div class="page-header">
+    <div>
+        <span class="eyebrow"><Icon Name="@Icons.Shield" Size="15" Class="inline-icon" /> Panel administratora</span>
+        <h1>Moderacja</h1>
+        <p>Zgłoszenia od najstarszych. Każda decyzja trafia do niezmiennego dziennika działań.</p>
     </div>
 </div>
 
+<div class="tabs" role="tablist" aria-label="Widok moderacji">
+    <button type="button" role="tab" id="tab-queue" aria-controls="panel-queue" aria-selected="@(tab == Tab.Queue ? "true" : "false")"
+            tabindex="@(tab == Tab.Queue ? 0 : -1)" @onclick="() => SwitchAsync(Tab.Queue)" @onkeydown="TabKeyDown">
+        <Icon Name="@Icons.Flag" Size="16" /> Zgłoszenia
+    </button>
+    <button type="button" role="tab" id="tab-history" aria-controls="panel-history" aria-selected="@(tab == Tab.History ? "true" : "false")"
+            tabindex="@(tab == Tab.History ? 0 : -1)" @onclick="() => SwitchAsync(Tab.History)" @onkeydown="TabKeyDown">
+        <Icon Name="@Icons.Clock" Size="16" /> Historia działań
+    </button>
+</div>
+
+@if (tab == Tab.Queue)
+{
+    <section id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" class="stack">
+        @if (queueError is not null)
+        {
+            <Alert Variant="AlertVariant.Danger">
+                <ChildContent>@queueError</ChildContent>
+                <Actions><button type="button" class="btn btn-sm" @onclick="ReloadQueueAsync">Spróbuj ponownie</button></Actions>
+            </Alert>
+        }
+
+        @if (isLoadingQueue && queue.Count == 0)
+        {
+            <p class="muted" role="status">Wczytywanie zgłoszeń…</p>
+        }
+        else if (queue.Count == 0 && queueError is null)
+        {
+            <EmptyState Title="Brak oczekujących zgłoszeń" IconName="@Icons.CheckCircle"
+                        Text="Wszystko rozpatrzone. Nowe zgłoszenia pojawią się tutaj." />
+        }
+        else
+        {
+            <ul class="queue list-plain">
+                @foreach (var item in queue)
+                {
+                    var details = expanded.GetValueOrDefault(item.ReportId);
+                    <li @key="item.ReportId" class="queue-item">
+                        <div class="spread">
+                            <div class="cluster">
+                                <span class="badge">@(item.TargetType == ReportTargetType.Post ? "Post" : "Komentarz") #@item.TargetId</span>
+                                <span class="badge badge-danger"><Icon Name="@Icons.Flag" Size="12" /> @ReportDialog.Label(item.Reason)</span>
+                                @if (item.TargetStatus is ContentStatus status && status != ContentStatus.Published)
+                                {
+                                    <span class="badge badge-warning">@StatusLabel(status)</span>
+                                }
+                            </div>
+                            <TimeAgo Value="item.CreatedAt" Class="text-sm subtle" />
+                        </div>
+
+                        <div class="queue-preview">@(item.TargetPreview ?? "Treść niedostępna.")</div>
+
+                        <dl class="kv">
+                            <dt>Autor treści</dt>
+                            <dd>@(item.TargetAuthorUsername ?? "—")</dd>
+                            <dt>Zgłaszający</dt>
+                            <dd>@item.ReporterUsername</dd>
+                            @if (!string.IsNullOrWhiteSpace(item.Details))
+                            {
+                                <dt>Szczegóły</dt>
+                                <dd style="white-space: pre-line">@item.Details</dd>
+                            }
+                        </dl>
+
+                        @if (details is not null)
+                        {
+                            <div class="card" style="box-shadow: none">
+                                <div class="card-body stack-sm">
+                                    <span class="section-title">Pełna treść</span>
+                                    @if (details.Title is not null)
+                                    {
+                                        <strong>@details.Title</strong>
+                                    }
+                                    <p class="text-sm" style="white-space: pre-line">@details.Content</p>
+                                    <div class="cluster text-sm muted">
+                                        <span>Status: <strong>@StatusLabel(details.Status)</strong></span>
+                                        <span>· Oczekujące zgłoszenia: @details.PendingReports</span>
+                                        <span>· Konto autora: <strong>@AccountLabel(details.AuthorStatus)</strong></span>
+                                    </div>
+                                    <div class="cluster">
+                                        @if (details.Status == ContentStatus.Published)
+                                        {
+                                            <a class="btn btn-sm" href="@TargetUrl(details)" target="_blank" rel="noopener">Otwórz w nowej karcie</a>
+                                        }
+                                        @if (details.AuthorStatus == AccountStatus.Active)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => AskSuspend(details)"><Icon Name="@Icons.Pause" Size="15" /> Zawieś autora</button>
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => AskBan(details)"><Icon Name="@Icons.Ban" Size="15" /> Zablokuj autora</button>
+                                        }
+                                        else if (details.AuthorStatus == AccountStatus.Suspended)
+                                        {
+                                            <button type="button" class="btn btn-sm" @onclick="() => AskReactivate(details.AuthorId, details.AuthorUsername)"><Icon Name="@Icons.UserCheck" Size="15" /> Przywróć konto</button>
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => AskBan(details)"><Icon Name="@Icons.Ban" Size="15" /> Zablokuj autora</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-sm" @onclick="() => AskReactivate(details.AuthorId, details.AuthorUsername)"><Icon Name="@Icons.UserCheck" Size="15" /> Odblokuj konto</button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="cluster">
+                            <button type="button" class="btn btn-sm btn-danger-solid" @onclick="() => AskHide(item)"><Icon Name="@Icons.EyeOff" Size="15" /> Ukryj treść</button>
+                            <button type="button" class="btn btn-sm" @onclick="() => AskDismiss(item)"><Icon Name="@Icons.X" Size="15" /> Odrzuć zgłoszenie</button>
+                            <button type="button" class="btn btn-sm btn-ghost" aria-expanded="@(details is null ? "false" : "true")" @onclick="() => ToggleDetailsAsync(item)">
+                                @(details is null ? "Szczegóły i autor" : "Zwiń szczegóły")
+                            </button>
+                        </div>
+                    </li>
+                }
+            </ul>
+
+            <LoadMore HasMore="queueCursor is not null" IsLoading="isLoadingQueue" OnClick="LoadQueueAsync" Label="Starsze zgłoszenia" />
+        }
+    </section>
+}
+else
+{
+    <section id="panel-history" role="tabpanel" aria-labelledby="tab-history" class="stack">
+        @if (historyError is not null)
+        {
+            <Alert Variant="AlertVariant.Danger">@historyError</Alert>
+        }
+
+        @if (isLoadingHistory && history.Count == 0)
+        {
+            <p class="muted" role="status">Wczytywanie historii…</p>
+        }
+        else if (history.Count == 0 && historyError is null)
+        {
+            <EmptyState Title="Brak działań moderacyjnych" IconName="@Icons.Clock" Text="Tu pojawią się wszystkie decyzje administratorów." />
+        }
+        else
+        {
+            <div class="table-wrap card">
+                <table class="table">
+                    <caption class="visually-hidden">Dziennik działań moderacyjnych, od najnowszych</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Działanie</th>
+                            <th scope="col">Cel</th>
+                            <th scope="col">Administrator</th>
+                            <th scope="col">Uzasadnienie</th>
+                            <th scope="col">Kiedy</th>
+                            <th scope="col"><span class="visually-hidden">Akcje</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var action in history)
+                        {
+                            <tr @key="action.Id">
+                                <td class="nowrap">@ActionLabel(action.ActionType)</td>
+                                <td class="nowrap">@TargetLabel(action.TargetType) #@action.TargetId</td>
+                                <td>@action.AdminUsername</td>
+                                <td style="min-width: 180px">@(action.Reason ?? "—")</td>
+                                <td class="nowrap"><TimeAgo Value="action.CreatedAt" /></td>
+                                <td class="nowrap">
+                                    @switch (action.ActionType)
+                                    {
+                                        case ModerationActionType.HidePost:
+                                            <button type="button" class="btn btn-sm" @onclick="() => AskRestore(ReportTargetType.Post, action.TargetId)">Przywróć post</button>
+                                            break;
+                                        case ModerationActionType.HideComment:
+                                            <button type="button" class="btn btn-sm" @onclick="() => AskRestore(ReportTargetType.Comment, action.TargetId)">Przywróć komentarz</button>
+                                            break;
+                                        case ModerationActionType.SuspendUser or ModerationActionType.BanUser:
+                                            <button type="button" class="btn btn-sm" @onclick="() => AskReactivate(action.TargetId, null)">Przywróć konto</button>
+                                            break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <LoadMore HasMore="historyCursor is not null" IsLoading="isLoadingHistory" OnClick="LoadHistoryAsync" Label="Starsze działania" />
+        }
+    </section>
+}
+
+<Modal @ref="confirmDialog" Title="@(pending?.Title ?? "Potwierdź")">
+    <ChildContent>
+        @if (pending is not null)
+        {
+            <p>@pending.Description</p>
+            @if (actionError is not null)
+            {
+                <Alert Variant="@actionErrorVariant">@actionError</Alert>
+            }
+            <div class="field">
+                <label class="field-label" for="moderation-reason">Uzasadnienie <span class="optional">(opcjonalnie, trafia do dziennika)</span></label>
+                <textarea id="moderation-reason" class="textarea textarea-sm" maxlength="@ModerationLimits.ReasonMaxLength" autofocus
+                          @bind="reason" @bind:event="oninput"></textarea>
+                <span class="field-hint"><span></span><CharCounter Value="@reason" Max="ModerationLimits.ReasonMaxLength" /></span>
+            </div>
+        }
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn" @onclick="() => confirmDialog!.CloseAsync()">Anuluj</button>
+        <button type="button" class="btn @(pending?.Danger == true ? "btn-danger-solid" : "btn-primary")" disabled="@isRunning"
+                aria-busy="@(isRunning ? "true" : "false")" @onclick="RunPendingAsync">
+            @if (isRunning)
+            {
+                <span class="spinner" aria-hidden="true"></span>
+            }
+            @(pending?.ConfirmLabel ?? "Potwierdź")
+        </button>
+    </Footer>
+</Modal>
+
 @code {
-    [CascadingParameter]
-    private Task<AuthenticationState> AuthState { get; set; } = default!;
+    private enum Tab { Queue, History }
 
-    private readonly List<ModerationQueueItem> items = new();
-    private string? nextCursor;
-    private string? message;
+    private sealed record PendingAction(string Title, string Description, string ConfirmLabel, bool Danger, string SuccessMessage,
+        Func<int, string?, Task<ServiceResult>> Run);
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
 
-    private async Task ReloadAsync()
+    private Tab tab = Tab.Queue;
+
+    private readonly List<ModerationQueueItem> queue = new();
+    private readonly Dictionary<int, ModeratedContentView?> expanded = new();
+    private string? queueCursor;
+    private bool isLoadingQueue;
+    private string? queueError;
+
+    private readonly List<ModerationActionResponse> history = new();
+    private string? historyCursor;
+    private bool isLoadingHistory;
+    private bool historyLoaded;
+    private string? historyError;
+
+    private Modal? confirmDialog;
+    private PendingAction? pending;
+    private string reason = "";
+    private bool isRunning;
+    private string? actionError;
+    private AlertVariant actionErrorVariant = AlertVariant.Danger;
+
+    protected override Task OnInitializedAsync() => ReloadQueueAsync();
+
+    private async Task SwitchAsync(Tab target)
     {
-        items.Clear();
-        nextCursor = null;
-        await LoadMoreAsync();
+        tab = target;
+        if (target == Tab.History && !historyLoaded)
+            await ReloadHistoryAsync();
     }
 
-    private async Task LoadMoreAsync()
+    // Wzorzec tabs (WAI-ARIA): strzałki przełączają zakładki.
+    private Task TabKeyDown(KeyboardEventArgs e) => e.Key switch
     {
-        var page = await ReportService.GetPendingAsync(new ModerationQueueQuery { Cursor = nextCursor });
-        if (!page.Succeeded)
+        "ArrowRight" or "ArrowLeft" => SwitchAsync(tab == Tab.Queue ? Tab.History : Tab.Queue),
+        _ => Task.CompletedTask
+    };
+
+    private async Task ReloadQueueAsync()
+    {
+        queue.Clear();
+        expanded.Clear();
+        queueCursor = null;
+        await LoadQueueAsync();
+    }
+
+    private async Task LoadQueueAsync()
+    {
+        isLoadingQueue = true;
+        queueError = null;
+        try
+        {
+            var page = await Ui.Run((IReportService s) => s.GetPendingAsync(new ModerationQueueQuery { Cursor = queueCursor }));
+            if (!page.Succeeded)
+            {
+                queueError = UiErrors.Describe(page);
+                return;
+            }
+
+            queue.AddRange(page.Value!.Items);
+            queueCursor = page.Value.NextCursor;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wczytywania kolejki moderacji.");
+            queueError = "Nie udało się wczytać zgłoszeń.";
+        }
+        finally
+        {
+            isLoadingQueue = false;
+        }
+    }
+
+    private async Task ReloadHistoryAsync()
+    {
+        history.Clear();
+        historyCursor = null;
+        historyLoaded = true;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        isLoadingHistory = true;
+        historyError = null;
+        try
+        {
+            var page = await Ui.Run((IModerationService s) => s.GetActionsAsync(new ModerationQueueQuery { Cursor = historyCursor }));
+            if (!page.Succeeded)
+            {
+                historyError = UiErrors.Describe(page);
+                return;
+            }
+
+            history.AddRange(page.Value!.Items);
+            historyCursor = page.Value.NextCursor;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wczytywania historii moderacji.");
+            historyError = "Nie udało się wczytać historii.";
+        }
+        finally
+        {
+            isLoadingHistory = false;
+        }
+    }
+
+    private async Task ToggleDetailsAsync(ModerationQueueItem item)
+    {
+        if (expanded.ContainsKey(item.ReportId) && expanded[item.ReportId] is not null)
+        {
+            expanded.Remove(item.ReportId);
+            return;
+        }
+
+        var view = item.TargetType == ReportTargetType.Post
+            ? await Ui.Run((IModerationService s) => s.GetPostAsync(item.TargetId))
+            : await Ui.Run((IModerationService s) => s.GetCommentAsync(item.TargetId));
+
+        if (view is null)
+        {
+            Toasts.Error("Ta treść już nie istnieje.");
+            return;
+        }
+
+        expanded[item.ReportId] = view;
+    }
+
+    private Task AskHide(ModerationQueueItem item) => AskAsync(new PendingAction(
+        item.TargetType == ReportTargetType.Post ? "Ukryć post?" : "Ukryć komentarz?",
+        "Treść zniknie z publicznych widoków (feed, wyszukiwarka, profil), a wszystkie oczekujące zgłoszenia tej treści zostaną rozstrzygnięte. Można ją później przywrócić z historii.",
+        "Ukryj treść", true, "Treść ukryta, zgłoszenia rozstrzygnięte.",
+        (admin, why) => item.TargetType == ReportTargetType.Post
+            ? Ui.Run((IModerationService s) => s.HidePostAsync(admin, item.TargetId, why ?? $"Zgłoszenie #{item.ReportId}: {ReportDialog.Label(item.Reason)}"))
+            : Ui.Run((IModerationService s) => s.HideCommentAsync(admin, item.TargetId, why ?? $"Zgłoszenie #{item.ReportId}: {ReportDialog.Label(item.Reason)}"))));
+
+    private Task AskDismiss(ModerationQueueItem item) => AskAsync(new PendingAction(
+        "Odrzucić zgłoszenie?", "Treść pozostanie widoczna. Zgłoszenie zostanie oznaczone jako odrzucone.",
+        "Odrzuć zgłoszenie", false, "Zgłoszenie odrzucone.",
+        (admin, why) => Ui.Run((IModerationService s) => s.DismissReportAsync(admin, item.ReportId, why))));
+
+    private Task AskRestore(ReportTargetType type, int id) => AskAsync(new PendingAction(
+        type == ReportTargetType.Post ? "Przywrócić post?" : "Przywrócić komentarz?",
+        "Treść wróci do publicznych widoków.", "Przywróć", false, "Treść przywrócona.",
+        (admin, why) => type == ReportTargetType.Post
+            ? Ui.Run((IModerationService s) => s.RestorePostAsync(admin, id, why))
+            : Ui.Run((IModerationService s) => s.RestoreCommentAsync(admin, id, why))));
+
+    private Task AskSuspend(ModeratedContentView target) => AskAsync(new PendingAction(
+        $"Zawiesić konto {target.AuthorUsername}?",
+        "Użytkownik nadal może czytać, ale nie może publikować, komentować, reagować ani zgłaszać. Aktywne sesje zostaną odświeżone.",
+        "Zawieś konto", true, "Konto zawieszone.",
+        (admin, why) => Ui.Run((IModerationService s) => s.SuspendUserAsync(admin, target.AuthorId, why))));
+
+    private Task AskBan(ModeratedContentView target) => AskAsync(new PendingAction(
+        $"Zablokować konto {target.AuthorUsername}?",
+        "Użytkownik zostanie wylogowany ze wszystkich urządzeń i nie będzie mógł się zalogować. Jego treści pozostają — ukryj je osobno, jeśli trzeba.",
+        "Zablokuj konto", true, "Konto zablokowane.",
+        (admin, why) => Ui.Run((IModerationService s) => s.BanUserAsync(admin, target.AuthorId, why))));
+
+    private Task AskReactivate(int userId, string? username) => AskAsync(new PendingAction(
+        username is null ? "Przywrócić konto?" : $"Przywrócić konto {username}?",
+        "Konto odzyska pełne możliwości: publikowanie, komentowanie i reakcje.",
+        "Przywróć konto", false, "Konto przywrócone.",
+        (admin, why) => Ui.Run((IModerationService s) => s.ReactivateUserAsync(admin, userId, why))));
+
+    private async Task AskAsync(PendingAction action)
+    {
+        pending = action;
+        reason = "";
+        actionError = null;
+        await confirmDialog!.ShowAsync();
+    }
+
+    private async Task RunPendingAsync()
+    {
+        if (pending is null || isRunning || (await AuthState).User.GetUserId() is not int adminId)
             return;
 
-        items.AddRange(page.Value!.Items);
-        nextCursor = page.Value.NextCursor;
+        isRunning = true;
+        actionError = null;
+        try
+        {
+            var result = await pending.Run(adminId, string.IsNullOrWhiteSpace(reason) ? null : reason.Trim());
+            if (!result.Succeeded)
+            {
+                actionError = UiErrors.Describe(result, notFound: "Ta treść lub konto już nie istnieje.");
+                actionErrorVariant = UiErrors.Variant(result);
+                return;
+            }
+
+            Toasts.Success(pending.SuccessMessage);
+            await confirmDialog!.CloseAsync();
+            await ReloadQueueAsync();
+            if (historyLoaded)
+                await ReloadHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd akcji moderacyjnej.");
+            actionError = UiErrors.Generic;
+        }
+        finally
+        {
+            isRunning = false;
+        }
     }
 
-    private async Task HideAsync(ModerationQueueItem item)
+    private static string TargetUrl(ModeratedContentView view) => view.Type == ReportTargetType.Post
+        ? UiText.PostUrl(view.Id)
+        : $"{UiText.PostUrl(view.PostId ?? 0)}#comment-{view.Id}";
+
+    private static string StatusLabel(ContentStatus status) => status switch
     {
-        var adminId = (await AuthState).User.GetUserId()!.Value;
-        var result = item.TargetType == ReportTargetType.Post
-            ? await ModerationService.HidePostAsync(adminId, item.TargetId, $"Zgłoszenie #{item.ReportId}: {item.Reason}")
-            : await ModerationService.HideCommentAsync(adminId, item.TargetId, $"Zgłoszenie #{item.ReportId}: {item.Reason}");
+        ContentStatus.Published => "Opublikowana",
+        ContentStatus.Hidden => "Ukryta",
+        _ => "Usunięta przez autora"
+    };
 
-        message = result.Succeeded ? "Treść ukryta, zgłoszenia rozstrzygnięte." : result.Message;
-        await ReloadAsync();
-    }
-
-    private async Task DismissAsync(ModerationQueueItem item)
+    private static string AccountLabel(AccountStatus status) => status switch
     {
-        var adminId = (await AuthState).User.GetUserId()!.Value;
-        var result = await ModerationService.DismissReportAsync(adminId, item.ReportId, null);
+        AccountStatus.Active => "aktywne",
+        AccountStatus.Suspended => "zawieszone",
+        _ => "zablokowane"
+    };
 
-        message = result.Succeeded ? "Zgłoszenie odrzucone." : result.Message;
-        await ReloadAsync();
-    }
+    private static string TargetLabel(ModerationTargetType type) => type switch
+    {
+        ModerationTargetType.Post => "Post",
+        ModerationTargetType.Comment => "Komentarz",
+        ModerationTargetType.User => "Konto",
+        _ => "Zgłoszenie"
+    };
+
+    private static string ActionLabel(ModerationActionType type) => type switch
+    {
+        ModerationActionType.HidePost => "Ukrycie posta",
+        ModerationActionType.RestorePost => "Przywrócenie posta",
+        ModerationActionType.HideComment => "Ukrycie komentarza",
+        ModerationActionType.RestoreComment => "Przywrócenie komentarza",
+        ModerationActionType.SuspendUser => "Zawieszenie konta",
+        ModerationActionType.BanUser => "Blokada konta",
+        ModerationActionType.ReactivateUser => "Przywrócenie konta",
+        ModerationActionType.DismissReport => "Odrzucenie zgłoszenia",
+        ModerationActionType.ChangeRole => "Zmiana roli",
+        ModerationActionType.ChangeSubscription => "Zmiana planu",
+        _ => type.ToString()
+    };
 }

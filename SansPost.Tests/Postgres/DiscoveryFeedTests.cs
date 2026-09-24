@@ -161,7 +161,7 @@ namespace SansPost.Tests.Postgres
             await using var context = _pg.CreateContext(connectionString);
             var authorId = (await TestServices.Auth(context).RegisterAsync(new()
             {
-                Username = "kategorie",
+                Username = "CanyonWren",
                 Email = "kategorie@example.com",
                 Password = "correct-horse-battery"
             })).Value!.Id;

@@ -1,0 +1,82 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Natywny <dialog> (showModal): pułapka fokusu, Escape, inert tło i powrót fokusu do wyzwalacza zapewnia przeglądarka.
+   Treść renderowana tylko gdy otwarty — każde otwarcie zaczyna od czystego stanu. Pierwsze pole: atrybut autofocus. *@
+<dialog class="dialog" @ref="element" aria-labelledby="@titleId">
+    @if (isOpen)
+    {
+        <div class="dialog-header">
+            <h2 class="dialog-title" id="@titleId">@Title</h2>
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="Zamknij okno" @onclick="CloseAsync">
+                <Icon Name="@Icons.X" />
+            </button>
+        </div>
+        <div class="dialog-body">
+            @ChildContent
+        </div>
+        @if (Footer is not null)
+        {
+            <div class="dialog-footer">@Footer</div>
+        }
+    }
+</dialog>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private readonly string titleId = "dialog-" + Guid.NewGuid().ToString("N")[..8];
+    private ElementReference element;
+    private DotNetObjectReference<Modal>? selfReference;
+    private bool isOpen;
+    private bool showPending;
+
+    public bool IsOpen => isOpen;
+
+    public Task ShowAsync()
+    {
+        isOpen = true;
+        showPending = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    public async Task CloseAsync()
+    {
+        if (!isOpen)
+            return;
+
+        // Zamknięcie natywne wywoła zdarzenie "close" → OnDialogClosed.
+        await JS.InvokeVoidAsync("sansPost.closeDialog", element);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!showPending)
+            return;
+
+        showPending = false;
+        selfReference ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("sansPost.showDialog", element, selfReference);
+    }
+
+    [JSInvokable]
+    public async Task OnDialogClosed()
+    {
+        if (!isOpen)
+            return;
+
+        isOpen = false;
+        StateHasChanged();
+        await OnClosed.InvokeAsync();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        selfReference?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

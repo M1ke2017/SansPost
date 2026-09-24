@@ -75,6 +75,25 @@ namespace SansPost.Tests.TestInfrastructure
     {
         public const string Password = "correct-horse-battery";
 
-        public static string UniqueName(string prefix = "u") => $"{prefix}{Guid.NewGuid():N}"[..20];
+        // Konta publiczne mają wyłącznie przydomki z WesternAliases. Testy dostają kolejne, unikalne w obrębie procesu
+        // przydomki (wspólna baza kolekcji PostgreSQL) — z pominięciem przydomków autorów demo (seeder).
+        // Prefiks zostaje w sygnaturze dla czytelności wywołań; nie wpływa na wynik.
+        private static readonly string[] Pool = WesternAliases.All
+            .Except(SansPost.Features.Demo.DemoContent.Authors)
+            .OrderBy(a => a, StringComparer.Ordinal)
+            .ToArray();
+
+        private static int _next = -1;
+
+        // Nazwa dla wierszy wstawianych bezpośrednio do bazy (dane masowe, legacy) — z pominięciem rejestracji.
+        public static string RawName(string prefix = "u") => $"{prefix}{Guid.NewGuid():N}"[..20];
+
+        public static string UniqueName(string prefix = "u")
+        {
+            var index = Interlocked.Increment(ref _next);
+            if (index >= Pool.Length)
+                throw new InvalidOperationException($"Wyczerpano pulę przydomków testowych ({Pool.Length}).");
+            return Pool[index];
+        }
     }
 }

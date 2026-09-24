@@ -64,7 +64,7 @@ namespace SansPost.Controllers
 
             var result = await _authService.RegisterAsync(new RegisterRequest
             {
-                Username = form.Username ?? string.Empty,
+                Username = form.Username,
                 Email = form.Email ?? string.Empty,
                 Password = form.Password ?? string.Empty
             }, cancellationToken);
@@ -77,6 +77,8 @@ namespace SansPost.Controllers
                 AuthService.CapacityReachedCode => "/register?error=capacity",
                 AuthService.RegistrationDisabledCode => "/register?error=disabled",
                 AuthService.IdentityTakenCode => "/register?error=conflict",
+                AuthService.AliasTakenCode => "/register?error=alias-taken",
+                AuthService.AliasPoolExhaustedCode => "/register?error=capacity",
                 _ => "/register?error=invalid"
             });
         }

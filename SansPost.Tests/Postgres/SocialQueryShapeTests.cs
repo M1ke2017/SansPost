@@ -27,7 +27,7 @@ namespace SansPost.Tests.Postgres
             var post = (await PostgresFixture.CreatePostService(context).CreateAsync(authorId,
                 new PostRequest { Title = "Post z komentarzami", Content = "Treść", Category = PostCategory.General })).Value!;
 
-            var service = new CommentService(context, TimeProvider.System, TestServices.Guard(context));
+            var service = SansPost.Tests.TestInfrastructure.TestServices.Comments(context);
             for (var i = 0; i < comments; i++)
                 Assert.True((await service.AddAsync(i % 2 == 0 ? authorId : commenterId, post.Id, new CommentRequest { Content = $"K{i}" })).Succeeded);
 
@@ -43,7 +43,7 @@ namespace SansPost.Tests.Postgres
 
             var capture = new CommandCapture();
             await using var context = _pg.CreateContext(interceptors: capture);
-            var service = new CommentService(context, TimeProvider.System, TestServices.Guard(context));
+            var service = SansPost.Tests.TestInfrastructure.TestServices.Comments(context);
 
             var first = await service.GetByPostAsync(postId, new CommentPageQuery { Limit = 2 });
             capture.Commands.Clear();
@@ -70,7 +70,7 @@ namespace SansPost.Tests.Postgres
                 var capture = new CommandCapture();
                 await using var context = _pg.CreateContext(interceptors: capture);
                 var posts = PostgresFixture.CreatePostService(context);
-                var comments = new CommentService(context, TimeProvider.System, TestServices.Guard(context));
+                var comments = SansPost.Tests.TestInfrastructure.TestServices.Comments(context);
                 var profile = await new ProfileService(context, posts, comments).GetByUsernameAsync(username, null);
                 Assert.NotNull(profile);
                 return capture.Commands.Count;

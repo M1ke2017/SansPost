@@ -1,0 +1,26 @@
+@* Inicjały zamiast zdjęć (brak uploadu). Odcień wyliczany deterministycznie z nazwy — z ciepłej, spójnej palety.
+   Dekoracyjny: nazwa użytkownika zawsze stoi obok jako tekst. *@
+<span class="avatar @SizeClass" style="--avatar-tone: @Tone" aria-hidden="true">@UiText.Initials(Username)</span>
+
+@code {
+    private static readonly string[] Tones = { "#b0432a", "#8b5a3c", "#4d6f86", "#4f7a63", "#7d5a7f", "#a9761b" };
+
+    [Parameter, EditorRequired] public string Username { get; set; } = "";
+
+    // sm | md | lg
+    [Parameter] public string Size { get; set; } = "md";
+
+    private string SizeClass => Size switch { "sm" => "avatar-sm", "lg" => "avatar-lg", _ => "" };
+
+    private string Tone
+    {
+        get
+        {
+            // Stabilny hash (string.GetHashCode jest losowany per proces).
+            var hash = 0;
+            foreach (var c in Username.ToUpperInvariant())
+                hash = unchecked(hash * 31 + c);
+            return Tones[(int)((uint)hash % Tones.Length)];
+        }
+    }
+}

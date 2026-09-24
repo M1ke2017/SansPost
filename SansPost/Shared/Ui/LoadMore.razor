@@ -1,0 +1,27 @@
+@* "Załaduj więcej" dla paginacji keyset (kursor). Po doładowaniu status trafia do regionu aria-live,
+   a fokus zostaje na przycisku (albo — gdy lista się skończyła — strona przenosi go na pierwszy nowy element). *@
+<div class="load-more">
+    @if (HasMore)
+    {
+        <button type="button" class="btn" @onclick="OnClick" disabled="@IsLoading" aria-busy="@(IsLoading ? "true" : "false")">
+            @if (IsLoading)
+            {
+                <span class="spinner" aria-hidden="true"></span>
+                <span>Wczytywanie…</span>
+            }
+            else
+            {
+                <span>@Label</span>
+            }
+        </button>
+    }
+    <p class="subtle text-sm" role="status" aria-live="polite">@Status</p>
+</div>
+
+@code {
+    [Parameter] public bool HasMore { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public string Label { get; set; } = "Załaduj więcej";
+    [Parameter] public string? Status { get; set; }
+}

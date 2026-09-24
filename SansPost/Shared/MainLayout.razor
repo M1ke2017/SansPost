@@ -1,30 +1,256 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthProvider
+@inject UiServices Ui
+@inject IJSRuntime JS
+@inject ILogger<MainLayout> Logger
 
-<PageTitle>SansPost</PageTitle>
+<a class="skip-link" href="#main">Przejdź do treści</a>
 
-<div class="page">
-    <main>
-        <div class="auth-bar" style="text-align: right; padding: 0.5rem 1rem;">
-            <AuthorizeView>
-                <Authorized>
-                    <span>Zalogowano jako @context.User.Identity?.Name</span>
-                    @if (context.User.IsInRole("Admin"))
-                    {
-                        <a href="/admin/moderation">Moderacja</a>
-                    }
-                    <form method="post" action="auth/logout" style="display: inline;">
-                        <AntiforgeryField />
-                        <button type="submit">Wyloguj</button>
-                    </form>
-                </Authorized>
-                <NotAuthorized>
-                    <a href="/login">Zaloguj się</a>
-                </NotAuthorized>
-            </AuthorizeView>
+<div class="app">
+    <header class="app-header">
+        <div class="app-header-inner">
+            <Logo />
+
+            <nav class="primary-nav" aria-label="Główna nawigacja">
+                <NavLink class="nav-link" href="/" Match="NavLinkMatch.All"><Icon Name="@Icons.Compass" /> Odkrywaj</NavLink>
+                <NavLink class="nav-link" href="/categories"><Icon Name="@Icons.Grid" /> Kategorie</NavLink>
+            </nav>
+
+            <div class="header-actions">
+                <form class="header-search" role="search" @onsubmit="SubmitSearchAsync">
+                    <Icon Name="@Icons.Search" Size="16" />
+                    <label class="visually-hidden" for="header-search">Szukaj postów</label>
+                    <input id="header-search" class="input" type="search" placeholder="Szukaj postów…" maxlength="100"
+                           autocomplete="off" @bind="headerQuery" />
+                </form>
+
+                <a class="btn btn-ghost btn-icon header-search-icon" href="/search" aria-label="Szukaj" title="Szukaj">
+                    <Icon Name="@Icons.Search" />
+                </a>
+
+                @if (viewer is not null)
+                {
+                    <CascadingValue Value="viewer"><NotificationBell /></CascadingValue>
+                }
+
+                <ThemeToggle />
+
+                @if (viewer is null)
+                {
+                    <a class="btn btn-ghost header-desktop-only" href="@LoginHref">Zaloguj się</a>
+                    <a class="btn btn-primary" href="/register">Załóż konto</a>
+                }
+                else
+                {
+                    <a class="btn btn-primary header-desktop-only" href="/new"><Icon Name="@Icons.Cactus" /> Nowy post</a>
+
+                    <div class="menu header-desktop-only">
+                        <button type="button" class="menu-trigger" id="user-menu-trigger" aria-haspopup="true"
+                                aria-expanded="@(menuOpen ? "true" : "false")" aria-controls="user-menu" @onclick="ToggleMenu">
+                            <Avatar Username="@viewer.Username" Size="sm" />
+                            <span class="truncate text-sm">@viewer.Username</span>
+                            <Icon Name="@Icons.ChevronDown" Size="16" />
+                        </button>
+
+                        @if (menuOpen)
+                        {
+                            <button type="button" class="menu-backdrop" tabindex="-1" aria-hidden="true" @onclick="CloseMenu"></button>
+                            <div class="menu-panel" id="user-menu" @onkeydown="MenuKeyDown">
+                                <div class="menu-heading truncate">Zalogowano jako <strong>@viewer.Username</strong></div>
+                                <a class="menu-item" href="@UiText.ProfileUrl(viewer.Username)"><Icon Name="@Icons.User" /> Mój profil</a>
+                                <a class="menu-item" href="/me"><Icon Name="@Icons.FileText" /> Moje konto i posty</a>
+                                @if (viewer.IsAdmin)
+                                {
+                                    <a class="menu-item" href="/admin/moderation"><Icon Name="@Icons.Shield" /> Moderacja</a>
+                                }
+                                <form method="post" action="auth/logout">
+                                    <AntiforgeryField />
+                                    <button type="submit" class="menu-item"><Icon Name="@Icons.LogOut" /> Wyloguj się</button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
         </div>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
+    @if (viewer?.IsSuspended == true)
+    {
+        <div class="account-banner" role="status">
+            <div class="account-banner-inner">
+                <Icon Name="@Icons.Pause" />
+                <span><strong>Konto zawieszone.</strong> Możesz przeglądać SansPost, ale publikowanie, komentowanie, reakcje i zgłoszenia są wyłączone.</span>
+            </div>
+        </div>
+    }
+
+    <main id="main" class="app-main" tabindex="-1">
+        <CascadingValue Value="viewer">
+            <ErrorBoundary @ref="errorBoundary">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent>
+                    <EmptyState Title="Coś poszło nie tak" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger"
+                                Text="Nie udało się wyświetlić tej strony. Spróbuj ponownie — jeśli problem się powtarza, wróć za chwilę.">
+                        <button type="button" class="btn btn-primary" @onclick="Recover"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+                        <a class="btn" href="/">Wróć do odkrywania</a>
+                    </EmptyState>
+                </ErrorContent>
+            </ErrorBoundary>
+        </CascadingValue>
     </main>
+
+    <footer class="app-footer">
+        <div class="app-footer-inner">
+            <span>SansPost · otwarta przestrzeń rozmów · projekt portfolio działający na żywo</span>
+            <span>Masz uwagi? <a href="@CategoryMeta.Url(PostCategory.Feedback)">Napisz w kategorii Feedback</a></span>
+        </div>
+    </footer>
+
+    <nav class="bottom-nav" aria-label="Nawigacja">
+        <NavLink href="/" Match="NavLinkMatch.All"><Icon Name="@Icons.Compass" Size="22" /><span>Odkrywaj</span></NavLink>
+        <NavLink href="/search"><Icon Name="@Icons.Search" Size="22" /><span>Szukaj</span></NavLink>
+        <NavLink href="@(viewer is null ? "/login?returnUrl=%2Fnew" : "/new")" class="bottom-nav-primary">
+            <span class="bubble"><Icon Name="@Icons.Plus" Size="20" StrokeWidth="2.2" /></span><span>Nowy post</span>
+        </NavLink>
+        <NavLink href="/categories"><Icon Name="@Icons.Grid" Size="22" /><span>Kategorie</span></NavLink>
+        @if (viewer is null)
+        {
+            <NavLink href="/login"><Icon Name="@Icons.LogIn" Size="22" /><span>Zaloguj</span></NavLink>
+        }
+        else
+        {
+            <NavLink href="/me"><Icon Name="@Icons.User" Size="22" /><span>Konto</span></NavLink>
+        }
+    </nav>
+
+    <ToastHost />
 </div>
+
+@code {
+    private ViewerContext? viewer;
+    private ErrorBoundary? errorBoundary;
+    private string headerQuery = "";
+    private bool menuOpen;
+
+    private string LoginHref
+    {
+        get
+        {
+            var path = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+            return path.StartsWith("/login", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/register", StringComparison.OrdinalIgnoreCase)
+                ? "/login"
+                : UiText.LoginUrl(path);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        AuthProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await LoadViewerAsync(AuthProvider.GetAuthenticationStateAsync());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Mikroanimacja marki: raz na sesję, dopiero po podłączeniu interaktywnym (DOM jest już stabilny).
+        if (firstRender)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("sansPost.playBrand");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+
+    private async Task LoadViewerAsync(Task<AuthenticationState> stateTask)
+    {
+        var user = (await stateTask).User;
+        if (user.GetUserId() is not int userId)
+        {
+            viewer = null;
+            return;
+        }
+
+        // Tożsamość od razu (render bez czekania na bazę), status konta dociągany z bazy.
+        viewer = new ViewerContext(userId, user.Identity?.Name ?? "", user.IsInRole(nameof(UserRole.Admin)), viewer?.UserId == userId ? viewer.Status : null);
+
+        try
+        {
+            var status = await Ui.Run((IUserService s) => s.GetAccountStatusAsync(userId));
+            if (status is null or AccountStatus.Banned)
+            {
+                // Zablokowane konto nie utrzymuje sesji UI: pełne przeładowanie → walidacja cookie (AuthVersion) → wylogowanie.
+                EndSession();
+                return;
+            }
+
+            viewer = viewer with { Status = status };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Nie udało się odczytać statusu konta.");
+        }
+    }
+
+    private void EndSession()
+    {
+        var path = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (!path.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+            Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        menuOpen = false;
+        errorBoundary?.Recover();
+        _ = InvokeAsync(async () =>
+        {
+            // Świeży status przy każdej nawigacji (zawieszenie/przywrócenie widoczne bez przeładowania).
+            await LoadViewerAsync(AuthProvider.GetAuthenticationStateAsync());
+            StateHasChanged();
+        });
+    }
+
+    private void OnAuthenticationStateChanged(Task<AuthenticationState> stateTask)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadViewerAsync(stateTask);
+            StateHasChanged();
+        });
+    }
+
+    private void SubmitSearchAsync()
+    {
+        var query = headerQuery.Trim();
+        Navigation.NavigateTo(query.Length == 0 ? "/search" : $"/search?q={Uri.EscapeDataString(query)}");
+        headerQuery = "";
+    }
+
+    private void ToggleMenu() => menuOpen = !menuOpen;
+
+    private void CloseMenu() => menuOpen = false;
+
+    private async Task MenuKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Escape")
+            return;
+
+        menuOpen = false;
+        await JS.InvokeVoidAsync("sansPost.focusSelector", "#user-menu-trigger");
+    }
+
+    private void Recover() => errorBoundary?.Recover();
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        AuthProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+    }
+}

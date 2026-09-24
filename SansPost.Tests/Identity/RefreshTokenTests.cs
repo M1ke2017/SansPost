@@ -23,7 +23,7 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task ValidRefreshToken_IssuesNewPair()
         {
-            var tokens = await IssueAsync(await _db.RegisterAsync("jan"));
+            var tokens = await IssueAsync(await _db.RegisterAsync("CedarPine"));
 
             var refreshed = await RefreshAsync(tokens.RefreshToken);
 
@@ -35,7 +35,7 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task Refresh_RotatesToken_RevokingAndLinkingThePreviousOne()
         {
-            var tokens = await IssueAsync(await _db.RegisterAsync("kasia"));
+            var tokens = await IssueAsync(await _db.RegisterAsync("SandyLark"));
             var refreshed = await RefreshAsync(tokens.RefreshToken);
 
             using var context = _db.CreateContext();
@@ -50,7 +50,7 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task ReusedRotatedToken_IsRejected_AndRevokesTheWholeSession()
         {
-            var tokens = await IssueAsync(await _db.RegisterAsync("leon"));
+            var tokens = await IssueAsync(await _db.RegisterAsync("RiverStone"));
             var refreshed = await RefreshAsync(tokens.RefreshToken);
 
             Assert.Null(await RefreshAsync(tokens.RefreshToken));
@@ -62,7 +62,7 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task ExpiredRefreshToken_IsRejected()
         {
-            var tokens = await IssueAsync(await _db.RegisterAsync("marta"));
+            var tokens = await IssueAsync(await _db.RegisterAsync("WillowCreek"));
 
             _db.Time.Advance(TestDatabase.JwtOptions.RefreshTokenLifetime + TimeSpan.FromMinutes(1));
 
@@ -72,7 +72,7 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task RevokedRefreshToken_IsRejected()
         {
-            var tokens = await IssueAsync(await _db.RegisterAsync("nina"));
+            var tokens = await IssueAsync(await _db.RegisterAsync("StarryOwl"));
 
             using (var context = _db.CreateContext())
                 await _db.CreateTokenService(context).RevokeAsync(tokens.RefreshToken);
@@ -89,7 +89,7 @@ namespace SansPost.Tests.Identity
         [Fact]
         public async Task RefreshToken_IsStoredOnlyAsSha256Hash()
         {
-            var tokens = await IssueAsync(await _db.RegisterAsync("olek"));
+            var tokens = await IssueAsync(await _db.RegisterAsync("TimberWolf"));
 
             using var context = _db.CreateContext();
             var stored = await context.RefreshTokens.SingleAsync();

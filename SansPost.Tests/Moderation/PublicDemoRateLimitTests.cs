@@ -74,4 +74,52 @@ namespace SansPost.Tests.Moderation
                 Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/posts")).StatusCode);
         }
     }
+
+    public sealed class TightAuthLimitFactory : ConfiguredFactory
+    {
+        public TightAuthLimitFactory() : base(new Dictionary<string, string?>
+        {
+            ["RateLimiting:Auth:PermitLimit"] = "2"
+        })
+        {
+        }
+    }
+
+    // Formularz logowania przeglądarki: po przekroczeniu limitu per IP użytkownik wraca do formularza z komunikatem
+    // (303 → /login?error=rate-limited), zamiast pustej strony 429. REST API zachowuje 429 + ProblemDetails.
+    [Trait("Category", "RateLimiting")]
+    public class BrowserFormRateLimitTests : IClassFixture<TightAuthLimitFactory>
+    {
+        private readonly TightAuthLimitFactory _factory;
+
+        public BrowserFormRateLimitTests(TightAuthLimitFactory factory)
+        {
+            _factory = factory;
+        }
+
+        [Fact]
+        public async Task LoginForm_OverLimit_RedirectsBackWithRateLimitedMessage()
+        {
+            var client = _factory.CreateHttpsClient();
+            var token = SansPostFactory.ExtractAntiforgeryToken(await client.GetStringAsync("/login"));
+            HttpContent Form() => new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Email"] = "nobody@example.com",
+                ["Password"] = "wrong-password"
+            });
+
+            for (var i = 0; i < 2; i++)
+                Assert.StartsWith("/login?error=invalid", (await client.PostAsync("/auth/login", Form())).Headers.Location!.OriginalString);
+
+            var limited = await client.PostAsync("/auth/login", Form());
+
+            Assert.Equal(HttpStatusCode.SeeOther, limited.StatusCode);
+            Assert.Equal("/login?error=rate-limited", limited.Headers.Location!.OriginalString);
+            Assert.NotNull(limited.Headers.RetryAfter);
+
+            var api = await client.PostAsJsonAsync("/api/auth/login", new { email = "nobody@example.com", password = "wrong-password" });
+            Assert.Equal(HttpStatusCode.TooManyRequests, api.StatusCode);
+        }
+    }
 }
