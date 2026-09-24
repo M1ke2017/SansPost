@@ -2,6 +2,8 @@ using SansPost.Features;
 using SansPost.Features.Posts;
 using SansPost.Features.Search;
 
+using SansPost.Tests.TestInfrastructure;
+
 namespace SansPost.Tests.Postgres
 {
     // Tryby feedu i discovery na prawdziwym PostgreSQL. Izolacja przez filtr autora (każdy test ma własnego).
@@ -157,7 +159,7 @@ namespace SansPost.Tests.Postgres
         {
             var connectionString = await _pg.CreateMigratedDatabaseAsync($"categories_{Guid.NewGuid():N}");
             await using var context = _pg.CreateContext(connectionString);
-            var authorId = (await new SansPost.Features.Identity.AuthService(context).RegisterAsync(new()
+            var authorId = (await TestServices.Auth(context).RegisterAsync(new()
             {
                 Username = "kategorie",
                 Email = "kategorie@example.com",

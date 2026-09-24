@@ -1,6 +1,7 @@
 @page "/register"
 @using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Navigation
+@inject IAuthService AuthService
 
 <link rel="stylesheet" href="css/logres.css">
 
@@ -59,8 +60,11 @@
     private string passwordToggleIcon => showPassword ? "👁️" : "🙈";
     private string confirmPasswordToggleIcon => showConfirmPassword ? "👁️" : "🙈";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        if (!await AuthService.IsRegistrationAvailableAsync())
+            errorMessage = "Rejestracja jest obecnie niedostępna (limit publicznej wersji demo lub wyłączona).";
+
         var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
         if (!query.TryGetValue("error", out var error))
             return;
@@ -69,6 +73,8 @@
         {
             "mismatch" => "Hasła nie są identyczne!",
             "conflict" => "Nie można utworzyć konta z podanym emailem lub nazwą użytkownika.",
+            "capacity" => "Publiczna wersja demo osiągnęła limit kont. Rejestracja jest chwilowo niedostępna.",
+            "disabled" => "Rejestracja jest obecnie wyłączona.",
             _ => $"Sprawdź dane: nazwa 3–50 znaków (litery, cyfry, . _ -), poprawny email, hasło {PasswordPolicy.MinLength}–{PasswordPolicy.MaxLength} znaków."
         };
     }

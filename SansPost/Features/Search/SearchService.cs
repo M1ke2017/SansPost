@@ -40,7 +40,7 @@ namespace SansPost.Features.Search
             p.UserId,
             p.User.Username,
             _context.Likes.Count(l => l.PostId == p.Id),
-            _context.Comments.Count(c => c.PostId == p.Id),
+            _context.Comments.Count(c => c.PostId == p.Id && c.Status == ContentStatus.Published),
             viewerUserId != null && _context.Likes.Any(l => l.PostId == p.Id && l.UserId == viewerUserId));
 
         public async Task<ServiceResult<KeysetPage<PostSearchResult>>> SearchPostsAsync(PostSearchQuery query, int? viewerUserId, CancellationToken cancellationToken = default)
@@ -64,8 +64,10 @@ namespace SansPost.Features.Search
 
             // websearch_to_tsquery: bezpieczna dla dowolnego inputu (cudzysłowy, "or", "-") — nigdy błąd składni,
             // tekst trafia jako parametr, nigdy do SQL. Konfiguracja 'simple' — patrz TextSearch.Configuration.
+            // searchvector może nadal zawierać tekst ukrytych/usuniętych postów — dlatego filtr statusu jest obowiązkowy.
             var matches = _context.Posts
                 .AsNoTracking()
+                .Where(p => p.Status == ContentStatus.Published)
                 .Where(p => EF.Property<NpgsqlTsVector>(p, TextSearch.PostSearchVector)
                     .Matches(EF.Functions.WebSearchToTsQuery(TextSearch.Configuration, text)));
 
@@ -126,7 +128,8 @@ namespace SansPost.Features.Search
                 .Where(u => u.NormalizedUsername.StartsWith(normalized))
                 .OrderBy(u => u.NormalizedUsername)
                 .Take(limit)
-                .Select(u => new UserSearchResult(u.Id, u.Username, u.CreatedAt, _context.Posts.Count(p => p.UserId == u.Id)))
+                .Select(u => new UserSearchResult(u.Id, u.Username, u.CreatedAt,
+                    _context.Posts.Count(p => p.UserId == u.Id && p.Status == ContentStatus.Published)))
                 .ToListAsync(cancellationToken);
 
             return ServiceResult<IReadOnlyList<UserSearchResult>>.Success(users);

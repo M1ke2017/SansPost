@@ -76,6 +76,12 @@ namespace SansPost.Tests.Postgres
             Assert.All(likes, l => Assert.NotEqual(default, l.CreatedAt));
             var comment = await context.Comments.SingleAsync();
             Assert.Equal((1, (DateTime?)null), (comment.Version, comment.UpdatedAt));
+
+            // Sprint 6: istniejące konta aktywne (AuthVersion 1), treści opublikowane, brama rejestracji istnieje.
+            Assert.All(users, u => Assert.Equal((AccountStatus.Active, 1), (u.Status, u.AuthVersion)));
+            Assert.All(posts, p => Assert.Equal(SansPost.Features.ContentStatus.Published, p.Status));
+            Assert.Equal(SansPost.Features.ContentStatus.Published, comment.Status);
+            Assert.Equal(1, await context.RegistrationGates.CountAsync());
         }
 
         [DockerFact]

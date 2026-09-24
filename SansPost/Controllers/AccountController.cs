@@ -39,7 +39,7 @@ namespace SansPost.Controllers
             public string? ConfirmPassword { get; set; }
         }
 
-        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromForm] LoginForm form, CancellationToken cancellationToken)
         {
@@ -55,7 +55,7 @@ namespace SansPost.Controllers
             return LocalRedirect(returnUrl);
         }
 
-        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromForm] RegisterForm form, CancellationToken cancellationToken)
         {
@@ -72,7 +72,13 @@ namespace SansPost.Controllers
             if (result.Succeeded)
                 return LocalRedirect("/login?registered=1");
 
-            return LocalRedirect(result.Error == ServiceError.Conflict ? "/register?error=conflict" : "/register?error=invalid");
+            return LocalRedirect(result.Code switch
+            {
+                AuthService.CapacityReachedCode => "/register?error=capacity",
+                AuthService.RegistrationDisabledCode => "/register?error=disabled",
+                AuthService.IdentityTakenCode => "/register?error=conflict",
+                _ => "/register?error=invalid"
+            });
         }
 
         [HttpPost("logout")]

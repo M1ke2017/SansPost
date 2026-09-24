@@ -8,6 +8,10 @@
             <AuthorizeView>
                 <Authorized>
                     <span>Zalogowano jako @context.User.Identity?.Name</span>
+                    @if (context.User.IsInRole("Admin"))
+                    {
+                        <a href="/admin/moderation">Moderacja</a>
+                    }
                     <form method="post" action="auth/logout" style="display: inline;">
                         <AntiforgeryField />
                         <button type="submit">Wyloguj</button>

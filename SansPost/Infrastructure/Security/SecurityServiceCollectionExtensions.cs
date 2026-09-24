@@ -1,9 +1,12 @@
+using System.Globalization;
 using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using SansPost.Features;
 using SansPost.Features.Identity;
 
 namespace SansPost.Infrastructure.Security
@@ -16,6 +19,7 @@ namespace SansPost.Infrastructure.Security
         public static IServiceCollection AddSansPostSecurity(this IServiceCollection services, IConfiguration configuration)
         {
             AddJwtOptions(services, configuration);
+            AddPublicDemoOptions(services, configuration);
             services.AddSingleton<JwtTokenService>();
 
             // Cookie = domyślny schemat (Blazor UI). JWT tylko tam, gdzie wskazuje go polityka (REST API).
@@ -36,10 +40,37 @@ namespace SansPost.Infrastructure.Security
                     options.SlidingExpiration = true;
                     options.LoginPath = "/login";
                     options.AccessDeniedPath = "/login";
+
+                    // Każde żądanie z cookie: aktualny stan konta (ban, zmiana roli/statusu → nowa AuthVersion).
+                    // Niezgodność = principal odrzucony i cookie usunięte — nie czekamy na wygaśnięcie cookie.
+                    options.Events.OnValidatePrincipal = async context =>
+                    {
+                        var validator = context.HttpContext.RequestServices.GetRequiredService<IAuthStateValidator>();
+                        if (context.Principal is null || !await validator.IsCurrentAsync(context.Principal, context.HttpContext.RequestAborted))
+                        {
+                            context.RejectPrincipal();
+                            await context.HttpContext.SignOutAsync(AuthSchemes.Cookie);
+                        }
+                    };
                 });
 
             services.AddOptions<JwtBearerOptions>(AuthSchemes.Jwt)
-                .Configure<JwtTokenService>((options, tokens) => options.TokenValidationParameters = tokens.ValidationParameters);
+                .Configure<JwtTokenService>((options, tokens) =>
+                {
+                    options.TokenValidationParameters = tokens.ValidationParameters;
+
+                    // Access token jest krótkotrwały, ale nie czekamy na wygaśnięcie: ban lub zmiana roli
+                    // (nowa AuthVersion) odrzuca go przy następnym żądaniu. To security stamp, nie blacklista tokenów.
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = async context =>
+                        {
+                            var validator = context.HttpContext.RequestServices.GetRequiredService<IAuthStateValidator>();
+                            if (context.Principal is null || !await validator.IsCurrentAsync(context.Principal, context.HttpContext.RequestAborted))
+                                context.Fail("Stan uwierzytelnienia jest nieaktualny.");
+                        }
+                    };
+                });
 
             services.AddAuthorization(options =>
             {
@@ -58,7 +89,7 @@ namespace SansPost.Infrastructure.Security
                     .RequireRole(nameof(UserRole.Admin)));
             });
 
-            AddAuthRateLimiting(services, configuration);
+            AddRateLimiting(services, configuration);
 
             return services;
         }
@@ -79,32 +110,78 @@ namespace SansPost.Infrastructure.Security
                 .ValidateOnStart();
         }
 
-        private static void AddAuthRateLimiting(IServiceCollection services, IConfiguration configuration)
+        private static void AddPublicDemoOptions(IServiceCollection services, IConfiguration configuration)
         {
-            services.AddOptions<AuthRateLimitOptions>()
-                .Bind(configuration.GetSection(AuthRateLimitOptions.SectionName))
-                .Validate(o => o.PermitLimit > 0 && o.Window > TimeSpan.Zero, "RateLimiting:Auth ma nieprawidłowe wartości.")
+            services.AddOptions<PublicDemoOptions>()
+                .Bind(configuration.GetSection(PublicDemoOptions.SectionName))
+                .Validate(o => o.MaxPublicAccounts > 0, "PublicDemo:MaxPublicAccounts musi być większe od 0.")
                 .ValidateOnStart();
+
+            // Bootstrap admina: przy Enabled = true dane muszą spełniać te same reguły co rejestracja.
+            services.AddOptions<BootstrapAdminOptions>()
+                .Bind(configuration.GetSection(BootstrapAdminOptions.SectionName))
+                .Validate(o => !o.Enabled || (RequestValidator.Validate(new RegisterRequest
+                    {
+                        Username = o.Username,
+                        Email = o.Email,
+                        Password = o.Password
+                    }) ?? PasswordPolicy.Validate(o.Password)) is null,
+                    "BootstrapAdmin jest włączony, ale Username/Email/Password są niepoprawne. " +
+                    "Podaj je przez User Secrets lub zmienne środowiskowe (BootstrapAdmin__Username, ...).")
+                .ValidateOnStart();
+        }
+
+        private static void AddRateLimiting(IServiceCollection services, IConfiguration configuration)
+        {
+            foreach (var (name, defaultLimit) in new[] { (RateLimitPolicies.Auth, 10), (RateLimitPolicies.Search, 30), (RateLimitPolicies.Writes, 30) })
+            {
+                services.AddOptions<RateLimitWindowOptions>(name)
+                    .Configure(o => o.PermitLimit = defaultLimit)
+                    .Bind(configuration.GetSection($"RateLimiting:{name}"))
+                    .Validate(o => o.PermitLimit > 0 && o.Window > TimeSpan.Zero, $"RateLimiting:{name} ma nieprawidłowe wartości.")
+                    .ValidateOnStart();
+            }
+
+            // Zapisy zalogowanych — partycja UserId, wspólna dla REST i Blazor (egzekwowana w IWriteGuard).
+            services.AddSingleton(sp => new UserWriteRateLimiter(
+                sp.GetRequiredService<IOptionsMonitor<RateLimitWindowOptions>>().Get(RateLimitPolicies.Writes)));
 
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-                // Partycja per adres IP. Za reverse proxy wymaga ForwardedHeaders (deployment).
-                options.AddPolicy(AuthRateLimitOptions.PolicyName, httpContext =>
+                // 429 + Retry-After; treść ProblemDetails dopisuje UseStatusCodePages dla /api.
+                options.OnRejected = (context, _) =>
                 {
-                    var settings = httpContext.RequestServices.GetRequiredService<IOptions<AuthRateLimitOptions>>().Value;
+                    if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+                    {
+                        context.HttpContext.Response.Headers.RetryAfter =
+                            ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+                    }
 
-                    return RateLimitPartition.GetFixedWindowLimiter(
-                        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                        _ => new FixedWindowRateLimiterOptions
-                        {
-                            PermitLimit = settings.PermitLimit,
-                            Window = settings.Window,
-                            QueueLimit = 0
-                        });
-                });
+                    return ValueTask.CompletedTask;
+                };
+
+                // Anonimowe operacje — partycja per adres IP.
+                // DEPLOYMENT (Sprint 11): za reverse proxy RemoteIpAddress to adres proxy — wymagane
+                // ForwardedHeaders z listą zaufanych proxy. NIE ufamy bezwarunkowo X-Forwarded-For.
+                options.AddPolicy(RateLimitPolicies.Auth, httpContext => PerIpWindow(httpContext, RateLimitPolicies.Auth));
+                options.AddPolicy(RateLimitPolicies.Search, httpContext => PerIpWindow(httpContext, RateLimitPolicies.Search));
             });
+        }
+
+        private static RateLimitPartition<string> PerIpWindow(HttpContext httpContext, string policy)
+        {
+            var settings = httpContext.RequestServices.GetRequiredService<IOptionsMonitor<RateLimitWindowOptions>>().Get(policy);
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                $"{policy}:{httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = settings.PermitLimit,
+                    Window = settings.Window,
+                    QueueLimit = 0
+                });
         }
     }
 }

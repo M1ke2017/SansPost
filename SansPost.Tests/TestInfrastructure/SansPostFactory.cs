@@ -37,7 +37,10 @@ namespace SansPost.Tests.TestInfrastructure
             ["Jwt:Key"] = JwtKey,
             ["Jwt:Issuer"] = Issuer,
             ["Jwt:Audience"] = Audience,
-            ["RateLimiting:Auth:PermitLimit"] = "1000"
+            ["RateLimiting:Auth:PermitLimit"] = "1000",
+            ["RateLimiting:Search:PermitLimit"] = "100000",
+            ["RateLimiting:Writes:PermitLimit"] = "100000",
+            ["PublicDemo:MaxPublicAccounts"] = "1000000"
         };
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -56,7 +59,14 @@ namespace SansPost.Tests.TestInfrastructure
         protected virtual void ConfigureDatabase(DbContextOptionsBuilder options)
         {
             if (_connection.State != System.Data.ConnectionState.Open)
+            {
                 _connection.Open();
+
+                // Schemat przed startem hosta — hosted services (np. bootstrap admina) działają już przy starcie.
+                using var schema = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connection).Options);
+                schema.Database.EnsureCreated();
+            }
+
             options.UseSqlite(_connection);
         }
 

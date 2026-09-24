@@ -71,8 +71,13 @@ namespace SansPost.Features.Identity
                 return null;
             }
 
-            if (stored.ExpiresAt <= now || !PasswordHasher.IsSupportedHash(stored.User.PasswordHash))
+            // Stan konta: tylko Active może odświeżać sesję API (Suspended i Banned — odrzucone).
+            if (stored.ExpiresAt <= now
+                || stored.User.Status != AccountStatus.Active
+                || !PasswordHasher.IsSupportedHash(stored.User.PasswordHash))
+            {
                 return null;
+            }
 
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 

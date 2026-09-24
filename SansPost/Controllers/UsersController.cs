@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SansPost.Features.Identity;
+using SansPost.Features.Moderation;
 using SansPost.Infrastructure.Security;
 
 namespace SansPost.Controllers
@@ -9,10 +10,12 @@ namespace SansPost.Controllers
     public class UsersController : ApiControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IModerationService _moderation;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, IModerationService moderation)
         {
             _userService = userService;
+            _moderation = moderation;
         }
 
         [AllowAnonymous]
@@ -26,11 +29,12 @@ namespace SansPost.Controllers
             return Ok(user);
         }
 
+        // Akcje administracyjne z audytem i unieważnieniem sesji (AuthVersion) — wykonuje moduł Moderation.
         [Authorize(Policy = AuthPolicies.ApiAdmin)]
         [HttpPut("{userId:int}/role")]
         public async Task<IActionResult> ChangeRole(int userId, ChangeRoleRequest request, CancellationToken cancellationToken)
         {
-            var result = await _userService.ChangeRoleAsync(userId, request.Role!.Value, cancellationToken);
+            var result = await _moderation.ChangeRoleAsync(User.GetUserId()!.Value, userId, request.Role!.Value, cancellationToken);
             return result.Succeeded ? NoContent() : this.ToProblem(result);
         }
 
@@ -38,7 +42,7 @@ namespace SansPost.Controllers
         [HttpPut("{userId:int}/subscription")]
         public async Task<IActionResult> SetSubscription(int userId, SetSubscriptionRequest request, CancellationToken cancellationToken)
         {
-            var result = await _userService.SetSubscriptionAsync(userId, request.Type!.Value, request.ExpiresAt, cancellationToken);
+            var result = await _moderation.SetSubscriptionAsync(User.GetUserId()!.Value, userId, request.Type!.Value, request.ExpiresAt, cancellationToken);
             return result.Succeeded ? NoContent() : this.ToProblem(result);
         }
     }

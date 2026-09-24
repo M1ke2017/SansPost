@@ -44,7 +44,7 @@ namespace SansPost.Tests.Controllers
         [Fact]
         public async Task Login_ReturnsTokens_WhenAuthenticated()
         {
-            var user = new AuthenticatedUser(1, "user", "user@example.com", UserRole.User);
+            var user = new AuthenticatedUser(1, "user", "user@example.com", UserRole.User, 1);
             _authService.Setup(s => s.AuthenticateAsync("user@example.com", "pass12345", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(user);
             _tokenService.Setup(s => s.IssueAsync(user, It.IsAny<CancellationToken>()))

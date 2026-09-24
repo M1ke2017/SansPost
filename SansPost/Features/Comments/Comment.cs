@@ -3,7 +3,7 @@ using SansPost.Features.Posts;
 
 namespace SansPost.Features.Comments
 {
-    public class Comment
+    public class Comment : IModeratableContent
     {
         public int Id { get; set; }
 
@@ -19,7 +19,11 @@ namespace SansPost.Features.Comments
         // null = nigdy nie edytowany. Zmieniane tylko przy realnej zmianie treści.
         public DateTime? UpdatedAt { get; set; }
 
-        // Optimistic concurrency token (ETag). Rośnie o 1 przy każdej realnej edycji.
+        // Optimistic concurrency token (ETag). Rośnie o 1 przy każdej realnej edycji i zmianie stanu.
         public int Version { get; set; } = 1;
+
+        // Tylko Published (na opublikowanym poście) jest widoczne publicznie.
+        public ContentStatus Status { get; set; } = ContentStatus.Published;
+        public DateTime? DeletedAt { get; set; }
     }
 }

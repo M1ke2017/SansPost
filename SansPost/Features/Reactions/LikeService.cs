@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using SansPost.Features.Identity;
 using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Reactions
@@ -10,7 +11,7 @@ namespace SansPost.Features.Reactions
     // Obie operacje są idempotentne — bezpieczne przy retry i równoległych requestach.
     public interface ILikeService
     {
-        // null = post nie istnieje.
+        // null = post nie istnieje lub nie jest publiczny.
         Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default);
 
         Task<ServiceResult<LikeSummaryResponse>> LikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default);
@@ -24,11 +25,13 @@ namespace SansPost.Features.Reactions
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
+        private readonly IWriteGuard _writeGuard;
 
-        public LikeService(ApplicationDbContext context, TimeProvider time)
+        public LikeService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard)
         {
             _context = context;
             _time = time;
+            _writeGuard = writeGuard;
         }
 
         public async Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default)
@@ -36,7 +39,7 @@ namespace SansPost.Features.Reactions
             // Jedno zapytanie: liczba polubień + stan dla bieżącego użytkownika, bez ładowania rekordów Like.
             return await _context.Posts
                 .AsNoTracking()
-                .Where(p => p.Id == postId)
+                .Where(p => p.Id == postId && p.Status == ContentStatus.Published)
                 .Select(p => new LikeSummaryResponse(
                     p.Id,
                     _context.Likes.Count(l => l.PostId == p.Id),
@@ -48,7 +51,9 @@ namespace SansPost.Features.Reactions
         // nie tworzą duplikatu ani wyjątku UNIQUE. Składnia działa w PostgreSQL i SQLite.
         public async Task<ServiceResult<LikeSummaryResponse>> LikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default)
         {
-            if (!await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
+            if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
+                return ServiceResult<LikeSummaryResponse>.From(denied);
+            if (!await PublishedPostExistsAsync(postId, cancellationToken))
                 return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
 
             var now = _time.GetUtcNow().UtcDateTime;
@@ -60,8 +65,8 @@ namespace SansPost.Features.Reactions
             }
             catch (DbException)
             {
-                // Post usunięty między sprawdzeniem a INSERT → naruszenie FK; polubienie nie powstało.
-                if (await PostExistsAsync(postId, cancellationToken))
+                // Post fizycznie usunięty między sprawdzeniem a INSERT → naruszenie FK; polubienie nie powstało.
+                if (await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
                     throw;
 
                 return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
@@ -73,7 +78,9 @@ namespace SansPost.Features.Reactions
         // Pojedynczy atomowy DELETE; brak rekordu to też sukces (stan docelowy osiągnięty).
         public async Task<ServiceResult<LikeSummaryResponse>> UnlikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default)
         {
-            if (!await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
+            if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
+                return ServiceResult<LikeSummaryResponse>.From(denied);
+            if (!await PublishedPostExistsAsync(postId, cancellationToken))
                 return ServiceResult<LikeSummaryResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
 
             await _context.Likes
@@ -91,7 +98,7 @@ namespace SansPost.Features.Reactions
                 : ServiceResult<LikeSummaryResponse>.Success(summary);
         }
 
-        private Task<bool> PostExistsAsync(int postId, CancellationToken cancellationToken) =>
-            _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken);
+        private Task<bool> PublishedPostExistsAsync(int postId, CancellationToken cancellationToken) =>
+            _context.Posts.AnyAsync(p => p.Id == postId && p.Status == ContentStatus.Published, cancellationToken);
     }
 }

@@ -2,7 +2,7 @@ using SansPost.Features.Identity;
 
 namespace SansPost.Features.Posts
 {
-    public class Post
+    public class Post : IModeratableContent
     {
         public int Id { get; set; }
         public int UserId { get; set; }
@@ -20,7 +20,11 @@ namespace SansPost.Features.Posts
         // null = nigdy nie edytowany. Zmieniane tylko przy realnej zmianie treści.
         public DateTime? UpdatedAt { get; set; }
 
-        // Optimistic concurrency token (ETag). Rośnie o 1 przy każdej realnej edycji.
+        // Optimistic concurrency token (ETag). Rośnie o 1 przy każdej realnej edycji i zmianie stanu.
         public int Version { get; set; } = 1;
+
+        // Tylko Published jest widoczne publicznie. Usunięcie przez autora = Deleted (soft delete), moderacja = Hidden.
+        public ContentStatus Status { get; set; } = ContentStatus.Published;
+        public DateTime? DeletedAt { get; set; }
     }
 }

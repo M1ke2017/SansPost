@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SansPost.Features.Posts;
 using SansPost.Features.Search;
 using SansPost.Infrastructure.Security;
@@ -17,7 +18,9 @@ namespace SansPost.Controllers
             _searchService = searchService;
         }
 
+        // Publiczne i kosztowne (ranking wszystkich trafień) — osobny limit per IP.
         [AllowAnonymous]
+        [EnableRateLimiting(RateLimitPolicies.Search)]
         [HttpGet("posts")]
         public async Task<IActionResult> Posts([FromQuery] PostSearchQuery query, CancellationToken cancellationToken)
         {
@@ -26,6 +29,7 @@ namespace SansPost.Controllers
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting(RateLimitPolicies.Search)]
         [HttpGet("users")]
         public async Task<IActionResult> Users([FromQuery] string? q, CancellationToken cancellationToken, [FromQuery] int limit = SearchLimits.DefaultUserResults)
         {

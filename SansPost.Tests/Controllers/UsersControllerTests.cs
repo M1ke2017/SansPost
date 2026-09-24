@@ -9,7 +9,7 @@ namespace SansPost.Tests.Controllers
     {
         private readonly Mock<IUserService> _userService = new();
 
-        private UsersController CreateController() => new(_userService.Object);
+        private UsersController CreateController() => new(_userService.Object, Mock.Of<SansPost.Features.Moderation.IModerationService>());
 
         private static UserResponse SampleUser(int id) =>
             new(id, "user", UserRole.User, SubscriptionType.Free, DateTime.UtcNow);

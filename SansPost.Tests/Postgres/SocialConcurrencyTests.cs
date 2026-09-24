@@ -5,6 +5,8 @@ using SansPost.Features.Posts;
 using SansPost.Features.Reactions;
 using SansPost.Infrastructure.Persistence;
 
+using SansPost.Tests.TestInfrastructure;
+
 namespace SansPost.Tests.Postgres
 {
     [Collection(PostgresCollection.Name)]
@@ -26,10 +28,10 @@ namespace SansPost.Tests.Postgres
         }
 
         private Task<ServiceResult<T>> CommentsAsync<T>(Func<CommentService, Task<ServiceResult<T>>> action) =>
-            WithContextAsync(context => action(new CommentService(context, TimeProvider.System)));
+            WithContextAsync(context => action(new CommentService(context, TimeProvider.System, TestServices.Guard(context))));
 
         private Task<ServiceResult<LikeSummaryResponse>> LikesAsync(Func<LikeService, Task<ServiceResult<LikeSummaryResponse>>> action) =>
-            WithContextAsync(context => action(new LikeService(context, TimeProvider.System)));
+            WithContextAsync(context => action(new LikeService(context, TimeProvider.System, TestServices.Guard(context))));
 
         private async Task<PostDetailsResponse> CreatePostAsync(int userId)
         {
@@ -46,10 +48,10 @@ namespace SansPost.Tests.Postgres
             CommentsAsync(s => s.UpdateAsync(userId, commentId, version, new CommentRequest { Content = content }));
 
         private Task<ServiceResult> DeleteCommentAsync(int userId, int commentId, int version) =>
-            WithContextAsync(context => new CommentService(context, TimeProvider.System).DeleteAsync(userId, commentId, version));
+            WithContextAsync(context => new CommentService(context, TimeProvider.System, TestServices.Guard(context)).DeleteAsync(userId, commentId, version));
 
         private Task<CommentResponse?> GetCommentAsync(int commentId) =>
-            WithContextAsync(context => new CommentService(context, TimeProvider.System).GetByIdAsync(commentId));
+            WithContextAsync(context => new CommentService(context, TimeProvider.System, TestServices.Guard(context)).GetByIdAsync(commentId));
 
         private Task<int> CountAsync(Func<ApplicationDbContext, Task<int>> query) => WithContextAsync(query);
 
@@ -163,7 +165,10 @@ namespace SansPost.Tests.Postgres
 
             var orphans = await CountAsync(context => context.Comments.CountAsync(c => !context.Posts.Any(p => p.Id == c.PostId)));
             Assert.Equal(0, orphans);
-            Assert.Equal(0, await CountAsync(context => context.Comments.CountAsync(c => c.UserId == commenterId)));
+            // Soft delete: komentarze mogą fizycznie istnieć przy usuniętym poście, ale żaden nie jest publicznie widoczny.
+            var visible = await WithContextAsync(context =>
+                new CommentService(context, TimeProvider.System, TestServices.Guard(context)).GetRecentByAuthorAsync(commenterId, 50));
+            Assert.Empty(visible);
         }
 
         // Stabilna paginacja przy identycznych znacznikach czasu (tie-breaker = Id).
@@ -285,7 +290,9 @@ namespace SansPost.Tests.Postgres
                 Assert.True(like.Result.Succeeded || like.Result.Error == ServiceError.NotFound);
             }
 
-            Assert.Equal(0, await CountAsync(context => context.Likes.CountAsync(l => l.UserId == fanId)));
+            // Soft delete: polubienia usuniętych postów nie są publicznie widoczne (post = 404).
+            var visibleLikes = await CountAsync(context => context.Likes.CountAsync(l => l.UserId == fanId && l.Post.Status == ContentStatus.Published));
+            Assert.Equal(0, visibleLikes);
         }
 
         [DockerFact]

@@ -61,6 +61,19 @@ namespace SansPost.Tests.Postgres
                     INSERT INTO comments (postid, userid, content, createdat, version)
                     SELECT p.id, 1 + (p.id % 3000), 'komentarz', now(), 1 FROM posts p WHERE p.id % 5 = 0;
 
+                    -- Sprint 6: ~10% treści poza publicznym obiegiem (5% ukryte, 5% usunięte), część komentarzy ukryta.
+                    UPDATE posts SET status = 'Hidden' WHERE id % 20 = 1;
+                    UPDATE posts SET status = 'Deleted', deletedat = now() WHERE id % 20 = 2;
+                    UPDATE comments SET status = 'Hidden' WHERE id % 10 = 1;
+
+                    -- Zgłoszenia (10% Pending) i historia audytu.
+                    INSERT INTO reports (reporteruserid, targettype, targetid, reason, createdat, status)
+                    SELECT 1 + g % 3000, 'Post', g, 'Spam', now() - g * interval '1 minute',
+                           CASE WHEN g % 10 = 0 THEN 'Pending' ELSE 'Resolved' END
+                    FROM generate_series(1, 5000) g;
+                    INSERT INTO moderationactions (adminuserid, actiontype, targettype, targetid, createdat)
+                    SELECT 1, 'HidePost', 'Post', g, now() - g * interval '1 minute' FROM generate_series(1, 3000) g;
+
                     ANALYZE;
                     """, connection);
                 await command.ExecuteNonQueryAsync();
@@ -187,9 +200,35 @@ namespace SansPost.Tests.Postgres
 
             var (categories, capture) = await CaptureAsync(db, context => PostgresFixture.CreatePostService(context).GetCategoriesAsync());
 
-            Assert.Equal(30000, categories.Sum(c => c.PostCount));
+            Assert.Equal(27000, categories.Sum(c => c.PostCount));   // tylko opublikowane (10% ukrytych/usuniętych)
             Assert.Equal(300, categories.Single(c => c.Category == PostCategory.Feedback).PostCount);
             Assert.Contains("GROUP BY", Assert.Single(capture.Commands).Sql);
+        }
+
+        // Sprint 6: po dodaniu filtra status = 'Published' — feed autora, wątek komentarzy, kolejka i historia moderacji.
+        [DockerFact]
+        public async Task SoftStateFilteredQueries_UseTheirIndexes()
+        {
+            var db = await DatasetAsync();
+
+            var (_, authorCapture) = await CaptureAsync(db, context => PostgresFixture.CreatePostService(context)
+                .GetFeedAsync(new PostFeedQuery { AuthorId = 42, Limit = 20 }, null));
+            AssertPlanUses(await NaturalPlanAsync(db, Assert.Single(authorCapture.Commands)), "IX_posts_author_feed");
+
+            var (_, threadCapture) = await CaptureAsync(db, context =>
+                new SansPost.Features.Comments.CommentService(context, TimeProvider.System, SansPost.Tests.TestInfrastructure.TestServices.Guard(context))
+                    .GetByPostAsync(4000, new SansPost.Features.Comments.CommentPageQuery()));
+            AssertPlanUses(await NaturalPlanAsync(db, threadCapture.Commands[^1]), "IX_comments_post_thread");
+
+            var (_, queueCapture) = await CaptureAsync(db, context =>
+                new SansPost.Features.Moderation.ReportService(context, TimeProvider.System, SansPost.Tests.TestInfrastructure.TestServices.Guard(context))
+                    .GetPendingAsync(new SansPost.Features.Moderation.ModerationQueueQuery()));
+            AssertPlanUses(await NaturalPlanAsync(db, Assert.Single(queueCapture.Commands)), "IX_reports_pending_queue");
+
+            var (_, historyCapture) = await CaptureAsync(db, context =>
+                new SansPost.Features.Moderation.ModerationService(context, TimeProvider.System)
+                    .GetActionsAsync(new SansPost.Features.Moderation.ModerationQueueQuery()));
+            AssertPlanUses(await NaturalPlanAsync(db, Assert.Single(historyCapture.Commands)), "IX_moderationactions_history");
         }
 
         [DockerFact]

@@ -1,6 +1,7 @@
 @page "/post-view/{Id:int}"
 @using SansPost.Features.Comments
 @using SansPost.Features.Reactions
+@using SansPost.Features.Moderation
 @inject IPostService PostService
 @inject ICommentService CommentService
 @inject ILikeService LikeService
@@ -29,6 +30,11 @@
             </p>
 
             <p style="margin-top: 2rem;">@post.Content</p>
+
+            @if (userId is int reporterId && post.AuthorId != reporterId)
+            {
+                <ReportForm TargetType="ReportTargetType.Post" TargetId="post.Id" ReporterUserId="reporterId" />
+            }
 
             <div class="reactions" style="margin-top: 1rem;">
                 @if (userId is null)
@@ -70,6 +76,10 @@
                                 {
                                     <button @onclick="() => StartEdit(comment)">Edytuj</button>
                                     <button @onclick="() => DeleteComment(comment)" disabled="@isBusy">Usuń</button>
+                                }
+                                else if (userId is int commentReporterId)
+                                {
+                                    <ReportForm TargetType="ReportTargetType.Comment" TargetId="comment.Id" ReporterUserId="commentReporterId" />
                                 }
                             }
                         </li>

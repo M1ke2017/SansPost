@@ -25,7 +25,7 @@ namespace SansPost.Controllers
         }
 
         [AllowAnonymous]
-        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace SansPost.Controllers
         }
 
         [AllowAnonymous]
-        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request, CancellationToken cancellationToken)
         {
@@ -49,7 +49,7 @@ namespace SansPost.Controllers
         }
 
         [AllowAnonymous]
-        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh(RefreshTokenRequest request, CancellationToken cancellationToken)
         {
@@ -62,7 +62,7 @@ namespace SansPost.Controllers
 
         // Unieważnia refresh token sesji. Działa także po wygaśnięciu access tokena; zawsze 204 (brak wyroczni).
         [AllowAnonymous]
-        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout(RefreshTokenRequest request, CancellationToken cancellationToken)
         {

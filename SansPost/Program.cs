@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using SansPost.Features.Comments;
+using Microsoft.AspNetCore.Components.Authorization;
 using SansPost.Features.Identity;
+using SansPost.Features.Moderation;
 using SansPost.Features.Posts;
 using SansPost.Features.Profiles;
 using SansPost.Features.Reactions;
@@ -38,6 +40,17 @@ public class Program
         builder.Services.AddScoped<ILikeService, LikeService>();
         builder.Services.AddScoped<IProfileService, ProfileService>();
         builder.Services.AddScoped<ISearchService, PostgresSearchService>();
+        builder.Services.AddScoped<IReportService, ReportService>();
+        builder.Services.AddScoped<IModerationService, ModerationService>();
+
+        // Stan konta: walidacja sesji (AuthVersion), brama zapisów, bootstrap pierwszego admina.
+        builder.Services.AddScoped<IAuthStateValidator, AuthStateValidator>();
+        builder.Services.AddScoped<IWriteGuard, WriteGuard>();
+        builder.Services.AddScoped<AdminBootstrapper>();
+        builder.Services.AddHostedService<AdminBootstrapHostedService>();
+
+        // Blazor: circuit okresowo sprawdza aktualność sesji (ban/zmiana roli wylogowuje także otwartą kartę).
+        builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingAuthStateProvider>();
 
         var app = builder.Build();
 

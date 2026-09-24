@@ -37,7 +37,7 @@ namespace SansPost.Tests.Postgres
                 .AddInterceptors(interceptors)
                 .Options);
 
-        public static PostService CreatePostService(ApplicationDbContext context) => new(context, TimeProvider.System);
+        public static PostService CreatePostService(ApplicationDbContext context) => new(context, TimeProvider.System, TestServices.Guard(context));
 
         // Osobna, pusta baza w tym samym kontenerze (np. do testów migracji od zera).
         public async Task<string> CreateDatabaseAsync(string name)
@@ -54,7 +54,7 @@ namespace SansPost.Tests.Postgres
         {
             var username = TestUsers.UniqueName(prefix);
             await using var context = CreateContext();
-            var result = await new AuthService(context).RegisterAsync(new RegisterRequest
+            var result = await TestServices.Auth(context).RegisterAsync(new RegisterRequest
             {
                 Username = username,
                 Email = $"{username}@example.com",
@@ -156,10 +156,11 @@ namespace SansPost.Tests.Postgres
             return connectionString;
         }
 
+        // Posty "istniejące" dla autora (bez usuniętych przez autora — soft delete od Sprintu 6), jak limit postów.
         public async Task<int> CountPostsAsync(int userId)
         {
             await using var context = CreateContext();
-            return await context.Posts.CountAsync(p => p.UserId == userId);
+            return await context.Posts.CountAsync(p => p.UserId == userId && p.Status != SansPost.Features.ContentStatus.Deleted);
         }
     }
 

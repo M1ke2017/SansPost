@@ -54,8 +54,10 @@ namespace SansPost.Features.Profiles
                     u.Id,
                     u.Username,
                     u.CreatedAt,
-                    PostCount = _context.Posts.Count(p => p.UserId == u.Id),
-                    CommentCount = _context.Comments.Count(c => c.UserId == u.Id)
+                    // Tylko treści publiczne — ukryte/usunięte nie są liczone ani pokazywane.
+                    PostCount = _context.Posts.Count(p => p.UserId == u.Id && p.Status == ContentStatus.Published),
+                    CommentCount = _context.Comments.Count(c => c.UserId == u.Id
+                        && c.Status == ContentStatus.Published && c.Post.Status == ContentStatus.Published)
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 

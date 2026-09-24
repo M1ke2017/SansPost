@@ -1,0 +1,92 @@
+@page "/admin/moderation"
+@attribute [Authorize(Roles = "Admin")]
+@using SansPost.Features.Moderation
+@inject IReportService ReportService
+@inject IModerationService ModerationService
+
+@* Minimalna kolejka moderacji. Autoryzacja: [Authorize(Roles)] na stronie ORAZ sprawdzenie Admin w bazie w IModerationService. *@
+<div class="home-container">
+    <div class="register-text">
+        <h2>Moderacja — oczekujące zgłoszenia</h2>
+
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <p>@message</p>
+        }
+
+        @if (items.Count == 0)
+        {
+            <p>Brak oczekujących zgłoszeń.</p>
+        }
+
+        @foreach (var item in items)
+        {
+            <div class="post-box">
+                <strong>@item.TargetType #@item.TargetId</strong> — @item.Reason (@item.TargetStatus)
+                <p>@item.TargetPreview</p>
+                <span>Autor: @item.TargetAuthorUsername · zgłosił: @item.ReporterUsername · @item.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</span>
+                @if (!string.IsNullOrEmpty(item.Details))
+                {
+                    <p>Szczegóły: @item.Details</p>
+                }
+                <div>
+                    <button @onclick="() => HideAsync(item)">Ukryj treść</button>
+                    <button @onclick="() => DismissAsync(item)">Odrzuć zgłoszenie</button>
+                </div>
+            </div>
+        }
+
+        @if (nextCursor is not null)
+        {
+            <button @onclick="LoadMoreAsync">Więcej</button>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private readonly List<ModerationQueueItem> items = new();
+    private string? nextCursor;
+    private string? message;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        items.Clear();
+        nextCursor = null;
+        await LoadMoreAsync();
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        var page = await ReportService.GetPendingAsync(new ModerationQueueQuery { Cursor = nextCursor });
+        if (!page.Succeeded)
+            return;
+
+        items.AddRange(page.Value!.Items);
+        nextCursor = page.Value.NextCursor;
+    }
+
+    private async Task HideAsync(ModerationQueueItem item)
+    {
+        var adminId = (await AuthState).User.GetUserId()!.Value;
+        var result = item.TargetType == ReportTargetType.Post
+            ? await ModerationService.HidePostAsync(adminId, item.TargetId, $"Zgłoszenie #{item.ReportId}: {item.Reason}")
+            : await ModerationService.HideCommentAsync(adminId, item.TargetId, $"Zgłoszenie #{item.ReportId}: {item.Reason}");
+
+        message = result.Succeeded ? "Treść ukryta, zgłoszenia rozstrzygnięte." : result.Message;
+        await ReloadAsync();
+    }
+
+    private async Task DismissAsync(ModerationQueueItem item)
+    {
+        var adminId = (await AuthState).User.GetUserId()!.Value;
+        var result = await ModerationService.DismissReportAsync(adminId, item.ReportId, null);
+
+        message = result.Succeeded ? "Zgłoszenie odrzucone." : result.Message;
+        await ReloadAsync();
+    }
+}

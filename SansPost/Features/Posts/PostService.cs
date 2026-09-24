@@ -32,12 +32,23 @@ namespace SansPost.Features.Posts
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
+        private readonly IWriteGuard _writeGuard;
 
-        public PostService(ApplicationDbContext context, TimeProvider time)
+        public PostService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard)
         {
             _context = context;
             _time = time;
+            _writeGuard = writeGuard;
         }
+
+        // Jedyne źródło publicznych odczytów postów — Hidden/Deleted nigdy tu nie trafiają.
+        // Stała (nie parametr) w SQL: 'Published' pasuje do predykatu częściowych indeksów feedu.
+        private IQueryable<Post> PublishedPosts => _context.Posts.AsNoTracking().Where(p => p.Status == ContentStatus.Published);
+
+        // Posty wliczane do limitu: opublikowane i ukryte przez moderację (ukrycie nie zwalnia slotu),
+        // bez usuniętych przez autora.
+        private IQueryable<Post> QuotaPosts(int userId) =>
+            _context.Posts.Where(p => p.UserId == userId && p.Status != ContentStatus.Deleted);
 
         // Read model: liczniki jako skorelowane podzapytania w JEDNYM SELECT (brak N+1, brak materializacji Likes/Comments).
         // Zależność od tabel Comments/Likes dotyczy wyłącznie odczytu — Posts nie wywołuje ich logiki.
@@ -52,7 +63,7 @@ namespace SansPost.Features.Posts
             p.UserId,
             p.User.Username,
             _context.Likes.Count(l => l.PostId == p.Id),
-            _context.Comments.Count(c => c.PostId == p.Id),
+            _context.Comments.Count(c => c.PostId == p.Id && c.Status == ContentStatus.Published),
             viewerUserId != null && _context.Likes.Any(l => l.PostId == p.Id && l.UserId == viewerUserId));
 
         private Expression<Func<Post, PostDetailsResponse>> ToDetails(int? viewerUserId) => p => new PostDetailsResponse(
@@ -67,7 +78,7 @@ namespace SansPost.Features.Posts
             p.User.Username,
             p.Version,
             _context.Likes.Count(l => l.PostId == p.Id),
-            _context.Comments.Count(c => c.PostId == p.Id),
+            _context.Comments.Count(c => c.PostId == p.Id && c.Status == ContentStatus.Published),
             viewerUserId != null && _context.Likes.Any(l => l.PostId == p.Id && l.UserId == viewerUserId));
 
         public async Task<ServiceResult<KeysetPage<PostSummaryResponse>>> GetFeedAsync(PostFeedQuery query, int? viewerUserId, CancellationToken cancellationToken = default)
@@ -82,7 +93,7 @@ namespace SansPost.Features.Posts
             if (!string.IsNullOrEmpty(query.Cursor) && !KeysetCursor.TryDecode(query.Cursor, cursorScope, out cursor))
                 return ServiceResult<KeysetPage<PostSummaryResponse>>.Fail(ServiceError.Validation, "Nieprawidłowy kursor.");
 
-            var posts = _context.Posts.AsNoTracking();
+            var posts = PublishedPosts;
 
             if (query.Category is { } category)
                 posts = posts.Where(p => p.Category == category);
@@ -140,7 +151,7 @@ namespace SansPost.Features.Posts
                         (PostLimits.PopularHoursPerEngagementUnit
                             * Math.Log(1
                                 + _context.Likes.Count(l => l.PostId == p.Id)
-                                + PostLimits.PopularCommentWeight * _context.Comments.Count(c => c.PostId == p.Id))
+                                + PostLimits.PopularCommentWeight * _context.Comments.Count(c => c.PostId == p.Id && c.Status == ContentStatus.Published))
                          - (asOf - p.CreatedAt).TotalHours)
                         * PostLimits.ScoreScale)
                 });
@@ -176,8 +187,7 @@ namespace SansPost.Features.Posts
         public async Task<IReadOnlyList<CategorySummaryResponse>> GetCategoriesAsync(CancellationToken cancellationToken = default)
         {
             // Jeden GROUP BY w SQL; kategorie bez postów uzupełniane z enuma (zamknięty zestaw, bez tabeli Categories).
-            var stats = await _context.Posts
-                .AsNoTracking()
+            var stats = await PublishedPosts
                 .GroupBy(p => p.Category)
                 .Select(g => new { Category = g.Key, Count = g.Count(), Latest = g.Max(p => p.CreatedAt) })
                 .ToListAsync(cancellationToken);
@@ -193,8 +203,8 @@ namespace SansPost.Features.Posts
 
         public async Task<PostDetailsResponse?> GetByIdAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default)
         {
-            return await _context.Posts
-                .AsNoTracking()
+            // Hidden/Deleted zachowują się jak brak zasobu (404) — nie zdradzamy, że istnieją.
+            return await PublishedPosts
                 .Where(p => p.Id == postId)
                 .Select(ToDetails(viewerUserId))
                 .FirstOrDefaultAsync(cancellationToken);
@@ -206,7 +216,7 @@ namespace SansPost.Features.Posts
                 return null;
 
             var limit = await GetPostLimitAsync(userId, cancellationToken);
-            var used = await _context.Posts.CountAsync(p => p.UserId == userId, cancellationToken);
+            var used = await QuotaPosts(userId).CountAsync(cancellationToken);
 
             return new PostQuotaResponse(limit, used, Math.Max(0, limit - used));
         }
@@ -216,6 +226,8 @@ namespace SansPost.Features.Posts
             var normalized = Normalize(request);
             if (Validate(normalized) is { } error)
                 return ServiceResult<PostDetailsResponse>.Fail(ServiceError.Validation, error);
+            if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
+                return ServiceResult<PostDetailsResponse>.From(denied);
 
             // Jawna transakcja: COUNT → INSERT musi być atomowe względem innych requestów tego samego użytkownika.
             // Blokada wiersza users serializuje je w PostgreSQL (także między instancjami aplikacji).
@@ -226,7 +238,7 @@ namespace SansPost.Features.Posts
                 return ServiceResult<PostDetailsResponse>.Fail(ServiceError.NotFound, "Użytkownik nie istnieje.");
 
             var limit = await GetPostLimitAsync(actorUserId, cancellationToken);
-            var used = await _context.Posts.CountAsync(p => p.UserId == actorUserId, cancellationToken);
+            var used = await QuotaPosts(actorUserId).CountAsync(cancellationToken);
             if (used >= limit)
                 return ServiceResult<PostDetailsResponse>.Fail(ServiceError.Forbidden, $"Osiągnięto limit postów ({limit}).");
 
@@ -251,8 +263,10 @@ namespace SansPost.Features.Posts
             var normalized = Normalize(request);
             if (Validate(normalized) is { } error)
                 return ServiceResult<PostDetailsResponse>.Fail(ServiceError.Validation, error);
+            if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
+                return ServiceResult<PostDetailsResponse>.From(denied);
 
-            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken);
+            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.Status == ContentStatus.Published, cancellationToken);
             if (post is null)
                 return ServiceResult<PostDetailsResponse>.Fail(ServiceError.NotFound, "Post nie istnieje.");
             if (post.UserId != actorUserId)
@@ -283,9 +297,13 @@ namespace SansPost.Features.Posts
                 : ServiceResult<PostDetailsResponse>.Success(updated);
         }
 
+        // Soft delete: Status = Deleted (historia zachowana dla moderacji). Nadal jeden UPDATE ... WHERE version.
         public async Task<ServiceResult> DeleteAsync(int actorUserId, int postId, int expectedVersion, CancellationToken cancellationToken = default)
         {
-            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken);
+            if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
+                return denied;
+
+            var post = await _context.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.Status == ContentStatus.Published, cancellationToken);
             if (post is null)
                 return ServiceResult.Fail(ServiceError.NotFound, "Post nie istnieje.");
             if (post.UserId != actorUserId)
@@ -293,10 +311,13 @@ namespace SansPost.Features.Posts
             if (post.Version != expectedVersion)
                 return ServiceResult.Fail(ServiceError.PreconditionFailed, StaleVersionMessage);
 
-            _context.Posts.Remove(post);
+            post.Status = ContentStatus.Deleted;
+            post.DeletedAt = _time.GetUtcNow().UtcDateTime;
+            post.Version++;
             try
             {
-                // DELETE ... WHERE id = @id AND version = @expectedVersion; komentarze/polubienia usuwa FK CASCADE.
+                // UPDATE posts SET status = 'Deleted' ... WHERE id = @id AND version = @expectedVersion.
+                // Komentarze i polubienia zostają w bazie, ale znikają publicznie razem z postem.
                 await _context.SaveChangesAsync(cancellationToken);
             }
             catch (DbUpdateConcurrencyException)
@@ -311,7 +332,7 @@ namespace SansPost.Features.Posts
         {
             _context.ChangeTracker.Clear();
 
-            return await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken)
+            return await _context.Posts.AnyAsync(p => p.Id == postId && p.Status == ContentStatus.Published, cancellationToken)
                 ? ServiceResult.Fail(ServiceError.PreconditionFailed, StaleVersionMessage)
                 : ServiceResult.Fail(ServiceError.NotFound, "Post został usunięty.");
         }

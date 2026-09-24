@@ -35,7 +35,7 @@ namespace SansPost.Tests.TestInfrastructure
         public ApplicationDbContext CreateContext() =>
             new(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connection).Options);
 
-        public AuthService CreateAuthService(ApplicationDbContext context) => new(context);
+        public AuthService CreateAuthService(ApplicationDbContext context) => TestServices.Auth(context);
 
         public ApiTokenService CreateTokenService(ApplicationDbContext context)
         {

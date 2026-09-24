@@ -17,7 +17,7 @@ namespace SansPost.Tests
         {
             var time = new MutableTimeProvider();
             var identity = UserClaimsFactory.CreateIdentity(
-                new AuthenticatedUser(42, "anna", "anna@example.com", UserRole.Admin), AuthSchemes.Jwt);
+                new AuthenticatedUser(42, "anna", "anna@example.com", UserRole.Admin, 1), AuthSchemes.Jwt);
 
             var (token, expiresAt) = CreateService(time).CreateAccessToken(identity);
             var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
@@ -32,10 +32,10 @@ namespace SansPost.Tests
         public void ClaimsFactory_ProducesExactlyTheUnifiedClaimSet()
         {
             var identity = UserClaimsFactory.CreateIdentity(
-                new AuthenticatedUser(7, "bob", "bob@example.com", UserRole.User), AuthSchemes.Cookie);
+                new AuthenticatedUser(7, "bob", "bob@example.com", UserRole.User, 3), AuthSchemes.Cookie);
 
             Assert.Equal(
-                new[] { ClaimTypes.NameIdentifier, ClaimTypes.Name, ClaimTypes.Email, ClaimTypes.Role },
+                new[] { ClaimTypes.NameIdentifier, ClaimTypes.Name, ClaimTypes.Email, ClaimTypes.Role, SansPostClaimTypes.AuthVersion },
                 identity.Claims.Select(c => c.Type));
             Assert.Equal(7, new ClaimsPrincipal(identity).GetUserId());
             Assert.True(new ClaimsPrincipal(identity).IsInRole(nameof(UserRole.User)));

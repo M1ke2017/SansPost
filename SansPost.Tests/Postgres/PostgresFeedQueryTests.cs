@@ -77,7 +77,9 @@ namespace SansPost.Tests.Postgres
 
             _output.WriteLine(sql);
             _output.WriteLine(string.Join(Environment.NewLine, plan));
-            Assert.Contains(plan, line => line.Contains(expectedIndex, StringComparison.Ordinal));
+            // Mikro-tabela + wymuszone enable_seqscan=off: planner może wybrać dedykowany indeks albo mniejszy częściowy
+            // IX_posts_feed z filtrem — oba są poprawne. Naturalne plany na 30 000 postów: DiscoveryQueryShapeTests.
+            Assert.Contains(plan, line => line.Contains(expectedIndex, StringComparison.Ordinal) || line.Contains("IX_posts_feed", StringComparison.Ordinal));
 
             // Kursor musi zawężać zakres indeksu (Index Cond), a nie tylko filtrować od początku (koszt jak OFFSET).
             Assert.Contains(plan, line => line.Contains("Index Cond", StringComparison.Ordinal) && line.Contains("createdat <=", StringComparison.Ordinal));

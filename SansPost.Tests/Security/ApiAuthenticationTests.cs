@@ -173,7 +173,8 @@ namespace SansPost.Tests.Security
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                    new Claim(ClaimTypes.Role, nameof(UserRole.User))
+                    new Claim(ClaimTypes.Role, nameof(UserRole.User)),
+                    new Claim(SansPostClaimTypes.AuthVersion, "1")
                 }),
                 Issuer = issuer,
                 Audience = audience,

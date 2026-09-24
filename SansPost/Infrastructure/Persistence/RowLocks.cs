@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SansPost.Features.Identity;
 
 namespace SansPost.Infrastructure.Persistence
 {
@@ -10,8 +11,7 @@ namespace SansPost.Infrastructure.Persistence
         // Wymaga aktywnej transakcji. Zwraca false, gdy użytkownik nie istnieje.
         public static async Task<bool> LockUserRowAsync(this ApplicationDbContext context, int userId, CancellationToken cancellationToken)
         {
-            if (context.Database.CurrentTransaction is null)
-                throw new InvalidOperationException("Blokada wiersza wymaga aktywnej transakcji.");
+            EnsureTransaction(context);
 
             if (!context.Database.IsNpgsql())
             {
@@ -24,6 +24,30 @@ namespace SansPost.Infrastructure.Persistence
                 .ToListAsync(cancellationToken);
 
             return locked.Count > 0;
+        }
+
+        // Blokuje jedyny wiersz bramy rejestracji (FOR UPDATE) do końca transakcji — globalna sekcja krytyczna
+        // "policz konta → utwórz konto" we wszystkich instancjach. Wiersz zamiast advisory lock: blokada jest
+        // widoczna w pg_locks jak każda inna, zwalniana automatycznie z transakcją i nie wymaga uzgadniania kluczy.
+        public static async Task LockRegistrationGateAsync(this ApplicationDbContext context, CancellationToken cancellationToken)
+        {
+            EnsureTransaction(context);
+
+            if (!context.Database.IsNpgsql())
+                return;
+
+            var locked = await context.Database
+                .SqlQuery<int>($"SELECT id AS \"Value\" FROM registrationgates WHERE id = {RegistrationGate.SingletonId} FOR UPDATE")
+                .ToListAsync(cancellationToken);
+
+            if (locked.Count == 0)
+                throw new InvalidOperationException("Brak wiersza bramy rejestracji — migracja DemoSafetyAndModeration nie została zastosowana.");
+        }
+
+        private static void EnsureTransaction(ApplicationDbContext context)
+        {
+            if (context.Database.CurrentTransaction is null)
+                throw new InvalidOperationException("Blokada wiersza wymaga aktywnej transakcji.");
         }
     }
 }

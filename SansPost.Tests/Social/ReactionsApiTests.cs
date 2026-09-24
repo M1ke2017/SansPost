@@ -104,18 +104,29 @@ namespace SansPost.Tests.Social
         }
 
         [Fact]
-        public async Task DeletingPost_CascadesItsLikesAndComments()
+        // Sprint 6: DELETE posta to soft delete — polubienia i komentarze znikają publicznie razem z postem,
+        // ale dane zostają (historia dla moderacji). Wcześniej: fizyczne DELETE + FK CASCADE.
+        public async Task DeletingPost_HidesItsLikesAndCommentsPublicly_ButRetainsData()
         {
             var client = await _factory.CreateAuthenticatedApiClientAsync(TestUsers.UniqueName());
             var post = await client.CreatePostAsync();
             await client.SendAsync(Request(HttpMethod.Put, $"/api/posts/{post.Id}/like"));
-            await client.CreateCommentAsync(post.Id);
+            var (comment, _) = await client.CreateCommentAsync(post.Id);
 
             var etag = (await client.GetAsync($"/api/posts/{post.Id}")).Headers.ETag;
             Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(Request(HttpMethod.Delete, $"/api/posts/{post.Id}", etag))).StatusCode);
 
-            Assert.Equal(0, LikeRows(post.Id));
-            Assert.Equal(0, _factory.WithScope(db => db.Comments.Count(c => c.PostId == post.Id)));
+            var anonymous = _factory.CreateHttpsClient();
+            Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/posts/{post.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/posts/{post.Id}/likes")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/posts/{post.Id}/comments")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/comments/{comment.Id}")).StatusCode);
+
+            var stored = _factory.WithScope(db => db.Posts.Single(p => p.Id == post.Id));
+            Assert.Equal(SansPost.Features.ContentStatus.Deleted, stored.Status);
+            Assert.NotNull(stored.DeletedAt);
+            Assert.Equal(1, LikeRows(post.Id));
+            Assert.Equal(1, _factory.WithScope(db => db.Comments.Count(c => c.PostId == post.Id)));
         }
     }
 }
