@@ -1,0 +1,41 @@
+# Kontekst budowania obrazu: tylko projekt aplikacji. Wszystko inne — poza obrazem.
+**/.git
+**/.gitignore
+**/.gitattributes
+**/.github
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/*.suo
+**/bin
+**/obj
+**/TestResults
+**/*.trx
+**/*.binlog
+
+# Testy, E2E, zrzuty wizualne, Playwright/Chromium
+SansPost.Tests
+SansPost.E2E
+**/VisualBaselines
+**/visual-actual
+**/frontier-shots
+**/playwright*
+**/.playwright
+**/ms-playwright
+
+# Sekrety i lokalna konfiguracja
+secrets
+backups
+.env
+.env.*
+**/appsettings.Development.json
+**/secrets.json
+
+# Pliki wdrożeniowe nie są potrzebne w obrazie
+docker-compose*.yml
+Dockerfile
+.dockerignore
+deploy
+DEPLOYMENT.md
+*.md

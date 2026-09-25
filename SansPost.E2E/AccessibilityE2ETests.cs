@@ -73,6 +73,8 @@ namespace SansPost.E2E
             await AuditAsync(admin.Page, "Moderation");
             await admin.Page.Locator(".queue-item").First.GetByRole(AriaRole.Button, new() { Name = "Odrzuć zgłoszenie" }).ClickAsync();
             await Expect(admin.Page.Locator("dialog[open]")).ToBeVisibleAsync();
+            // Audyt po zakończeniu animacji otwarcia (pop-in od opacity 0) — w trakcie axe mierzy półprzezroczyste kolory.
+            await admin.Page.Locator("dialog[open]").EvaluateAsync("d => Promise.all(d.getAnimations({ subtree: true }).map(a => a.finished))");
             await AuditAsync(admin.Page, "Moderation dialog");
 
             foreach (var line in findings)

@@ -1,0 +1,20 @@
+# Jednorazowe utworzenie pierwszego administratora (idempotentne — gdy admin istnieje, nic nie robi).
+#   docker compose -f docker-compose.yml -f docker-compose.bootstrap.yml up -d
+# Po utworzeniu: uruchom ponownie BEZ tego pliku i usuń secrets/bootstrap_admin_password.
+services:
+  sanspost:
+    environment:
+      BootstrapAdmin__Enabled: "true"
+      BootstrapAdmin__Username: ${BOOTSTRAP_ADMIN_USERNAME:?ustaw BOOTSTRAP_ADMIN_USERNAME}
+      BootstrapAdmin__Email: ${BOOTSTRAP_ADMIN_EMAIL:?ustaw BOOTSTRAP_ADMIN_EMAIL}
+    secrets:
+      - source: postgres_password
+        target: Database__Password
+      - source: jwt_key
+        target: Jwt__Key
+      - source: bootstrap_admin_password
+        target: BootstrapAdmin__Password
+
+secrets:
+  bootstrap_admin_password:
+    file: ${SECRETS_DIR:-./secrets}/bootstrap_admin_password

@@ -58,7 +58,10 @@ namespace SansPost.Controllers
         {
             var user = await _authService.AuthenticateAsync(request.Email, request.Password, cancellationToken);
             if (user is null)
+            {
+                SecurityEvents.FailedLogin(HttpContext, "api");
                 return Problem(detail: InvalidCredentialsMessage, statusCode: StatusCodes.Status401Unauthorized);
+            }
 
             return Ok(await _tokenService.IssueAsync(user, cancellationToken));
         }

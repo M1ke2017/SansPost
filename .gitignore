@@ -363,3 +363,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# SansPost — deployment (Sprint 11): lokalne sekrety i konfiguracja środowiska nigdy do repozytorium.
+/secrets/
+.env
+.env.*
+!.env.example
+/backups/

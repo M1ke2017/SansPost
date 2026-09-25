@@ -46,6 +46,7 @@ namespace SansPost.Features.Notifications
                 Comment = comment,
                 CreatedAt = comment.CreatedAt
             });
+            SansPost.Infrastructure.Hosting.SansPostTelemetry.NotificationsCreated.Add(1);
         }
 
         public async Task<ServiceResult<KeysetPage<NotificationResponse>>> GetAsync(int userId, NotificationPageQuery query, CancellationToken cancellationToken = default)

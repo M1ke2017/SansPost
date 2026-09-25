@@ -2190,3 +2190,22 @@ html:has(dialog[open]) { overflow: hidden; }
 @media (max-width: 639.98px) {
     .frontier-banner > .frontier-celestial { bottom: 26px; width: 28px; height: 28px; left: calc(51% - 14px); }
 }
+
+/* Sprint 11: nagłówek kategorii (signpost) — ta sama safe zone co hero. Tarcza w pasie sceny POD linią kurzu
+   (linia leży ~104 px od dołu na desktopie, ~84 px na mobile), między słupem telegraficznym (~45%) a kaktusem (~57%).
+   Dzięki temu linia nigdy nie przecina słońca ani księżyca, niezależnie od kadrowania SVG. */
+.place-header > .frontier-celestial {
+    position: absolute;
+    z-index: auto;
+    left: calc(51% - 19px);
+    bottom: 54px;
+    width: 38px;
+    height: 38px;
+    max-width: none;
+    pointer-events: none;
+    user-select: none;
+}
+
+@media (max-width: 639.98px) {
+    .place-header > .frontier-celestial { bottom: 24px; width: 28px; height: 28px; left: calc(51% - 14px); }
+}

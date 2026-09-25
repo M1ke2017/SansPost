@@ -1,0 +1,12 @@
+# Reverse proxy + TLS dla SansPost (Caddy 2).
+# - SANSPOST_SITE_ADDRESS=localhost → certyfikat z lokalnego CA Caddy (test); prawdziwa domena → Let's Encrypt automatycznie.
+# - HTTP → HTTPS robi Caddy; aplikacja dostaje X-Forwarded-For (prawdziwy klient) i X-Forwarded-Proto=https.
+# - Nagłówki X-Forwarded-* przysłane przez klienta NIE są przekazywane dalej jako zaufane (Caddy ustawia własne).
+{
+	admin off
+}
+
+{$SANSPOST_SITE_ADDRESS:localhost} {
+	encode gzip
+	reverse_proxy sanspost:8080
+}

@@ -190,6 +190,12 @@ namespace SansPost.Infrastructure.Security
                 // 429 + Retry-After; treść ProblemDetails dopisuje UseStatusCodePages dla /api.
                 options.OnRejected = (context, _) =>
                 {
+                    var endpoint = context.HttpContext.Request.Path.StartsWithSegments("/api/auth/alias-suggestion") ? "AliasSuggestion" : "Auth";
+                    SansPost.Infrastructure.Hosting.SansPostTelemetry.RateLimitRejections.Add(1, new KeyValuePair<string, object?>("policy", endpoint));
+                    context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("SansPost.RateLimiting")
+                        .LogWarning("Rate limit {Policy} rejected {Method} {Path} from {ClientIp}.", endpoint, context.HttpContext.Request.Method,
+                            context.HttpContext.Request.Path.Value, context.HttpContext.Connection.RemoteIpAddress?.ToString());
+
                     if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
                     {
                         context.HttpContext.Response.Headers.RetryAfter =

@@ -40,20 +40,28 @@ namespace SansPost.Tests.TestInfrastructure
             ["RateLimiting:Auth:PermitLimit"] = "1000",
             ["RateLimiting:Search:PermitLimit"] = "100000",
             ["RateLimiting:Writes:PermitLimit"] = "100000",
-            ["PublicDemo:MaxPublicAccounts"] = WesternAliases.SafeCapacity.ToString()   // maksimum dopuszczalne przez walidację startową
+            ["PublicDemo:MaxPublicAccounts"] = WesternAliases.SafeCapacity.ToString(),   // maksimum dopuszczalne przez walidację startową
+            ["Database:MigrateOnStartup"] = "false"   // schemat tworzy fabryka (SQLite EnsureCreated / PostgreSQL migracje)
         };
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             // "Testing": bez User Secrets, cookie Secure=Always, produkcyjny exception handler.
-            builder.UseEnvironment("Testing");
+            builder.UseEnvironment(EnvironmentName);
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(Settings));
+            if (!ReplaceDatabase)
+                return;
+
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
                 services.AddDbContext<ApplicationDbContext>(ConfigureDatabase);
             });
         }
+
+        // Testy wdrożeniowe: "Production" (appsettings.Production.json) i/lub prawdziwa rejestracja Npgsql z konfiguracji.
+        protected virtual string EnvironmentName => "Testing";
+        protected virtual bool ReplaceDatabase => true;
 
         // Domyślnie SQLite in-memory (szybkie testy). PostgresApiFactory podmienia na prawdziwy PostgreSQL.
         protected virtual void ConfigureDatabase(DbContextOptionsBuilder options)

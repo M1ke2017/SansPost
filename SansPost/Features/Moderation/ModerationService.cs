@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SansPost.Features.Identity;
 using SansPost.Infrastructure.Persistence;
+using Microsoft.Extensions.Logging.Abstractions;
+using SansPost.Infrastructure.Hosting;
 
 namespace SansPost.Features.Moderation
 {
@@ -34,10 +36,13 @@ namespace SansPost.Features.Moderation
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
 
-        public ModerationService(ApplicationDbContext context, TimeProvider time)
+        private readonly ILogger<ModerationService> _logger;
+
+        public ModerationService(ApplicationDbContext context, TimeProvider time, ILogger<ModerationService>? logger = null)
         {
             _context = context;
             _time = time;
+            _logger = logger ?? NullLogger<ModerationService>.Instance;
         }
 
         private DateTime Now => _time.GetUtcNow().UtcDateTime;
@@ -303,7 +308,11 @@ namespace SansPost.Features.Moderation
             return isAdmin ? null : ServiceResult.Fail(ServiceError.Forbidden, "Operacja wymaga uprawnień administratora.");
         }
 
-        private void Audit(int adminUserId, ModerationActionType action, ModerationTargetType target, int targetId, string? reason) =>
+        // Log operatora (bez treści uzasadnienia — może zawierać dane osobowe) + metryka; wpis w dzienniku audytu w tej samej transakcji.
+        private void Audit(int adminUserId, ModerationActionType action, ModerationTargetType target, int targetId, string? reason)
+        {
+            _logger.LogInformation("Moderation {Action} on {TargetType} {TargetId} by admin {AdminUserId}.", action, target, targetId, adminUserId);
+            SansPostTelemetry.ModerationActions.Add(1, new KeyValuePair<string, object?>("action", action.ToString()));
             _context.ModerationActions.Add(new ModerationAction
             {
                 AdminUserId = adminUserId,
@@ -313,6 +322,7 @@ namespace SansPost.Features.Moderation
                 Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
                 CreatedAt = Now
             });
+        }
 
         private Task RevokeRefreshTokensAsync(int userId, CancellationToken cancellationToken)
         {

@@ -65,6 +65,7 @@ namespace SansPost.Features.Identity
             var (acquired, retryAfter) = _rateLimiter.TryAcquire(actorUserId);
             if (!acquired)
             {
+                SansPost.Infrastructure.Hosting.SansPostTelemetry.RateLimitRejections.Add(1, new KeyValuePair<string, object?>("policy", "Writes"));
                 return ServiceResult.Fail(ServiceError.RateLimited,
                     "Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za chwilę.", "write-rate-limited", retryAfter);
             }

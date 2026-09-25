@@ -47,7 +47,10 @@ namespace SansPost.Controllers
 
             var user = await _authService.AuthenticateAsync(form.Email, form.Password, cancellationToken);
             if (user is null)
+            {
+                SecurityEvents.FailedLogin(HttpContext, "form");
                 return LocalRedirect($"/login?error=invalid&returnUrl={Uri.EscapeDataString(returnUrl)}");
+            }
 
             var principal = new ClaimsPrincipal(UserClaimsFactory.CreateIdentity(user, AuthSchemes.Cookie));
             await HttpContext.SignInAsync(AuthSchemes.Cookie, principal);

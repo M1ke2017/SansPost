@@ -203,6 +203,8 @@ else if (hasSearched)
         if (acquired)
             return true;
 
+        SansPost.Infrastructure.Hosting.SansPostTelemetry.RateLimitRejections.Add(1, new KeyValuePair<string, object?>("policy", "Search"));
+        Logger.LogWarning("Rate limit {Policy} rejected Blazor search from {ClientIp}.", "Search", ClientAddress);
         error = UiErrors.SearchRateLimited(retryAfter);
         errorVariant = AlertVariant.Warning;
         return false;
