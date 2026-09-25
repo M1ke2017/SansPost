@@ -44,7 +44,7 @@ namespace SansPost.E2E
             {
                 await using var context = await _env.NewContextAsync(colorScheme: scheme, reducedMotion: true);
                 var guest = await context.NewPageAsync();
-                foreach (var (path, name) in new[] { ("/", "Home"), ("/categories", "Categories"), ("/search?q=gry", "Search"), ("/post-view/2", "Post"),
+                foreach (var (path, name) in new[] { ("/", "Entrance"), ("/saloon", "Saloon"), ("/categories", "Categories"), ("/search?q=gry", "Search"), ("/post-view/2", "Post"),
                              ("/login", "Login"), ("/register", "Register"), ("/u/DustyRaven", "Profile") })
                 {
                     await Ui.GotoAsync(guest, path);
@@ -57,7 +57,7 @@ namespace SansPost.E2E
             var other = await _env.Main.CreateUserAsync();
             var postId = await Api.CreatePostAsync(_env.Main, user.User!, "Post do audytu dostępności");
             await Api.CommentAsync(_env.Main, other, postId, "Komentarz do audytu");
-            await Ui.GotoAsync(user.Page, "/");
+            await Ui.GotoAsync(user.Page, "/saloon");
             await user.Page.Locator("#notif-trigger").ClickAsync();
             await Expect(user.Page.Locator("#notif-panel .notif-item").First).ToBeVisibleAsync();
             await AuditAsync(user.Page, "Notifications panel");

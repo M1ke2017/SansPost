@@ -23,7 +23,7 @@ namespace SansPost.E2E
             var page = await context.NewPageAsync();
 
             // Home: treści startowe (seed w PostgreSQL), post przypięty.
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
             await Expect(page.Locator(".post-card").First).ToBeVisibleAsync();
             Assert.True(await page.Locator(".post-card").CountAsync() >= 10);
             await Expect(page.Locator(".featured-label")).ToBeVisibleAsync();
@@ -31,11 +31,11 @@ namespace SansPost.E2E
 
             // Newest ↔ Popular (stan w adresie).
             await page.GetByRole(AriaRole.Button, new() { Name = "Popularne" }).ClickAsync();
-            await Expect(page).ToHaveURLAsync(Ui.Path("/?sort=popular"));
+            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon?sort=popular"));
             await Expect(page.GetByRole(AriaRole.Button, new() { Name = "Popularne" })).ToHaveAttributeAsync("aria-pressed", "true");
             await Expect(page.Locator(".post-card").First).ToBeVisibleAsync();
             await page.GetByRole(AriaRole.Button, new() { Name = "Najnowsze" }).ClickAsync();
-            await Expect(page).ToHaveURLAsync(Ui.Path("/"));
+            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon"));
 
             // Kategorie → feed kategorii (liczniki > 0).
             await page.Locator(".primary-nav").GetByRole(AriaRole.Link, new() { Name = "Kategorie" }).ClickAsync();
@@ -70,7 +70,7 @@ namespace SansPost.E2E
         {
             await using var context = await _env.NewContextAsync(colorScheme: ColorScheme.Light);
             var page = await context.NewPageAsync();
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
             await Expect(page.Locator("html")).ToHaveAttributeAsync("data-theme", "light");
 
             await page.GetByRole(AriaRole.Button, new() { Name = "Przełącz jasny lub ciemny motyw" }).ClickAsync();
@@ -98,7 +98,7 @@ namespace SansPost.E2E
         {
             await using var context = await _env.NewContextAsync(width: width, height: height, reducedMotion: true);
             var page = await context.NewPageAsync();
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
 
             // Nieaktywna strzałka jest ukryta (display: none) — IncludeHidden, żeby sprawdzić jej stan.
             var right = page.GetByRole(AriaRole.Button, new() { Name = "Przewiń kategorie w prawo", IncludeHidden = true });
@@ -132,7 +132,7 @@ namespace SansPost.E2E
         {
             await using var context = await _env.NewContextAsync(width: 390, height: 844);
             var page = await context.NewPageAsync();
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
 
             await Expect(page.GetByRole(AriaRole.Button, new() { Name = "Przewiń kategorie w prawo" })).ToBeHiddenAsync();
             var feedback = page.Locator(".sign-row a[href='/c/feedback']");

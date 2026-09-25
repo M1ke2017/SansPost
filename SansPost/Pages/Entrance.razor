@@ -1,0 +1,13 @@
+@page "/"
+
+<PageTitle>SansPost — wejście</PageTitle>
+
+@* Entrance: świadome wejście do SansPost. Na razie prosty szkielet — fasada i drzwi Saloonu to kolejny sprint.
+   Czytanie nie wymaga konta: "Wejdź do Saloonu" działa także dla gościa. *@
+<section class="stack" aria-labelledby="entrance-title" style="max-width: 36rem; margin: var(--space-8) auto; text-align: center">
+    <h1 id="entrance-title">SansPost</h1>
+    <p class="muted">Cyfrowy saloon na pograniczu: rozmowy o technologii, grach, podróżach, pomysłach i projektach.</p>
+    <div class="cluster" style="justify-content: center">
+        <a class="btn btn-primary btn-lg" href="@SaloonRoutes.Hub">Wejdź do Saloonu</a>
+    </div>
+</section>

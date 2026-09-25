@@ -16,7 +16,7 @@ namespace SansPost.E2E.Infrastructure
         public static Task WaitInteractiveAsync(IPage page) =>
             page.WaitForSelectorAsync("html[data-interactive]", new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached });
 
-        public static async Task LoginAsync(IPage page, string email, string password, string returnUrl = "/")
+        public static async Task LoginAsync(IPage page, string email, string password, string returnUrl = "/saloon")
         {
             // Najpierw circuit: do podłączenia formularz jest zablokowany (FormGate, Sprint 10 — patrz HydrationE2ETests).
             await GotoAsync(page, $"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");

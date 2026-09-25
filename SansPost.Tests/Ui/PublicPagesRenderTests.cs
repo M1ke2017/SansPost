@@ -29,7 +29,7 @@ namespace SansPost.Tests.Ui
             Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
             var guest = _factory.CreateHttpsClient();
-            foreach (var path in new[] { "/", "/posts", "/c/games", $"/u/{author}" })
+            foreach (var path in new[] { "/saloon", "/posts", "/c/games", $"/u/{author}" })
             {
                 var response = await guest.GetAsync(path);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);

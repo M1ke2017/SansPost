@@ -14,7 +14,7 @@
                             <PageTitle>Brak dostępu · SansPost</PageTitle>
                             <EmptyState Title="Brak dostępu" HeadingLevel="1" IconName="@Icons.Lock"
                                         Text="Ta część SansPost jest dostępna tylko dla uprawnionych kont.">
-                                <a class="btn btn-primary" href="/">Wróć do odkrywania</a>
+                                <a class="btn btn-primary" href="@SaloonRoutes.Hub">Wróć do odkrywania</a>
                             </EmptyState>
                         }
                     </NotAuthorized>
@@ -31,7 +31,7 @@
                 <LayoutView Layout="@typeof(MainLayout)">
                     <EmptyState Title="Nie ma tu nic do czytania" HeadingLevel="1" IconName="@Icons.Compass"
                                 Text="Ten adres nie prowadzi do żadnej strony SansPost. Może link jest nieaktualny?">
-                        <a class="btn btn-primary" href="/">Wróć do odkrywania</a>
+                        <a class="btn btn-primary" href="@SaloonRoutes.Hub">Wróć do odkrywania</a>
                         <a class="btn" href="/search">Szukaj</a>
                     </EmptyState>
                 </LayoutView>

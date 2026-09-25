@@ -24,7 +24,9 @@ namespace SansPost.E2E
             var postId = await Api.CreatePostAsync(_env.Main, user.User!, "Post do tras");
             var routes = new (string Path, string Heading)[]
             {
-                ("/", "Odkrywaj"),
+                ("/", "SansPost"),
+                ("/saloon", "Odkrywaj"),
+                ("/posts", "Odkrywaj"),
                 ("/categories", "Kategorie"),
                 ("/c/travel", "Podróże"),
                 ("/search", "Szukaj"),
@@ -113,7 +115,7 @@ namespace SansPost.E2E
             Assert.Equal(401, status);
 
             // Brak emaili, hashy haseł i danych uwierzytelnienia w widokach.
-            foreach (var path in new[] { "/me", $"/u/{user.User!.Alias}", "/", "/categories" })
+            foreach (var path in new[] { "/me", $"/u/{user.User!.Alias}", "/saloon", "/categories" })
             {
                 await Ui.GotoAsync(page, path);
                 var html = await page.ContentAsync();
@@ -127,7 +129,7 @@ namespace SansPost.E2E
             var postId = await Api.CreatePostAsync(_env.Main, user.User, secret, content: "Sekretna treść " + secret);
             await Api.AdminAsync(_env.Main, $"/api/moderation/posts/{postId}/hide");
             // Wyszukiwanie po słowie z TREŚCI (nie z tytułu) — strona wyników sama wyświetla zapytanie, więc echo frazy to nie wyciek.
-            foreach (var path in new[] { $"/post-view/{postId}", "/", "/search?q=Sekretna", $"/u/{user.User.Alias}" })
+            foreach (var path in new[] { $"/post-view/{postId}", "/saloon", "/search?q=Sekretna", $"/u/{user.User.Alias}" })
             {
                 await Ui.GotoAsync(page, path);
                 var html = await page.ContentAsync();

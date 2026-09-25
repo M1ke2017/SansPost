@@ -30,7 +30,7 @@ namespace SansPost.Tests.Postgres
             var guest = _factory.CreateHttpsClient();
             // Świeży post jest deterministycznie widoczny w "Najnowszych" i kategorii. W "Popularnych"
             // (wspólna baza kolekcji testów) jego pozycja zależy od innych testów — tam sprawdzamy tylko, że feed się wyrenderował.
-            foreach (var (path, expectsNewPost) in new[] { ("/", true), ("/c/general", true), ("/?sort=popular", false) })
+            foreach (var (path, expectsNewPost) in new[] { ("/saloon", true), ("/c/general", true), ("/saloon?sort=popular", false) })
             {
                 var html = await guest.GetStringAsync(path);
 

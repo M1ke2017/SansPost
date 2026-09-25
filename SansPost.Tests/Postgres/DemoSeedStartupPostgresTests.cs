@@ -52,7 +52,7 @@ namespace SansPost.Tests.Postgres
                 using var search = JsonDocument.Parse(await guest.GetStringAsync("/api/search/posts?q=planszówka"));
                 Assert.NotEmpty(search.RootElement.GetProperty("items").EnumerateArray());
 
-                var home = await guest.GetStringAsync("/");
+                var home = await guest.GetStringAsync("/saloon");
                 Assert.Contains(DemoContent.WelcomeTitle, home);
                 Assert.DoesNotContain("Nie ma jeszcze post", home);
             }

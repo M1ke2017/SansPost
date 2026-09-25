@@ -14,7 +14,7 @@
             <Logo />
 
             <nav class="primary-nav" aria-label="Główna nawigacja">
-                <NavLink class="nav-link" href="/" Match="NavLinkMatch.All"><Icon Name="@Icons.Compass" /> Odkrywaj</NavLink>
+                <NavLink class="nav-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.Compass" /> Odkrywaj</NavLink>
                 <NavLink class="nav-link" href="/categories"><Icon Name="@Icons.Grid" /> Kategorie</NavLink>
             </nav>
 
@@ -95,7 +95,7 @@
                     <EmptyState Title="Coś poszło nie tak" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger"
                                 Text="Nie udało się wyświetlić tej strony. Spróbuj ponownie — jeśli problem się powtarza, wróć za chwilę.">
                         <button type="button" class="btn btn-primary" @onclick="Recover"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
-                        <a class="btn" href="/">Wróć do odkrywania</a>
+                        <a class="btn" href="@SaloonRoutes.Hub">Wróć do odkrywania</a>
                     </EmptyState>
                 </ErrorContent>
             </ErrorBoundary>
@@ -110,7 +110,7 @@
     </footer>
 
     <nav class="bottom-nav" aria-label="Nawigacja">
-        <NavLink href="/" Match="NavLinkMatch.All"><Icon Name="@Icons.Compass" Size="22" /><span>Odkrywaj</span></NavLink>
+        <NavLink href="@SaloonRoutes.Hub"><Icon Name="@Icons.Compass" Size="22" /><span>Odkrywaj</span></NavLink>
         <NavLink href="/search"><Icon Name="@Icons.Search" Size="22" /><span>Szukaj</span></NavLink>
         <NavLink href="@(viewer is null ? "/login?returnUrl=%2Fnew" : "/new")" class="bottom-nav-primary">
             <span class="bubble"><Icon Name="@Icons.Plus" Size="20" StrokeWidth="2.2" /></span><span>Nowy post</span>

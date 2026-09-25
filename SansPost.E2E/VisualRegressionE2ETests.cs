@@ -69,7 +69,7 @@ namespace SansPost.E2E
             await using var context = await _env.NewContextAsync(_server, 1280, 800, scheme, reducedMotion: true);
             var page = await context.NewPageAsync();
 
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
             await Expect(page.Locator(".post-card").First).ToBeVisibleAsync();
             await SnapshotAsync(page, $"home-{theme}");
 
@@ -95,7 +95,7 @@ namespace SansPost.E2E
         {
             await using var context = await _env.NewContextAsync(_server, 390, 844, ColorScheme.Light, reducedMotion: true);
             var page = await context.NewPageAsync();
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
             await Expect(page.Locator(".post-card").First).ToBeVisibleAsync();
             await SnapshotAsync(page, "home-mobile-390");
 

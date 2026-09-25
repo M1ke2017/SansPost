@@ -27,7 +27,7 @@
         @* Formularz nie udaje, że działa — pokazujemy stan i alternatywę. *@
         <EmptyState Title="Rejestracja jest obecnie wyłączona" IconName="@Icons.Lock" Variant="AlertVariant.Warning"
                     Text="Nowe konta są chwilowo niedostępne. Nadal możesz przeglądać wszystkie posty i dyskusje.">
-            <a class="btn btn-primary" href="/">Przeglądaj posty</a>
+            <a class="btn btn-primary" href="@SaloonRoutes.Hub">Przeglądaj posty</a>
             <a class="btn" href="/login">Mam już konto</a>
         </EmptyState>
     }
@@ -35,7 +35,7 @@
     {
         <EmptyState Title="Limit kont został osiągnięty" IconName="@Icons.Users" Variant="AlertVariant.Warning"
                     Text="Publiczna wersja SansPost ma ograniczoną liczbę kont i wszystkie miejsca są zajęte. Wszystkie treści możesz czytać bez konta.">
-            <a class="btn btn-primary" href="/">Przeglądaj posty</a>
+            <a class="btn btn-primary" href="@SaloonRoutes.Hub">Przeglądaj posty</a>
             <a class="btn" href="/login">Mam już konto</a>
         </EmptyState>
     }

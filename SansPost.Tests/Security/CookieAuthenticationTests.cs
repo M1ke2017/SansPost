@@ -102,7 +102,7 @@ namespace SansPost.Tests.Security
 
             var (_, login) = await LoginWithCookieAsync(username, returnUrl: "https://evil.example.com/phish");
 
-            Assert.Equal("/posts", login.Headers.Location!.OriginalString);
+            Assert.Equal("/saloon", login.Headers.Location!.OriginalString);
         }
 
         [Fact]

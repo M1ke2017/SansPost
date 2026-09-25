@@ -53,7 +53,7 @@ namespace SansPost.E2E
                     colorScheme: theme == "dark" ? ColorScheme.Dark : ColorScheme.Light, reducedMotion: true);
                 var page = await context.NewPageAsync();
 
-                foreach (var (path, container) in new[] { ("/c/games", ".place-header"), ("/", ".frontier-banner") })
+                foreach (var (path, container) in new[] { ("/c/games", ".place-header"), ("/saloon", ".frontier-banner") })
                 {
                     await Ui.GotoAsync(page, path);
                     await Expect(page.Locator(container).First).ToBeVisibleAsync();

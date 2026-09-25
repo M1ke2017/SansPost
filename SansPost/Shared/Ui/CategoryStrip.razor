@@ -8,7 +8,7 @@
         <Icon Name="@Icons.ArrowLeft" Size="16" />
     </button>
     <nav class="sign-row" aria-label="Kategorie" data-scroller-track>
-        <a class="sign sign-all @(Current is null ? "active" : "")" href="/" aria-current="@(Current is null ? "page" : null)">
+        <a class="sign sign-all @(Current is null ? "active" : "")" href="@SaloonRoutes.Hub" aria-current="@(Current is null ? "page" : null)">
             <Icon Name="@Icons.Compass" Size="16" /> Wszystkie
         </a>
         @foreach (var category in CategoryMeta.All)

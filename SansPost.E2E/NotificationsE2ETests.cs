@@ -45,7 +45,7 @@ namespace SansPost.E2E
             Assert.Equal(0, await b.Page.Locator(".notif-badge").CountAsync());   // własny komentarz nie powiadamia B
 
             // A odświeża: licznik 1 i poprawna nazwa dostępna.
-            await Ui.GotoAsync(a.Page, "/");
+            await Ui.GotoAsync(a.Page, "/saloon");
             await Expect(a.Page.Locator(".notif-badge")).ToHaveTextAsync("1");
             await Expect(Bell(a.Page)).ToHaveAttributeAsync("aria-label", "Powiadomienia, nieprzeczytane: 1");
 
@@ -81,7 +81,7 @@ namespace SansPost.E2E
             var postId = await Api.CreatePostAsync(_env.Main, a.User!, "Mobilny post z bardzo długim tytułem, który trzeba zawinąć w panelu");
             await Api.CommentAsync(_env.Main, b, postId, "Komentarz na telefonie");
 
-            await Ui.GotoAsync(a.Page, "/");
+            await Ui.GotoAsync(a.Page, "/saloon");
             await Expect(a.Page.Locator(".notif-badge")).ToHaveTextAsync("1");
             await Bell(a.Page).ClickAsync();
             var panel = a.Page.Locator("#notif-panel");
@@ -107,7 +107,7 @@ namespace SansPost.E2E
             await Api.CommentAsync(_env.Main, b, postId, "Komentarz przed ukryciem");
             await Api.AdminAsync(_env.Main, $"/api/moderation/posts/{postId}/hide");
 
-            await Ui.GotoAsync(a.Page, "/");
+            await Ui.GotoAsync(a.Page, "/saloon");
             await Bell(a.Page).ClickAsync();
             var item = a.Page.Locator("#notif-panel .notif-item").First;
             await Expect(item).ToContainTextAsync("ta treść nie jest już dostępna");

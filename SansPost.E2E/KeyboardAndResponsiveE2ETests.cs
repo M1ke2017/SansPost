@@ -32,7 +32,7 @@ namespace SansPost.E2E
 
             // Skip link: pierwszy element w kolejności Tab (DOM); Enter przenosi fokus do <main>.
             // (Po nawigacji FocusOnNavigate stawia fokus na h1, więc zwykłe Tab zaczyna się od treści.)
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
             var firstTabbable = await page.EvaluateAsync<string>(@"() => [...document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')]
                 .find(e => e.tabIndex >= 0 && !e.disabled).textContent.trim()");
             Assert.Equal("Przejdź do treści", firstTabbable);
@@ -49,7 +49,7 @@ namespace SansPost.E2E
             await Expect(page.Locator(".post-card-title", new() { HasText = "Planszówka" })).ToBeVisibleAsync();
 
             // Strzałki kategorii (Enter i Space).
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, "/saloon");
             var right = page.GetByRole(AriaRole.Button, new() { Name = "Przewiń kategorie w prawo" });
             await right.FocusAsync();
             await page.Keyboard.PressAsync("Enter");
@@ -156,7 +156,7 @@ namespace SansPost.E2E
         public async Task NoHorizontalOverflow_OnMainScreens(int width, int height)
         {
             await using var user = await Session.UserAsync(_env, width: width, height: height, reducedMotion: true);
-            foreach (var path in new[] { "/", "/categories", "/c/games", "/search?q=gry", "/post-view/2", "/u/DustyRaven", "/me", "/new" })
+            foreach (var path in new[] { "/", "/saloon", "/categories", "/c/games", "/search?q=gry", "/post-view/2", "/u/DustyRaven", "/me", "/new" })
             {
                 await Ui.GotoAsync(user.Page, path);
                 await Ui.AssertNoHorizontalOverflowAsync(user.Page, $"{path} @ {width}x{height}");

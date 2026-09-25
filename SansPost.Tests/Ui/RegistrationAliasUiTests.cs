@@ -128,7 +128,7 @@ namespace SansPost.Tests.Ui
         [Fact]
         public async Task Header_HasSingleDesktopSearchEntry()
         {
-            var html = await _factory.CreateHttpsClient().GetStringAsync("/");
+            var html = await _factory.CreateHttpsClient().GetStringAsync("/saloon");
             var header = html[html.IndexOf("<header class=\"app-header\"", StringComparison.Ordinal)..html.IndexOf("</header>", StringComparison.Ordinal)];
             var primaryNav = Regex.Match(header, "<nav class=\"primary-nav\".*?</nav>", RegexOptions.Singleline).Value;
 

@@ -1,13 +1,13 @@
-@page "/"
+@page "/saloon"
 @page "/posts"
 @using SansPost.Features.Demo
 @inject UiServices Ui
 @inject NavigationManager Navigation
-@inject ILogger<Index> Logger
+@inject ILogger<Saloon> Logger
 
 <PageTitle>SansPost — rozmowy, które mają sens</PageTitle>
 
-@* Główny plac SansPost: baner z pejzażem pogranicza. Gość dostaje wyjaśnienie i wejście; zalogowany — krótkie powitanie. *@
+@* Saloon — główna przestrzeń SansPost (dawniej "/"). "/posts" to dawny alias feedu — zostaje. Główny plac: baner z pejzażem pogranicza. Gość dostaje wyjaśnienie i wejście; zalogowany — krótkie powitanie. *@
 @if (Viewer is null)
 {
     <section class="frontier-banner" aria-labelledby="intro-title">
@@ -136,5 +136,5 @@ else
 
     // Sortowanie w adresie (?sort=popular) — link można udostępnić, a "wstecz" przywraca widok.
     private void SetSort(PostSort sort) =>
-        Navigation.NavigateTo(sort == PostSort.Popular ? "/?sort=popular" : "/", replace: false);
+        Navigation.NavigateTo(sort == PostSort.Popular ? $"{SaloonRoutes.Hub}?sort=popular" : SaloonRoutes.Hub, replace: false);
 }

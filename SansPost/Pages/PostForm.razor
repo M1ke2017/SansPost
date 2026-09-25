@@ -8,7 +8,7 @@
 <PageTitle>Nowy post · SansPost</PageTitle>
 
 <div class="narrow">
-    <a class="back-link" href="/"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
+    <a class="back-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
 
     <div class="page-header">
         <div>
@@ -43,7 +43,7 @@
                     <PostEditor Draft="draft" OnValidSubmit="SubmitAsync" Busy="isSubmitting" Disabled="@(Viewer?.CanWrite == false)"
                                 SubmitLabel="Opublikuj" BusyLabel="Publikowanie…">
                         <Actions>
-                            <a class="btn btn-ghost" href="/">Anuluj</a>
+                            <a class="btn btn-ghost" href="@SaloonRoutes.Hub">Anuluj</a>
                             @if (quota is not null)
                             {
                                 <span class="spacer"></span>

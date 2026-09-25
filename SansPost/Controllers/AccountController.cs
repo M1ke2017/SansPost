@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SansPost.Features;
 using SansPost.Features.Identity;
+using SansPost.Features.Saloon;
 using SansPost.Infrastructure.Security;
 
 namespace SansPost.Controllers
@@ -15,7 +16,8 @@ namespace SansPost.Controllers
     [AutoValidateAntiforgeryToken]
     public class AccountController : Controller
     {
-        private const string DefaultReturnUrl = "/posts";
+        // Domyślnie Saloon. Powrót do samego wejścia ("/") po zalogowaniu nie ma sensu — też Saloon.
+        private const string DefaultReturnUrl = SaloonRoutes.Hub;
 
         private readonly IAuthService _authService;
 
@@ -43,7 +45,7 @@ namespace SansPost.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromForm] LoginForm form, CancellationToken cancellationToken)
         {
-            var returnUrl = Url.IsLocalUrl(form.ReturnUrl) ? form.ReturnUrl! : DefaultReturnUrl;
+            var returnUrl = Url.IsLocalUrl(form.ReturnUrl) && form.ReturnUrl != SaloonRoutes.Entrance ? form.ReturnUrl! : DefaultReturnUrl;
 
             var user = await _authService.AuthenticateAsync(form.Email, form.Password, cancellationToken);
             if (user is null)
@@ -90,7 +92,7 @@ namespace SansPost.Controllers
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(AuthSchemes.Cookie);
-            return LocalRedirect("/");
+            return LocalRedirect(SaloonRoutes.Entrance);   // wylogowanie = wyjście z Saloonu
         }
     }
 }

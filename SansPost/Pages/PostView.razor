@@ -11,7 +11,7 @@
 <PageTitle>@(post?.Title ?? "Post") · SansPost</PageTitle>
 
 <div class="narrow">
-    <a class="back-link" href="/"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
+    <a class="back-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
 
     @if (isLoading)
     {
@@ -27,7 +27,7 @@
     {
         <EmptyState Title="Ten post nie jest dostępny" HeadingLevel="1" IconName="@Icons.FileText"
                     Text="Mógł zostać usunięty przez autora lub ukryty przez moderację.">
-            <a class="btn btn-primary" href="/">Wróć do odkrywania</a>
+            <a class="btn btn-primary" href="@SaloonRoutes.Hub">Wróć do odkrywania</a>
         </EmptyState>
     }
     else

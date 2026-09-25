@@ -101,11 +101,11 @@ namespace SansPost.Tests.Notifications
                 ["__RequestVerificationToken"] = token,
                 ["Email"] = $"{aName}@example.com",
                 ["Password"] = TestUsers.Password,
-                ["ReturnUrl"] = "/"
+                ["ReturnUrl"] = "/saloon"
             }));
             Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
 
-            var home = await browser.GetStringAsync("/");
+            var home = await browser.GetStringAsync("/saloon");
             Assert.Contains("<span class=\"notif-badge\" aria-hidden=\"true\">1</span>", home);
 
             var notification = (await ListAsync(aApi)).Items.Single();
@@ -116,7 +116,7 @@ namespace SansPost.Tests.Notifications
             Assert.Contains($"id=\"comment-{commentId}\"", postPage);
 
             Assert.Equal(HttpStatusCode.OK, (await aApi.PatchAsync($"/api/notifications/{notification.Id}/read", null)).StatusCode);
-            Assert.DoesNotContain("class=\"notif-badge\"", await browser.GetStringAsync("/"));
+            Assert.DoesNotContain("class=\"notif-badge\"", await browser.GetStringAsync("/saloon"));
         }
 
         private sealed record IdOnly(int Id);

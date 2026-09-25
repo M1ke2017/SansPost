@@ -44,7 +44,7 @@ namespace SansPost.Tests.Ui
         [Fact]
         public async Task CategoryStrip_ContainsEveryCategory_AndAccessibleScrollButtons()
         {
-            foreach (var path in new[] { "/", "/c/general" })
+            foreach (var path in new[] { "/saloon", "/c/general" })
             {
                 var html = await _factory.CreateHttpsClient().GetStringAsync(path);
                 var strip = Regex.Match(html, "<div class=\"sign-strip\".*?</nav>.*?</button>", RegexOptions.Singleline).Value;
