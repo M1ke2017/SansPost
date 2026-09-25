@@ -9,9 +9,9 @@ namespace SansPost.Controllers
     [Route("api/profiles")]
     public class ProfilesController : ApiControllerBase
     {
-        private readonly IProfileService _profileService;
+        private readonly ProfileService _profileService;
 
-        public ProfilesController(IProfileService profileService)
+        public ProfilesController(ProfileService profileService)
         {
             _profileService = profileService;
         }

@@ -12,7 +12,7 @@ namespace SansPost.Infrastructure.Security
         // Ta sama konfiguracja limituje też propozycje przydomków (middleware, per IP).
         public const string Search = "Search";
 
-        // Zalogowane, per UserId: posty, komentarze, reakcje, zgłoszenia (egzekwowane w IWriteGuard).
+        // Zalogowane, per UserId: posty, komentarze, reakcje, zgłoszenia (egzekwowane w WriteGuard).
         public const string Writes = "Writes";
     }
 

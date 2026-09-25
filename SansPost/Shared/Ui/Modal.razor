@@ -26,7 +26,6 @@
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? Footer { get; set; }
-    [Parameter] public EventCallback OnClosed { get; set; }
 
     private readonly string titleId = "dialog-" + Guid.NewGuid().ToString("N")[..8];
     private ElementReference element;
@@ -64,14 +63,13 @@
     }
 
     [JSInvokable]
-    public async Task OnDialogClosed()
+    public void OnDialogClosed()
     {
         if (!isOpen)
             return;
 
         isOpen = false;
         StateHasChanged();
-        await OnClosed.InvokeAsync();
     }
 
     public ValueTask DisposeAsync()

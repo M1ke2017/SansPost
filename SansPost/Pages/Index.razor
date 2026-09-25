@@ -121,7 +121,7 @@ else
         try
         {
             var viewerId = (await AuthState).User.GetUserId();
-            var featuredId = await Ui.Run((IFeaturedPostLocator s) => s.GetFeaturedPostIdAsync());
+            var featuredId = await Ui.Run((FeaturedPostLocator s) => s.GetFeaturedPostIdAsync());
             if (featuredId is int id && await Ui.Run((IPostService s) => s.GetByIdAsync(id, viewerId)) is { } post)
                 featured = PostCardModel.From(post);
 

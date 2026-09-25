@@ -76,8 +76,8 @@ else
         try
         {
             var result = target
-                ? await Ui.Run((ILikeService s) => s.LikeAsync(Viewer.UserId, PostId))
-                : await Ui.Run((ILikeService s) => s.UnlikeAsync(Viewer.UserId, PostId));
+                ? await Ui.Run((LikeService s) => s.LikeAsync(Viewer.UserId, PostId))
+                : await Ui.Run((LikeService s) => s.UnlikeAsync(Viewer.UserId, PostId));
 
             if (result.Succeeded)
             {

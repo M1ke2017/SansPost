@@ -112,7 +112,6 @@ namespace SansPost.E2E
                 ReducedMotion = ReducedMotion.Reduce,
                 ColorScheme = ColorScheme.Light
             });
-            await session.AddInitScriptAsync("try { sessionStorage.setItem('sp-brand-played', '1'); } catch (e) {}");
             var mobile = await session.NewPageAsync();
             await Ui.LoginAsync(mobile, owner.Email, E2EEnvironment.UserPassword);
             await mobile.Locator("#notif-trigger").ClickAsync();

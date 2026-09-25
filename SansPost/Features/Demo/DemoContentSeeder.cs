@@ -187,12 +187,7 @@ namespace SansPost.Features.Demo
 
     // Post przypięty na stronie głównej: jawnie skonfigurowany PublicDemo:FeaturedPostId, a gdy go brak i demo jest
     // seedowane — post powitalny utworzony przez seeder. Zwykły post z bazy; ukryty/usunięty po prostu się nie pokaże.
-    public interface IFeaturedPostLocator
-    {
-        Task<int?> GetFeaturedPostIdAsync(CancellationToken cancellationToken = default);
-    }
-
-    public class FeaturedPostLocator : IFeaturedPostLocator
+    public class FeaturedPostLocator
     {
         private readonly ApplicationDbContext _context;
         private readonly PublicDemoOptions _options;

@@ -8,28 +8,7 @@ namespace SansPost.Features.Moderation
 {
     // Akcje administratora. Każda zmiana stanu zapisuje niezmienny wpis ModerationAction w tej samej transakcji.
     // Autoryzacja: polityka ApiAdmin (REST) / [Authorize(Roles = Admin)] (Blazor) ORAZ ponowne sprawdzenie w bazie tutaj.
-    public interface IModerationService
-    {
-        Task<ServiceResult> DismissReportAsync(int adminUserId, int reportId, string? reason, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult> HidePostAsync(int adminUserId, int postId, string? reason, CancellationToken cancellationToken = default);
-        Task<ServiceResult> RestorePostAsync(int adminUserId, int postId, string? reason, CancellationToken cancellationToken = default);
-        Task<ServiceResult> HideCommentAsync(int adminUserId, int commentId, string? reason, CancellationToken cancellationToken = default);
-        Task<ServiceResult> RestoreCommentAsync(int adminUserId, int commentId, string? reason, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult> SuspendUserAsync(int adminUserId, int userId, string? reason, CancellationToken cancellationToken = default);
-        Task<ServiceResult> BanUserAsync(int adminUserId, int userId, string? reason, CancellationToken cancellationToken = default);
-        Task<ServiceResult> ReactivateUserAsync(int adminUserId, int userId, string? reason, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult> ChangeRoleAsync(int adminUserId, int userId, UserRole role, CancellationToken cancellationToken = default);
-        Task<ServiceResult> SetSubscriptionAsync(int adminUserId, int userId, SubscriptionType type, DateTime? expiresAt, CancellationToken cancellationToken = default);
-
-        Task<ModeratedContentView?> GetPostAsync(int postId, CancellationToken cancellationToken = default);
-        Task<ModeratedContentView?> GetCommentAsync(int commentId, CancellationToken cancellationToken = default);
-        Task<ServiceResult<KeysetPage<ModerationActionResponse>>> GetActionsAsync(ModerationQueueQuery query, CancellationToken cancellationToken = default);
-    }
-
-    public class ModerationService : IModerationService
+    public class ModerationService
     {
         private const string ActionsCursorScope = "moderation.actions";
 

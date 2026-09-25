@@ -119,7 +119,7 @@ namespace SansPost.Tests.Postgres
         {
             var db = await DatasetAsync();
 
-            var (result, capture) = await CaptureAsync(db, context => new PostgresSearchService(context)
+            var (result, capture) = await CaptureAsync(db, context => new SearchService(context)
                 .SearchPostsAsync(new PostSearchQuery { Q = RareWord, Limit = 5 }, viewerUserId: 1));
 
             Assert.True(result.Succeeded);
@@ -185,7 +185,7 @@ namespace SansPost.Tests.Postgres
         {
             var db = await DatasetAsync();
 
-            var (result, capture) = await CaptureAsync(db, context => new PostgresSearchService(context).SearchUsersAsync("user299", 10));
+            var (result, capture) = await CaptureAsync(db, context => new SearchService(context).SearchUsersAsync("user299", 10));
 
             Assert.Equal(10, result.Value!.Count);
             var command = Assert.Single(capture.Commands);

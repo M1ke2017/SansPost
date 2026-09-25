@@ -15,7 +15,7 @@ namespace SansPost.Tests.TestInfrastructure
             Window = TimeSpan.FromMinutes(1)
         });
 
-        public static IWriteGuard Guard(ApplicationDbContext context) => new WriteGuard(context, GenerousLimiter);
+        public static WriteGuard Guard(ApplicationDbContext context) => new WriteGuard(context, GenerousLimiter);
 
         // Komentarze z prawdziwym serwisem powiadomień na tym samym DbContext (jak w DI: jeden scope).
         public static SansPost.Features.Comments.CommentService Comments(ApplicationDbContext context, TimeProvider? time = null) =>

@@ -6,23 +6,7 @@ using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Comments
 {
-    public interface ICommentService
-    {
-        // Płaska dyskusja: CreatedAt ASC, Id ASC (keyset). NotFound, gdy post nie istnieje lub nie jest publiczny.
-        Task<ServiceResult<KeysetPage<CommentResponse>>> GetByPostAsync(int postId, CommentPageQuery query, CancellationToken cancellationToken = default);
-
-        Task<CommentResponse?> GetByIdAsync(int commentId, CancellationToken cancellationToken = default);
-
-        Task<IReadOnlyList<AuthorCommentResponse>> GetRecentByAuthorAsync(int userId, int limit, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult<CommentResponse>> AddAsync(int actorUserId, int postId, CommentRequest request, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult<CommentResponse>> UpdateAsync(int actorUserId, int commentId, int expectedVersion, CommentRequest request, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult> DeleteAsync(int actorUserId, int commentId, int expectedVersion, CancellationToken cancellationToken = default);
-    }
-
-    public class CommentService : ICommentService
+    public class CommentService
     {
         private const string CursorScope = "comments";
         private const string StaleVersionMessage = "Komentarz został w międzyczasie zmieniony. Odśwież go i spróbuj ponownie.";
@@ -34,10 +18,10 @@ namespace SansPost.Features.Comments
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
-        private readonly IWriteGuard _writeGuard;
+        private readonly WriteGuard _writeGuard;
         private readonly INotificationService _notifications;
 
-        public CommentService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard, INotificationService notifications)
+        public CommentService(ApplicationDbContext context, TimeProvider time, WriteGuard writeGuard, INotificationService notifications)
         {
             _context = context;
             _time = time;
@@ -53,6 +37,7 @@ namespace SansPost.Features.Comments
         private Task<bool> PublishedPostExistsAsync(int postId, CancellationToken cancellationToken) =>
             _context.Posts.AnyAsync(p => p.Id == postId && p.Status == ContentStatus.Published, cancellationToken);
 
+        // Płaska dyskusja: CreatedAt ASC, Id ASC (keyset). NotFound, gdy post nie istnieje lub nie jest publiczny.
         public async Task<ServiceResult<KeysetPage<CommentResponse>>> GetByPostAsync(int postId, CommentPageQuery query, CancellationToken cancellationToken = default)
         {
             if (query.Limit is < 1 or > CommentLimits.MaxPageSize)

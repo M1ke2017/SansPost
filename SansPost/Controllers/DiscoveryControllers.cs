@@ -10,9 +10,9 @@ namespace SansPost.Controllers
     [Route("api/search")]
     public class SearchController : ApiControllerBase
     {
-        private readonly ISearchService _searchService;
+        private readonly SearchService _searchService;
 
-        public SearchController(ISearchService searchService)
+        public SearchController(SearchService searchService)
         {
             _searchService = searchService;
         }

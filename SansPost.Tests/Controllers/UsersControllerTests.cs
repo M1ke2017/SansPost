@@ -9,7 +9,8 @@ namespace SansPost.Tests.Controllers
     {
         private readonly Mock<IUserService> _userService = new();
 
-        private UsersController CreateController() => new(_userService.Object, Mock.Of<SansPost.Features.Moderation.IModerationService>());
+        // Akcje GET nie używają moderacji — wystarczy instancja bez kontekstu.
+        private UsersController CreateController() => new(_userService.Object, new SansPost.Features.Moderation.ModerationService(null!, TimeProvider.System));
 
         private static UserResponse SampleUser(int id) =>
             new(id, "user", UserRole.User, SubscriptionType.Free, DateTime.UtcNow);

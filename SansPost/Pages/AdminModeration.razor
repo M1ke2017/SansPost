@@ -5,7 +5,7 @@
 @inject ToastService Toasts
 @inject ILogger<AdminModeration> Logger
 
-@* Autoryzacja: [Authorize(Roles)] na stronie ORAZ sprawdzenie Admin+Active w bazie w IModerationService (źródło prawdy). *@
+@* Autoryzacja: [Authorize(Roles)] na stronie ORAZ sprawdzenie Admin+Active w bazie w ModerationService (źródło prawdy). *@
 <PageTitle>Moderacja · SansPost</PageTitle>
 
 <div class="page-header">
@@ -288,7 +288,7 @@ else
         queueError = null;
         try
         {
-            var page = await Ui.Run((IReportService s) => s.GetPendingAsync(new ModerationQueueQuery { Cursor = queueCursor }));
+            var page = await Ui.Run((ReportService s) => s.GetPendingAsync(new ModerationQueueQuery { Cursor = queueCursor }));
             if (!page.Succeeded)
             {
                 queueError = UiErrors.Describe(page);
@@ -323,7 +323,7 @@ else
         historyError = null;
         try
         {
-            var page = await Ui.Run((IModerationService s) => s.GetActionsAsync(new ModerationQueueQuery { Cursor = historyCursor }));
+            var page = await Ui.Run((ModerationService s) => s.GetActionsAsync(new ModerationQueueQuery { Cursor = historyCursor }));
             if (!page.Succeeded)
             {
                 historyError = UiErrors.Describe(page);
@@ -353,8 +353,8 @@ else
         }
 
         var view = item.TargetType == ReportTargetType.Post
-            ? await Ui.Run((IModerationService s) => s.GetPostAsync(item.TargetId))
-            : await Ui.Run((IModerationService s) => s.GetCommentAsync(item.TargetId));
+            ? await Ui.Run((ModerationService s) => s.GetPostAsync(item.TargetId))
+            : await Ui.Run((ModerationService s) => s.GetCommentAsync(item.TargetId));
 
         if (view is null)
         {
@@ -370,38 +370,38 @@ else
         "Treść zniknie z publicznych widoków (feed, wyszukiwarka, profil), a wszystkie oczekujące zgłoszenia tej treści zostaną rozstrzygnięte. Można ją później przywrócić z historii.",
         "Ukryj treść", true, "Treść ukryta, zgłoszenia rozstrzygnięte.",
         (admin, why) => item.TargetType == ReportTargetType.Post
-            ? Ui.Run((IModerationService s) => s.HidePostAsync(admin, item.TargetId, why ?? $"Zgłoszenie #{item.ReportId}: {ReportDialog.Label(item.Reason)}"))
-            : Ui.Run((IModerationService s) => s.HideCommentAsync(admin, item.TargetId, why ?? $"Zgłoszenie #{item.ReportId}: {ReportDialog.Label(item.Reason)}"))));
+            ? Ui.Run((ModerationService s) => s.HidePostAsync(admin, item.TargetId, why ?? $"Zgłoszenie #{item.ReportId}: {ReportDialog.Label(item.Reason)}"))
+            : Ui.Run((ModerationService s) => s.HideCommentAsync(admin, item.TargetId, why ?? $"Zgłoszenie #{item.ReportId}: {ReportDialog.Label(item.Reason)}"))));
 
     private Task AskDismiss(ModerationQueueItem item) => AskAsync(new PendingAction(
         "Odrzucić zgłoszenie?", "Treść pozostanie widoczna. Zgłoszenie zostanie oznaczone jako odrzucone.",
         "Odrzuć zgłoszenie", false, "Zgłoszenie odrzucone.",
-        (admin, why) => Ui.Run((IModerationService s) => s.DismissReportAsync(admin, item.ReportId, why))));
+        (admin, why) => Ui.Run((ModerationService s) => s.DismissReportAsync(admin, item.ReportId, why))));
 
     private Task AskRestore(ReportTargetType type, int id) => AskAsync(new PendingAction(
         type == ReportTargetType.Post ? "Przywrócić post?" : "Przywrócić komentarz?",
         "Treść wróci do publicznych widoków.", "Przywróć", false, "Treść przywrócona.",
         (admin, why) => type == ReportTargetType.Post
-            ? Ui.Run((IModerationService s) => s.RestorePostAsync(admin, id, why))
-            : Ui.Run((IModerationService s) => s.RestoreCommentAsync(admin, id, why))));
+            ? Ui.Run((ModerationService s) => s.RestorePostAsync(admin, id, why))
+            : Ui.Run((ModerationService s) => s.RestoreCommentAsync(admin, id, why))));
 
     private Task AskSuspend(ModeratedContentView target) => AskAsync(new PendingAction(
         $"Zawiesić konto {target.AuthorUsername}?",
         "Użytkownik nadal może czytać, ale nie może publikować, komentować, reagować ani zgłaszać. Aktywne sesje zostaną odświeżone.",
         "Zawieś konto", true, "Konto zawieszone.",
-        (admin, why) => Ui.Run((IModerationService s) => s.SuspendUserAsync(admin, target.AuthorId, why))));
+        (admin, why) => Ui.Run((ModerationService s) => s.SuspendUserAsync(admin, target.AuthorId, why))));
 
     private Task AskBan(ModeratedContentView target) => AskAsync(new PendingAction(
         $"Zablokować konto {target.AuthorUsername}?",
         "Użytkownik zostanie wylogowany ze wszystkich urządzeń i nie będzie mógł się zalogować. Jego treści pozostają — ukryj je osobno, jeśli trzeba.",
         "Zablokuj konto", true, "Konto zablokowane.",
-        (admin, why) => Ui.Run((IModerationService s) => s.BanUserAsync(admin, target.AuthorId, why))));
+        (admin, why) => Ui.Run((ModerationService s) => s.BanUserAsync(admin, target.AuthorId, why))));
 
     private Task AskReactivate(int userId, string? username) => AskAsync(new PendingAction(
         username is null ? "Przywrócić konto?" : $"Przywrócić konto {username}?",
         "Konto odzyska pełne możliwości: publikowanie, komentowanie i reakcje.",
         "Przywróć konto", false, "Konto przywrócone.",
-        (admin, why) => Ui.Run((IModerationService s) => s.ReactivateUserAsync(admin, userId, why))));
+        (admin, why) => Ui.Run((ModerationService s) => s.ReactivateUserAsync(admin, userId, why))));
 
     private async Task AskAsync(PendingAction action)
     {

@@ -9,31 +9,22 @@ namespace SansPost.Features.Reactions
 
     // API "desired state" zamiast toggle: Like = "po operacji post JEST polubiony", Unlike = "NIE JEST".
     // Obie operacje są idempotentne — bezpieczne przy retry i równoległych requestach.
-    public interface ILikeService
-    {
-        // null = post nie istnieje lub nie jest publiczny.
-        Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult<LikeSummaryResponse>> LikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult<LikeSummaryResponse>> UnlikeAsync(int actorUserId, int postId, CancellationToken cancellationToken = default);
-    }
-
-    public class LikeService : ILikeService
+    public class LikeService
     {
         private const string PostNotFoundMessage = "Post nie istnieje.";
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
-        private readonly IWriteGuard _writeGuard;
+        private readonly WriteGuard _writeGuard;
 
-        public LikeService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard)
+        public LikeService(ApplicationDbContext context, TimeProvider time, WriteGuard writeGuard)
         {
             _context = context;
             _time = time;
             _writeGuard = writeGuard;
         }
 
+        // null = post nie istnieje lub nie jest publiczny.
         public async Task<LikeSummaryResponse?> GetSummaryAsync(int postId, int? viewerUserId, CancellationToken cancellationToken = default)
         {
             // Jedno zapytanie: liczba polubień + stan dla bieżącego użytkownika, bez ładowania rekordów Like.

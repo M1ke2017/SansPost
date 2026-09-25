@@ -87,7 +87,7 @@
         errorMessage = null;
         try
         {
-            var result = await Ui.Run((IReportService s) => s.CreateAsync(Viewer.UserId, new CreateReportRequest
+            var result = await Ui.Run((ReportService s) => s.CreateAsync(Viewer.UserId, new CreateReportRequest
             {
                 TargetType = targetType,
                 TargetId = targetId,

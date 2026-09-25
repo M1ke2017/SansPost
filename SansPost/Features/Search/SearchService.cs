@@ -11,21 +11,14 @@ namespace SansPost.Features.Search
 {
     // Granica modułu Search. Dziś: PostgreSQL full-text search in-process.
     // Konsumenci znają tylko ten kontrakt — implementację można wymienić bez zmian w Controllers/Blazor.
-    public interface ISearchService
-    {
-        Task<ServiceResult<KeysetPage<PostSearchResult>>> SearchPostsAsync(PostSearchQuery query, int? viewerUserId, CancellationToken cancellationToken = default);
-
-        Task<ServiceResult<IReadOnlyList<UserSearchResult>>> SearchUsersAsync(string? prefix, int limit, CancellationToken cancellationToken = default);
-    }
-
-    public class PostgresSearchService : ISearchService
+    public class SearchService
     {
         // ts_rank (real) × skala → bigint: deterministyczny, dokładny klucz sortowania i kursora (float nie jest separatorem).
         private const double RankScale = 1_000_000.0;
 
         private readonly ApplicationDbContext _context;
 
-        public PostgresSearchService(ApplicationDbContext context)
+        public SearchService(ApplicationDbContext context)
         {
             _context = context;
         }

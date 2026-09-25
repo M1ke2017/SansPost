@@ -117,7 +117,7 @@ else
         try
         {
             var viewerId = (await AuthState).User.GetUserId();
-            profile = await Ui.Run((IProfileService s) => s.GetByUsernameAsync(Username, viewerId));
+            profile = await Ui.Run((ProfileService s) => s.GetByUsernameAsync(Username, viewerId));
         }
         catch (Exception ex)
         {

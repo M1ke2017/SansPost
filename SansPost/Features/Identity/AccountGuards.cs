@@ -6,12 +6,7 @@ using SansPost.Infrastructure.Security;
 namespace SansPost.Features.Identity
 {
     // Czy principal (cookie lub JWT) nadal odpowiada aktualnemu stanowi konta.
-    public interface IAuthStateValidator
-    {
-        Task<bool> IsCurrentAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default);
-    }
-
-    public class AuthStateValidator : IAuthStateValidator
+    public class AuthStateValidator
     {
         private readonly ApplicationDbContext _context;
 
@@ -21,7 +16,7 @@ namespace SansPost.Features.Identity
         }
 
         // Jedno zapytanie po PK. Odrzuca: brak konta, ban, nieaktualną wersję (zmiana roli/statusu).
-        // Suspended pozostaje uwierzytelniony (może czytać) — zapisy blokuje IWriteGuard.
+        // Suspended pozostaje uwierzytelniony (może czytać) — zapisy blokuje WriteGuard.
         public async Task<bool> IsCurrentAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default)
         {
             if (principal.GetUserId() is not int userId
@@ -42,13 +37,7 @@ namespace SansPost.Features.Identity
 
     // Serwerowa brama każdej operacji zapisu (post, komentarz, reakcja, zgłoszenie) — dla REST i Blazor jednakowo.
     // 1) limit zapisów per użytkownik (partycja = UserId, nie IP), 2) konto musi być Active.
-    public interface IWriteGuard
-    {
-        // null = zapis dozwolony.
-        Task<ServiceResult?> CheckAsync(int actorUserId, CancellationToken cancellationToken = default);
-    }
-
-    public class WriteGuard : IWriteGuard
+    public class WriteGuard
     {
         private readonly ApplicationDbContext _context;
         private readonly UserWriteRateLimiter _rateLimiter;
@@ -59,6 +48,7 @@ namespace SansPost.Features.Identity
             _rateLimiter = rateLimiter;
         }
 
+        // null = zapis dozwolony.
         public async Task<ServiceResult?> CheckAsync(int actorUserId, CancellationToken cancellationToken = default)
         {
             // Najpierw tani limit w pamięci — zalew requestów nie trafia do bazy.

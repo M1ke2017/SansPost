@@ -11,7 +11,7 @@
         <path class="scene-moon" d="M22 6a14 14 0 1 0 12 22 11 11 0 1 1-12-22z" />
     </svg>
 }
-<svg class="frontier-scene frontier-@Variant @Class" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMax slice"
+<svg class="frontier-scene frontier-@Variant" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMax slice"
      aria-hidden="true" focusable="false">
     <g class="scene-sky">
         @if (!HasSafeZoneCelestial)
@@ -71,7 +71,6 @@
 @code {
     // town (strona główna), signpost (kategorie, puste stany), trail (wyszukiwarka), compact (małe banery)
     [Parameter] public string Variant { get; set; } = "town";
-    [Parameter] public string? Class { get; set; }
 
     // town i signpost: tarcza poza SVG sceny — nie zależy od kadrowania "slice", więc nie wchodzi pod CTA (hero)
     // ani na linię kurzu nad sceną (nagłówek kategorii). Pozostałe warianty bez zmian.

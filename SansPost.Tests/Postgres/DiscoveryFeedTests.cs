@@ -191,7 +191,7 @@ namespace SansPost.Tests.Postgres
             await _pg.CreateUsersFastAsync(1, prefix: "other", emailPrefix: marker + "secret");
 
             await using var context = _pg.CreateContext();
-            var service = new PostgresSearchService(context);
+            var service = new SearchService(context);
             var byPrefix = await service.SearchUsersAsync(marker.ToLowerInvariant(), 10);
             var byEmail = await service.SearchUsersAsync(marker + "secret", 10);
 
@@ -205,7 +205,7 @@ namespace SansPost.Tests.Postgres
         public async Task UserSearch_TreatsLikeWildcardsLiterally()
         {
             await using var context = _pg.CreateContext();
-            var result = await new PostgresSearchService(context).SearchUsersAsync("%_", 10);
+            var result = await new SearchService(context).SearchUsersAsync("%_", 10);
 
             Assert.True(result.Succeeded);
             Assert.Empty(result.Value!);

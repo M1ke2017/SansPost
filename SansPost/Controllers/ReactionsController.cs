@@ -12,9 +12,9 @@ namespace SansPost.Controllers
     [Route("api/posts/{postId:int}")]
     public class ReactionsController : ApiControllerBase
     {
-        private readonly ILikeService _likeService;
+        private readonly LikeService _likeService;
 
-        public ReactionsController(ILikeService likeService)
+        public ReactionsController(LikeService likeService)
         {
             _likeService = likeService;
         }

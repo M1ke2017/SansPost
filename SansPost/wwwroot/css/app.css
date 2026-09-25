@@ -505,22 +505,7 @@ h1:focus, h1:focus-visible { outline: none; }
     display: inline-flex;
 }
 
-.brand-word .brand-letter {
-    display: inline-block;
-    min-width: 0.55em;
-    text-align: center;
-}
-
-.brand-word .brand-letter.is-swapping {
-    animation: brand-swap 180ms var(--ease);
-}
-
 .brand-word .brand-post { color: var(--accent); }
-
-@keyframes brand-swap {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: none; }
-}
 
 /* --------------------------------------------------------------------------
    6. Przyciski
@@ -994,7 +979,6 @@ a.stat:hover { color: var(--accent); background: var(--surface-muted); }
     background: color-mix(in srgb, var(--surface) 60%, transparent);
 }
 
-.state.state-plain { border: 0; background: none; padding: var(--space-6) 0; }
 
 .state-icon {
     display: grid;
@@ -1038,7 +1022,6 @@ a.stat:hover { color: var(--accent); background: var(--surface-muted); }
 .alert-danger { background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 .alert-danger > .icon { color: var(--danger); }
 
-.alert-dismiss { margin: -6px -8px -6px 0; }
 
 .skeleton {
     background: var(--skeleton);

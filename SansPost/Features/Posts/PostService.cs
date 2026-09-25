@@ -32,9 +32,9 @@ namespace SansPost.Features.Posts
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
-        private readonly IWriteGuard _writeGuard;
+        private readonly WriteGuard _writeGuard;
 
-        public PostService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard)
+        public PostService(ApplicationDbContext context, TimeProvider time, WriteGuard writeGuard)
         {
             _context = context;
             _time = time;

@@ -5,9 +5,14 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.AspNetCore.DataProtection.Repositories;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Options;
 using SansPost.Features;
 using SansPost.Features.Identity;
+using SansPost.Infrastructure.Hosting;
 
 namespace SansPost.Infrastructure.Security
 {
@@ -46,7 +51,7 @@ namespace SansPost.Infrastructure.Security
                     // Niezgodność = principal odrzucony i cookie usunięte — nie czekamy na wygaśnięcie cookie.
                     options.Events.OnValidatePrincipal = async context =>
                     {
-                        var validator = context.HttpContext.RequestServices.GetRequiredService<IAuthStateValidator>();
+                        var validator = context.HttpContext.RequestServices.GetRequiredService<AuthStateValidator>();
                         if (context.Principal is null || !await validator.IsCurrentAsync(context.Principal, context.HttpContext.RequestAborted))
                         {
                             context.RejectPrincipal();
@@ -68,7 +73,7 @@ namespace SansPost.Infrastructure.Security
                     {
                         OnTokenValidated = async context =>
                         {
-                            var validator = context.HttpContext.RequestServices.GetRequiredService<IAuthStateValidator>();
+                            var validator = context.HttpContext.RequestServices.GetRequiredService<AuthStateValidator>();
                             if (context.Principal is null || !await validator.IsCurrentAsync(context.Principal, context.HttpContext.RequestAborted))
                                 context.Fail("Stan uwierzytelnienia jest nieaktualny.");
                         }
@@ -93,6 +98,8 @@ namespace SansPost.Infrastructure.Security
             });
 
             AddRateLimiting(services, configuration);
+            AddReverseProxyAndHttps(services, configuration);
+            AddDataProtectionKeys(services);
 
             return services;
         }
@@ -120,6 +127,38 @@ namespace SansPost.Infrastructure.Security
         // Przydomki potrzebne w najgorszym przypadku: wszystkie sloty publiczne + konta demo (liczone ostrożnie jako rezerwa).
         public static int RequiredAliases(PublicDemoOptions options) =>
             options.MaxPublicAccounts + (options.SeedContent ? Features.Demo.DemoContent.Authors.Count : 0);
+
+        // Reverse proxy: X-Forwarded-For/Proto tylko od jawnie zaufanych adresów (sekcja ForwardedHeaders).
+        // HTTPS kończy się na proxy — przekierowanie tylko przy jawnie znanym porcie (HttpsRedirection:HttpsPort),
+        // bez zgadywania i bez ostrzeżenia "Failed to determine the https port".
+        private static void AddReverseProxyAndHttps(IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddOptions<ReverseProxyOptions>()
+                .Bind(configuration.GetSection(ReverseProxyOptions.SectionName))
+                .Validate(o => o.KnownProxies.All(ReverseProxyOptions.IsValidProxy), "ForwardedHeaders:KnownProxies zawiera nieprawidłowy adres IP.")
+                .Validate(o => o.KnownNetworks.All(ReverseProxyOptions.IsValidNetwork), "ForwardedHeaders:KnownNetworks zawiera nieprawidłową sieć (oczekiwany CIDR, np. 10.0.0.0/24).")
+                .Validate(o => o.ForwardLimit is >= 1 and <= 5, "ForwardedHeaders:ForwardLimit musi mieścić się w zakresie 1–5.")
+                .ValidateOnStart();
+            services.AddOptions<ForwardedHeadersOptions>()
+                .Configure<IOptions<ReverseProxyOptions>>((forwarded, proxy) => proxy.Value.Apply(forwarded));
+
+            services.AddHttpsRedirection(_ => { });
+            services.AddOptions<HttpsRedirectionOptions>()
+                .Configure<IConfiguration>((options, config) => options.HttpsPort = config.GetValue<int?>("HttpsRedirection:HttpsPort"));
+        }
+
+        // Klucze Data Protection (cookie, antiforgery, stan Blazora) na trwałym wolumenie (DataProtection:KeysPath) —
+        // inaczej każde odtworzenie kontenera unieważnia sesje użytkowników.
+        private static void AddDataProtectionKeys(IServiceCollection services)
+        {
+            services.AddDataProtection().SetApplicationName("SansPost");
+            services.AddOptions<KeyManagementOptions>()
+                .Configure<IConfiguration, ILoggerFactory>((options, configuration, loggers) =>
+                {
+                    if (configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
+                        options.XmlRepository = new FileSystemXmlRepository(new DirectoryInfo(keysPath), loggers);
+                });
+        }
 
         private static void AddJwtOptions(IServiceCollection services, IConfiguration configuration)
         {
@@ -175,7 +214,7 @@ namespace SansPost.Infrastructure.Security
                     .ValidateOnStart();
             }
 
-            // Zapisy zalogowanych — partycja UserId, wspólna dla REST i Blazor (egzekwowana w IWriteGuard).
+            // Zapisy zalogowanych — partycja UserId, wspólna dla REST i Blazor (egzekwowana w WriteGuard).
             services.AddSingleton(sp => new UserWriteRateLimiter(
                 sp.GetRequiredService<IOptionsMonitor<RateLimitWindowOptions>>().Get(RateLimitPolicies.Writes)));
 

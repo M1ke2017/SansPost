@@ -329,7 +329,7 @@
         try
         {
             var before = comments.Count;
-            var result = await Ui.Run((ICommentService s) => s.GetByPostAsync(Id, new CommentPageQuery { Cursor = commentsCursor }));
+            var result = await Ui.Run((CommentService s) => s.GetByPostAsync(Id, new CommentPageQuery { Cursor = commentsCursor }));
             if (!result.Succeeded)
             {
                 commentsError = UiErrors.Describe(result);
@@ -369,7 +369,7 @@
         addError = null;
         try
         {
-            var result = await Ui.Run((ICommentService s) => s.AddAsync(Viewer.UserId, Id, new CommentRequest { Content = newComment }));
+            var result = await Ui.Run((CommentService s) => s.AddAsync(Viewer.UserId, Id, new CommentRequest { Content = newComment }));
             if (!result.Succeeded)
             {
                 if (UiErrors.EndsSession(result))
@@ -428,7 +428,7 @@
         try
         {
             // Wersja z chwili wczytania — równoległa zmiana daje 412 zamiast cichego nadpisania.
-            var result = await Ui.Run((ICommentService s) => s.UpdateAsync(Viewer.UserId, comment.Id, comment.Version, new CommentRequest { Content = editContent }));
+            var result = await Ui.Run((CommentService s) => s.UpdateAsync(Viewer.UserId, comment.Id, comment.Version, new CommentRequest { Content = editContent }));
             if (result.Succeeded)
             {
                 Replace(comment, result.Value!);
@@ -460,7 +460,7 @@
 
     private async Task ReloadCommentAsync(CommentResponse comment)
     {
-        var current = await Ui.Run((ICommentService s) => s.GetByIdAsync(comment.Id));
+        var current = await Ui.Run((CommentService s) => s.GetByIdAsync(comment.Id));
         editingId = null;
         editConflict = false;
 
@@ -491,7 +491,7 @@
         isBusy = true;
         try
         {
-            var result = await Ui.Run((ICommentService s) => s.DeleteAsync(Viewer.UserId, pendingDelete.Id, pendingDelete.Version));
+            var result = await Ui.Run((CommentService s) => s.DeleteAsync(Viewer.UserId, pendingDelete.Id, pendingDelete.Version));
             if (result.Succeeded)
             {
                 comments.Remove(pendingDelete);

@@ -96,8 +96,6 @@ namespace SansPost.E2E.Infrastructure
                 Locale = "pl-PL"
             });
             context.SetDefaultTimeout(15_000);
-            // Mikroanimacja marki raz na sesję — w testach od razu "odtworzona", żeby nie wpływała na asercje i zrzuty.
-            await context.AddInitScriptAsync("try { sessionStorage.setItem('sp-brand-played', '1'); } catch (e) {}");
             return context;
         }
 

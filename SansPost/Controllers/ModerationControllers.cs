@@ -11,10 +11,10 @@ namespace SansPost.Controllers
     [Authorize(Policy = AuthPolicies.ApiAdmin)]
     public class ModerationController : ApiControllerBase
     {
-        private readonly IModerationService _moderation;
-        private readonly IReportService _reports;
+        private readonly ModerationService _moderation;
+        private readonly ReportService _reports;
 
-        public ModerationController(IModerationService moderation, IReportService reports)
+        public ModerationController(ModerationService moderation, ReportService reports)
         {
             _moderation = moderation;
             _reports = reports;
@@ -92,9 +92,9 @@ namespace SansPost.Controllers
     [Route("api/reports")]
     public class ReportsController : ApiControllerBase
     {
-        private readonly IReportService _reports;
+        private readonly ReportService _reports;
 
-        public ReportsController(IReportService reports)
+        public ReportsController(ReportService reports)
         {
             _reports = reports;
         }

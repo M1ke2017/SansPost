@@ -32,21 +32,9 @@ namespace SansPost.Features
                     return false;
                 }
 
-                long? rank = null;
-                if (parts[3].Length > 0)
-                {
-                    if (!long.TryParse(parts[3], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var parsedRank))
-                        return false;
-                    rank = parsedRank;
-                }
-
-                DateTime? asOf = null;
-                if (parts[4].Length > 0)
-                {
-                    if (!TryParseTicks(parts[4], out var parsedAsOf))
-                        return false;
-                    asOf = parsedAsOf;
-                }
+                // Rank i AsOf są opcjonalne (tylko ranking); pusty segment = brak wartości.
+                if (!TryParseOptionalRank(parts[3], out var rank) || !TryParseOptionalTicks(parts[4], out var asOf))
+                    return false;
 
                 cursor = new KeysetCursor(expectedScope, createdAt, id, rank, asOf);
                 return true;
@@ -55,6 +43,30 @@ namespace SansPost.Features
             {
                 return false;
             }
+        }
+
+        private static bool TryParseOptionalRank(string value, out long? rank)
+        {
+            rank = null;
+            if (value.Length == 0)
+                return true;
+            if (!long.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var parsed))
+                return false;
+
+            rank = parsed;
+            return true;
+        }
+
+        private static bool TryParseOptionalTicks(string value, out DateTime? result)
+        {
+            result = null;
+            if (value.Length == 0)
+                return true;
+            if (!TryParseTicks(value, out var parsed))
+                return false;
+
+            result = parsed;
+            return true;
         }
 
         private static bool TryParseTicks(string value, out DateTime result)

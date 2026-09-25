@@ -191,7 +191,7 @@ namespace SansPost.Tests.Postgres
             await using var context = _pg.CreateContext();
             var posts = PostgresFixture.CreatePostService(context);
             var comments = SansPost.Tests.TestInfrastructure.TestServices.Comments(context);
-            var search = new PostgresSearchService(context);
+            var search = new SearchService(context);
             var visibleOnly = new[] { visible.Id };
 
             // Feedy: Newest, Popular, autor, kategoria

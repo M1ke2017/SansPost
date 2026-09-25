@@ -3,7 +3,7 @@ using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Identity
 {
-    // Odczyt użytkownika. Zmiany roli/subskrypcji/statusu to akcje administracyjne z audytem — IModerationService.
+    // Odczyt użytkownika. Zmiany roli/subskrypcji/statusu to akcje administracyjne z audytem — ModerationService.
     public interface IUserService
     {
         Task<UserResponse?> GetByIdAsync(int userId, CancellationToken cancellationToken = default);

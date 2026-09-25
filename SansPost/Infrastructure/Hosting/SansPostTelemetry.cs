@@ -1,4 +1,6 @@
+using System.Data.Common;
 using System.Diagnostics.Metrics;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace SansPost.Infrastructure.Hosting
 {
@@ -28,5 +30,16 @@ namespace SansPost.Infrastructure.Hosting
 
         public static readonly Counter<long> FailedLogins =
             Meter.CreateCounter<long>("sanspost.auth.failed_logins", description: "Nieudane logowania (formularz i REST).");
+    }
+
+    // Nieobsłużony błąd bazy w żądaniu → metryka (obsługę i odpowiedź 500 zostawia standardowy handler wyjątków).
+    internal sealed class DatabaseFailureMetric : IExceptionHandler
+    {
+        public ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+        {
+            if (exception is DbException || exception.GetBaseException() is DbException)
+                SansPostTelemetry.DatabaseFailures.Add(1, new KeyValuePair<string, object?>("source", "request"));
+            return ValueTask.FromResult(false);
+        }
     }
 }

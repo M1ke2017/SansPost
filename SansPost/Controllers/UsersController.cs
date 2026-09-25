@@ -10,9 +10,9 @@ namespace SansPost.Controllers
     public class UsersController : ApiControllerBase
     {
         private readonly IUserService _userService;
-        private readonly IModerationService _moderation;
+        private readonly ModerationService _moderation;
 
-        public UsersController(IUserService userService, IModerationService moderation)
+        public UsersController(IUserService userService, ModerationService moderation)
         {
             _userService = userService;
             _moderation = moderation;

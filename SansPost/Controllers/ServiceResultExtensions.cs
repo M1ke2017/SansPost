@@ -23,7 +23,7 @@ namespace SansPost.Controllers
             var problem = controller.Problem(
                 detail: result.Message,
                 statusCode: statusCode,
-                type: result.Code is null ? null : ProblemTypes.For(result.Code));
+                type: result.Code is null ? null : $"urn:sanspost:problem:{result.Code}");
 
             if (result.Code is not null && problem.Value is ProblemDetails details)
                 details.Extensions["code"] = result.Code;
@@ -33,10 +33,5 @@ namespace SansPost.Controllers
 
             return problem;
         }
-    }
-
-    public static class ProblemTypes
-    {
-        public static string For(string code) => $"urn:sanspost:problem:{code}";
     }
 }

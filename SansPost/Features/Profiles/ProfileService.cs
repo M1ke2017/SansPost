@@ -17,27 +17,22 @@ namespace SansPost.Features.Profiles
         IReadOnlyList<PostSummaryResponse> RecentPosts,
         IReadOnlyList<AuthorCommentResponse> RecentComments);
 
-    public interface IProfileService
-    {
-        // null = użytkownik nie istnieje. Wyszukiwanie po nazwie bez względu na wielkość liter.
-        Task<PublicProfileResponse?> GetByUsernameAsync(string username, int? viewerUserId, CancellationToken cancellationToken = default);
-    }
-
-    public class ProfileService : IProfileService
+    public class ProfileService
     {
         private const int RecentItems = 5;
 
         private readonly ApplicationDbContext _context;
         private readonly IPostService _posts;
-        private readonly ICommentService _comments;
+        private readonly CommentService _comments;
 
-        public ProfileService(ApplicationDbContext context, IPostService posts, ICommentService comments)
+        public ProfileService(ApplicationDbContext context, IPostService posts, CommentService comments)
         {
             _context = context;
             _posts = posts;
             _comments = comments;
         }
 
+        // null = użytkownik nie istnieje. Wyszukiwanie po nazwie bez względu na wielkość liter.
         public async Task<PublicProfileResponse?> GetByUsernameAsync(string username, int? viewerUserId, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(username))

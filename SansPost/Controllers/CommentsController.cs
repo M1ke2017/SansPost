@@ -9,9 +9,9 @@ namespace SansPost.Controllers
     [Route("api")]
     public class CommentsController : ApiControllerBase
     {
-        private readonly ICommentService _commentService;
+        private readonly CommentService _commentService;
 
-        public CommentsController(ICommentService commentService)
+        public CommentsController(CommentService commentService)
         {
             _commentService = commentService;
         }

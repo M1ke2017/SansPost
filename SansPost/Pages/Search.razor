@@ -233,9 +233,9 @@ else if (hasSearched)
             if (!TryAcquireSearch(viewerId))
                 return;
 
-            var posts = await Ui.Run((ISearchService s) => s.SearchPostsAsync(new PostSearchQuery { Q = query, Category = CategoryValue }, viewerId));
+            var posts = await Ui.Run((SearchService s) => s.SearchPostsAsync(new PostSearchQuery { Q = query, Category = CategoryValue }, viewerId));
             var users = CategoryValue is null
-                ? await Ui.Run((ISearchService s) => s.SearchUsersAsync(query, 6))
+                ? await Ui.Run((SearchService s) => s.SearchUsersAsync(query, 6))
                 : null;
 
             // Wynik starszego zapytania nie nadpisuje nowszego (szybkie pisanie).
@@ -284,7 +284,7 @@ else if (hasSearched)
             if (!TryAcquireSearch(viewerId))
                 return;
 
-            var page = await Ui.Run((ISearchService s) => s.SearchPostsAsync(
+            var page = await Ui.Run((SearchService s) => s.SearchPostsAsync(
                 new PostSearchQuery { Q = Q?.Trim(), Category = CategoryValue, Cursor = nextCursor }, viewerId));
 
             if (!page.Succeeded)

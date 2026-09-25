@@ -155,13 +155,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Mikroanimacja marki: raz na sesję, dopiero po podłączeniu interaktywnym (DOM jest już stabilny).
+        // Znacznik "circuit podłączony" — po pierwszym interaktywnym renderze (DOM jest już stabilny).
         if (firstRender)
         {
             try
             {
                 await JS.InvokeVoidAsync("sansPost.markInteractive");
-                await JS.InvokeVoidAsync("sansPost.playBrand");
             }
             catch (JSDisconnectedException)
             {

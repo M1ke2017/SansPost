@@ -1,10 +1,9 @@
-// SansPost — minimalny JS dla UI: motyw, mikroanimacja marki, natywny <dialog>, fokus.
+// SansPost — minimalny JS dla UI: motyw, natywny <dialog>, fokus, skip link, liczniki znaków, czas lokalny, pasek kategorii.
 // Żadnych danych uwierzytelnienia w storage — tylko preferencje prezentacji.
 (function () {
     "use strict";
 
     const THEME_KEY = "sp-theme";
-    const BRAND_KEY = "sp-brand-played";
 
     function safeGet(storage, key) {
         try { return window[storage].getItem(key); } catch { return null; }
@@ -58,43 +57,6 @@
             button.textContent = button.getAttribute("data-loading-text");
         }, 0);
     });
-
-    // ---- Marka: SansPost → SandPost → SensPost → SendPost → SansPost -----
-    // Raz na sesję, ~1 s, bez blokowania. Reduced motion: od razu SansPost.
-    const BRAND_STEPS = [
-        ["a", "d"], // SandPost
-        ["e", "s"], // SensPost
-        ["e", "d"], // SendPost
-        ["a", "s"]  // SansPost
-    ];
-
-    function playBrand() {
-        if (reducedMotion() || safeGet("sessionStorage", BRAND_KEY)) return;
-        safeSet("sessionStorage", BRAND_KEY, "1");
-
-        const word = document.querySelector("[data-brand-word]");
-        if (!word) return;
-        const vowel = word.querySelector("[data-brand-slot='vowel']");
-        const tail = word.querySelector("[data-brand-slot='tail']");
-        if (!vowel || !tail) return;
-
-        let step = 0;
-        const timer = window.setInterval(function () {
-            const [v, t] = BRAND_STEPS[step];
-            swap(vowel, v);
-            swap(tail, t);
-            step++;
-            if (step >= BRAND_STEPS.length) window.clearInterval(timer);
-        }, 240);
-    }
-
-    function swap(el, letter) {
-        if (el.textContent === letter) return;
-        el.textContent = letter;
-        el.classList.remove("is-swapping");
-        void el.offsetWidth; // restart animacji
-        el.classList.add("is-swapping");
-    }
 
     // ---- Dialog -----------------------------------------------------------
     function showDialog(dialog, dotnet) {
@@ -260,7 +222,6 @@
         markInteractive: markInteractive,
         bindScroller: bindScroller,
         scrollToId: scrollToId,
-        playBrand: playBrand,
         showDialog: showDialog,
         closeDialog: closeDialog,
         focusSelector: focusSelector

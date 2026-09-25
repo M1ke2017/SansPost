@@ -24,7 +24,7 @@ namespace SansPost.Tests.Postgres
         private async Task<ServiceResult<KeysetPage<PostSearchResult>>> SearchAsync(string q, PostCategory? category = null, string? cursor = null, int limit = 20, int? viewer = null)
         {
             await using var context = _pg.CreateContext();
-            return await new PostgresSearchService(context).SearchPostsAsync(
+            return await new SearchService(context).SearchPostsAsync(
                 new PostSearchQuery { Q = q, Category = category, Cursor = cursor, Limit = limit }, viewer);
         }
 

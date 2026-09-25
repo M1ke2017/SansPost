@@ -6,7 +6,7 @@ namespace SansPost.Infrastructure.Security
 {
     // Otwarty circuit Blazor nie wysyła nowych żądań HTTP, więc OnValidatePrincipal cookie go nie obejmuje.
     // Co minutę sprawdzamy AuthVersion/ban — nieaktualna sesja staje się anonimowa także w otwartej karcie.
-    // Zapisy i tak blokuje IWriteGuard natychmiast (sprawdzenie w bazie przy każdej operacji).
+    // Zapisy i tak blokuje WriteGuard natychmiast (sprawdzenie w bazie przy każdej operacji).
     public sealed class RevalidatingAuthStateProvider : RevalidatingServerAuthenticationStateProvider
     {
         private readonly IServiceScopeFactory _scopeFactory;
@@ -25,7 +25,7 @@ namespace SansPost.Infrastructure.Security
                 return true;
 
             using var scope = _scopeFactory.CreateScope();
-            return await scope.ServiceProvider.GetRequiredService<IAuthStateValidator>()
+            return await scope.ServiceProvider.GetRequiredService<AuthStateValidator>()
                 .IsCurrentAsync(authenticationState.User, cancellationToken);
         }
     }

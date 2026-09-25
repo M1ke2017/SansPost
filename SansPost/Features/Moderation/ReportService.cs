@@ -4,30 +4,22 @@ using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Moderation
 {
-    public interface IReportService
-    {
-        // Zgłoszenie publicznej treści przez aktywnego użytkownika. Idempotentne dla trwającego (Pending) zgłoszenia.
-        Task<ServiceResult<ReportSubmission>> CreateAsync(int reporterUserId, CreateReportRequest request, CancellationToken cancellationToken = default);
-
-        // Kolejka moderacji: Pending, od najstarszych (FIFO), keyset (CreatedAt, Id).
-        Task<ServiceResult<KeysetPage<ModerationQueueItem>>> GetPendingAsync(ModerationQueueQuery query, CancellationToken cancellationToken = default);
-    }
-
-    public class ReportService : IReportService
+    public class ReportService
     {
         private const string CursorScope = "reports.pending";
 
         private readonly ApplicationDbContext _context;
         private readonly TimeProvider _time;
-        private readonly IWriteGuard _writeGuard;
+        private readonly WriteGuard _writeGuard;
 
-        public ReportService(ApplicationDbContext context, TimeProvider time, IWriteGuard writeGuard)
+        public ReportService(ApplicationDbContext context, TimeProvider time, WriteGuard writeGuard)
         {
             _context = context;
             _time = time;
             _writeGuard = writeGuard;
         }
 
+        // Zgłoszenie publicznej treści przez aktywnego użytkownika. Idempotentne dla trwającego (Pending) zgłoszenia.
         public async Task<ServiceResult<ReportSubmission>> CreateAsync(int reporterUserId, CreateReportRequest request, CancellationToken cancellationToken = default)
         {
             if (RequestValidator.Validate(request) is { } error)
@@ -63,6 +55,7 @@ namespace SansPost.Features.Moderation
             return ServiceResult<ReportSubmission>.Success(new ReportSubmission(report, Created: inserted.Count > 0));
         }
 
+        // Kolejka moderacji: Pending, od najstarszych (FIFO), keyset (CreatedAt, Id).
         public async Task<ServiceResult<KeysetPage<ModerationQueueItem>>> GetPendingAsync(ModerationQueueQuery query, CancellationToken cancellationToken = default)
         {
             if (query.Limit is < 1 or > ModerationLimits.MaxPageSize)

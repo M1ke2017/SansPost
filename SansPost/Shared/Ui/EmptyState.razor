@@ -1,5 +1,5 @@
 @* Wspólny wzorzec stanów: pusto, błąd, brak dostępu, nie znaleziono, limit. Kontekstowy tekst podaje strona. *@
-<div class="state @VariantClass @(Plain ? "state-plain" : "") @Class" role="@(Variant == AlertVariant.Danger ? "alert" : null)">
+<div class="state @VariantClass" role="@(Variant == AlertVariant.Danger ? "alert" : null)">
     <span class="state-icon"><Icon Name="@IconName" Size="24" /></span>
     @switch (HeadingLevel)
     {
@@ -23,8 +23,6 @@
     [Parameter] public string IconName { get; set; } = Icons.Signpost;
     [Parameter] public AlertVariant Variant { get; set; } = AlertVariant.Info;
     [Parameter] public int HeadingLevel { get; set; }
-    [Parameter] public bool Plain { get; set; }
-    [Parameter] public string? Class { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     private string VariantClass => Variant switch
