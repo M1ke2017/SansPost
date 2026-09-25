@@ -1,8 +1,14 @@
-@* Czas względny ("3 godziny temu"); pełna data w title i w atrybucie datetime (dla czytników i maszyn). *@
-<time class="@Class" datetime="@Value.ToString("o")" title="@UiText.FullDate(Value)">@Prefix@UiText.Relative(Value)</time>
+@* Czas względny ("3 godziny temu"); pełna data w title i w atrybucie datetime (dla czytników i maszyn).
+   Backend i baza: UTC. title z serwera ("… UTC") to tylko wartość awaryjna — przeglądarka podmienia ją na datę
+   w swojej strefie (sanspost.js, Intl.DateTimeFormat) na podstawie datetime z jawnym "Z". *@
+<time class="@Class" datetime="@Iso" title="@UiText.FullDate(Utc)">@Prefix@UiText.Relative(Utc)</time>
 
 @code {
     [Parameter, EditorRequired] public DateTime Value { get; set; }
     [Parameter] public string? Prefix { get; set; }
     [Parameter] public string? Class { get; set; }
+
+    private DateTime Utc => Value.Kind == DateTimeKind.Local ? Value.ToUniversalTime() : DateTime.SpecifyKind(Value, DateTimeKind.Utc);
+
+    private string Iso => Utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
 }

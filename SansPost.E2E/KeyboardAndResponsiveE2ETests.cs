@@ -36,7 +36,7 @@ namespace SansPost.E2E
             var firstTabbable = await page.EvaluateAsync<string>(@"() => [...document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')]
                 .find(e => e.tabIndex >= 0 && !e.disabled).textContent.trim()");
             Assert.Equal("Przejdź do treści", firstTabbable);
-            // Aktywacja skip linku: patrz KnownIssue_SkipLink_DoesNotMoveFocus.
+            // Aktywacja skip linku: patrz SkipLink_Enter_MovesFocusToMain.
 
             // Tab / Shift+Tab w nagłówku: wyszukiwarka ↔ poprzedni element.
             await page.Locator("#header-search").FocusAsync();
@@ -118,20 +118,30 @@ namespace SansPost.E2E
             await Expect(admin.Page.Locator("dialog[open]")).ToHaveCountAsync(0);
         }
 
-        // KNOWN ISSUE (P2, a11y): Enter na "Przejdź do treści" nie przenosi fokusu do <main> — router Blazor przechwytuje
-        // link "#main" jako nawigację i domyślne przeniesienie fokusu przez przeglądarkę nie następuje. Test opisuje OBECNE zachowanie.
-        [Fact]
-        [Trait("KnownIssue", "P2")]
-        public async Task KnownIssue_SkipLink_DoesNotMoveFocus()
+        // Regresja (Sprint 9 P2, naprawione w Sprincie 10): Enter na "Przejdź do treści" przenosi fokus do <main>
+        // (document.activeElement), adres się nie zmienia (router Blazora nie traktuje "#main" jak nawigacji),
+        // a kolejny Tab trafia do pierwszego elementu w treści, nie do nagłówka.
+        [Theory]
+        [InlineData("/")]
+        [InlineData("/categories")]
+        public async Task SkipLink_Enter_MovesFocusToMain(string path)
         {
             await using var context = await _env.NewContextAsync();
             var page = await context.NewPageAsync();
-            await Ui.GotoAsync(page, "/");
+            await Ui.GotoAsync(page, path);
+            var url = page.Url;
 
             await page.Locator(".skip-link").FocusAsync();
             await page.Keyboard.PressAsync("Enter");
 
-            await Expect(page.Locator("main#main")).Not.ToBeFocusedAsync();
+            await Expect(page.Locator("main#main")).ToBeFocusedAsync();
+            Assert.Equal("main", await page.EvaluateAsync<string>("() => document.activeElement.id"));
+            Assert.Equal(url, page.Url);
+            await Expect(page.Locator("h1").First).ToBeVisibleAsync();
+
+            await page.Keyboard.PressAsync("Tab");
+            Assert.True(await page.EvaluateAsync<bool>("() => document.activeElement !== document.body && !!document.activeElement.closest('main#main')"),
+                "Tab po skip linku powinien trafić do treści strony.");
         }
 
         public static IEnumerable<object[]> Viewports() => new[]

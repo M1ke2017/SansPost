@@ -30,6 +30,13 @@ namespace SansPost.Features.Identity
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
+        // Pojemność generatora — jedyne źródło tej liczby (wyliczana z list, nie wpisywana ręcznie).
+        public static int Capacity => All.Count;
+
+        // Bezpieczna pojemność: 90% przestrzeni. Zapas sprawia, że "Losuj inny" i rejestracja nadal trafiają wolne przydomki
+        // bez przeszukiwania całej listy przy każdym losowaniu. Walidacja startowa: PublicDemo (MaxPublicAccounts + konta demo).
+        public static int SafeCapacity => (int)(Capacity * 0.9);
+
         private static readonly HashSet<string> Allowed = new(All, StringComparer.Ordinal);
 
         // Dokładnie w formie z generatora (wielkość liter ma znaczenie) — "dustyraven" czy "Dusty Raven" nie przejdą.

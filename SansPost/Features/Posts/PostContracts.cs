@@ -3,6 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace SansPost.Features.Posts
 {
     // Request tworzenia i edycji posta. Celowo bez UserId — autorem jest zaufana tożsamość wykonawcy.
+    // Bez ImageUrl (Sprint 10): pole legacy bez uploadu i bez użycia w UI — nieznane pole JSON jest ignorowane,
+    // istniejąca wartość w bazie zostaje (kolumna legacy, tylko do odczytu w PostDetailsResponse).
     public sealed class PostRequest
     {
         [Required(ErrorMessage = "Tytuł jest wymagany.")]
@@ -16,9 +18,6 @@ namespace SansPost.Features.Posts
 
         [Required(ErrorMessage = "Kategoria jest wymagana.")]
         public PostCategory? Category { get; set; }
-
-        [StringLength(PostLimits.ImageUrlMaxLength)]
-        public string? ImageUrl { get; set; }
     }
 
     public enum PostSort

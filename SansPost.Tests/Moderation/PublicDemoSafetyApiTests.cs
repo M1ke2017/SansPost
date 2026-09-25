@@ -112,6 +112,7 @@ namespace SansPost.Tests.Moderation
         [InlineData("BootstrapAdmin:Password", "short")]
         [InlineData("BootstrapAdmin:Email", "not-an-email")]
         [InlineData("PublicDemo:MaxPublicAccounts", "0")]
+        [InlineData("PublicDemo:MaxPublicAccounts", "100000")]   // ponad bezpieczną pojemność generatora przydomków
         public void InvalidSafetyConfiguration_FailsFastOnStartup(string key, string value)
         {
             var settings = new Dictionary<string, string?>

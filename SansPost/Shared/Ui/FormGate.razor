@@ -1,0 +1,23 @@
+@* Formularz aktywny dopiero po podłączeniu circuitu. Blazor Server (ServerPrerendered) zastępuje prerenderowany DOM
+   przy podłączeniu — tekst wpisany wcześniej by zniknął. Do tego czasu pola są zablokowane (disabled fieldset),
+   więc nic nie ginie; zwykle trwa to ułamek sekundy. *@
+<fieldset class="form-gate @Class" disabled="@(!ready)" aria-busy="@(ready ? "false" : "true")">
+    @ChildContent
+</fieldset>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private bool ready;
+
+    // Prerender nie wywołuje OnAfterRender — pierwszy render interaktywny odblokowuje pola.
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        ready = true;
+        StateHasChanged();
+    }
+}

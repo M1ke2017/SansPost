@@ -47,7 +47,7 @@ namespace SansPost.E2E
             await Ui.GotoAsync(page, $"/post-view/{postId}");
             await page.Locator(".post-actions-bar").GetByRole(AriaRole.Button, new() { Name = "Zgłoś" }).ClickAsync();
             var dialog = page.Locator("dialog[open]");
-            await Expect(dialog.GetByRole(AriaRole.Heading, new() { NameRegex = new Regex("^Zgłoś") })).ToBeVisibleAsync();   // tytuł: KnownIssue_ReportDialog_TitleIsGeneric
+            await Expect(dialog.GetByRole(AriaRole.Heading, new() { Name = "Zgłoś post", Exact = true })).ToBeVisibleAsync();
             await dialog.GetByText("Nękanie", new() { Exact = true }).ClickAsync();
             await dialog.Locator("#report-details").FillAsync("Uporczywe zaczepki w komentarzach.");
             await dialog.GetByRole(AriaRole.Button, new() { Name = "Wyślij zgłoszenie" }).ClickAsync();
@@ -133,15 +133,19 @@ namespace SansPost.E2E
             await item.GetByRole(AriaRole.Button, new() { Name = "Zawieś autora" }).ClickAsync();
             await ConfirmAsync(admin.Page, "Zawieś konto", "Konto zawieszone.");
 
-            // KNOWN ISSUE (P2): zawieszenie podbija AuthVersion — otwarta sesja kończy się po cichu (UI gościa, bez komunikatu).
+            // Regresja (Sprint 9 P2, naprawione w Sprincie 10): zawieszenie podbija AuthVersion — otwarta sesja kończy się
+            // z jasnym komunikatem (logowanie z "Twoja sesja została zakończona."), a nie po cichu jako gość.
             var page = user.Page;
             await Ui.GotoAsync(page, $"/post-view/{postId}");
+            await Expect(page).ToHaveURLAsync(new Regex("/login[?]ended=1&returnUrl="));
+            await Expect(page.GetByText("Sesja zakończona")).ToBeVisibleAsync();
+            await Expect(page.GetByText("Twoja sesja została zakończona.", new() { Exact = false })).ToBeVisibleAsync();
             await Expect(page.Locator(".menu-trigger")).ToHaveCountAsync(0);
-            await Expect(page.Locator(".account-banner")).ToHaveCountAsync(0);
 
             // Po ponownym zalogowaniu: czyta, nie pisze, widzi produktowy komunikat.
             await Ui.LoginAsync(page, user.User!.Email, E2EEnvironment.UserPassword, $"/post-view/{postId}");
             await Expect(page.Locator(".account-banner")).ToContainTextAsync("Konto zawieszone.");
+            await Expect(page.Locator(".account-banner")).ToContainTextAsync("Możesz przeglądać SansPost, ale publikowanie jest obecnie niedostępne");
             await Expect(page.Locator("h1#post-title")).ToBeVisibleAsync();
             await Expect(page.Locator("#new-comment")).ToHaveCountAsync(0);
             await Expect(page.GetByText("Twoje konto jest zawieszone")).ToBeVisibleAsync();
@@ -178,19 +182,31 @@ namespace SansPost.E2E
             await Expect(page).ToHaveURLAsync(new Regex("/login"));
         }
 
-        // KNOWN ISSUE (P3): przy pierwszym otwarciu tytuł okna to ogólne "Zgłoś treść" zamiast "Zgłoś post"/"Zgłoś komentarz"
-        // (ReportDialog nie renderuje się przed ShowAsync, więc Modal dostaje poprzedni tytuł). Test opisuje OBECNE zachowanie.
+        // Regresja (Sprint 9 P3, naprawione w Sprincie 10): już przy pierwszym otwarciu tytuł okna wskazuje cel —
+        // "Zgłoś post" / "Zgłoś komentarz" — także po przełączeniu między postem a komentarzem.
         [Fact]
-        [Trait("KnownIssue", "P3")]
-        public async Task KnownIssue_ReportDialog_TitleIsGeneric()
+        public async Task ReportDialog_TitleMatchesTarget_FromFirstOpen()
         {
             var author = await _env.Main.CreateUserAsync();
             var postId = await Api.CreatePostAsync(_env.Main, author, "Tytuł okna zgłoszenia");
+            await Api.CommentAsync(_env.Main, author, postId, "Komentarz do zgłoszenia");
             await using var reporter = await Session.UserAsync(_env);
-            await Ui.GotoAsync(reporter.Page, $"/post-view/{postId}");
-            await reporter.Page.Locator(".post-actions-bar").GetByRole(AriaRole.Button, new() { Name = "Zgłoś" }).ClickAsync();
+            var page = reporter.Page;
+            await Ui.GotoAsync(page, $"/post-view/{postId}");
+            var title = page.Locator("dialog[open] .dialog-title");
 
-            await Expect(reporter.Page.Locator("dialog[open] .dialog-title")).ToHaveTextAsync("Zgłoś treść");
+            await page.Locator(".post-actions-bar").GetByRole(AriaRole.Button, new() { Name = "Zgłoś" }).ClickAsync();
+            await Expect(title).ToHaveTextAsync("Zgłoś post");
+            await Expect(page.Locator("dialog[open]")).ToHaveAttributeAsync("aria-labelledby", new Regex("^dialog-"));
+            await page.Keyboard.PressAsync("Escape");
+            await Expect(page.Locator("dialog[open]")).ToHaveCountAsync(0);
+
+            await page.Locator(".comment").First.GetByRole(AriaRole.Button, new() { Name = "Zgłoś" }).ClickAsync();
+            await Expect(title).ToHaveTextAsync("Zgłoś komentarz");
+            await page.Keyboard.PressAsync("Escape");
+
+            await page.Locator(".post-actions-bar").GetByRole(AriaRole.Button, new() { Name = "Zgłoś" }).ClickAsync();
+            await Expect(title).ToHaveTextAsync("Zgłoś post");
         }
 
         // Zwykły użytkownik nie wchodzi do panelu admina (produktowy "Brak dostępu").

@@ -52,7 +52,7 @@ namespace SansPost.E2E
             await page.Keyboard.PressAsync("Enter");
             await Expect(Alias(page)).Not.ToHaveTextAsync(second);
             var third = await Alias(page).InnerTextAsync();
-            await Reroll(page).FocusAsync();   // patrz KnownIssue_RerollByKeyboard_LosesFocus
+            await Expect(Reroll(page)).ToBeFocusedAsync();   // fokus zostaje na przycisku (Sprint 10)
             await page.Keyboard.PressAsync("Space");
             await Expect(Alias(page)).Not.ToHaveTextAsync(third);
             var chosen = await Alias(page).InnerTextAsync();
@@ -67,24 +67,33 @@ namespace SansPost.E2E
             await Expect(page.Locator(".menu-trigger")).ToContainTextAsync(chosen);
         }
 
-        // KNOWN ISSUE (P2, a11y): "Losuj inny" jest disabled na czas żądania — przycisk traci fokus na <body>,
-        // więc kolejne Enter/Spacja nie losują ponownie. Test diagnostyczny: opisuje OBECNE zachowanie; po naprawie
-        // (aria-busy zamiast disabled) zacznie padać i należy go odwrócić.
+        // Regresja (Sprint 9 P2, naprawione w Sprincie 10): "Losuj inny" nie jest wyłączany na czas żądania
+        // (aria-busy + blokada w handlerze) — fokus zostaje na przycisku, Enter i Spacja losują kolejne przydomki,
+        // mysz też działa, a nowy przydomek ogłasza <output aria-live="polite">.
         [Fact]
-        [Trait("KnownIssue", "P2")]
-        public async Task KnownIssue_RerollByKeyboard_LosesFocus()
+        public async Task RerollByKeyboard_KeepsFocus_EnterSpaceAndMouseWork()
         {
             await using var context = await _env.NewContextAsync();
             var page = await context.NewPageAsync();
             await Ui.GotoAsync(page, "/register");
-            var before = await Alias(page).InnerTextAsync();
+            await Expect(Alias(page)).ToHaveAttributeAsync("aria-live", "polite");
 
             await Reroll(page).FocusAsync();
-            await page.Keyboard.PressAsync("Enter");
-            await Expect(Alias(page)).Not.ToHaveTextAsync(before);
+            foreach (var key in new[] { "Enter", "Space", "Enter" })
+            {
+                var before = await Alias(page).InnerTextAsync();
+                await page.Keyboard.PressAsync(key);
+                await Expect(Alias(page)).Not.ToHaveTextAsync(before);
+                await Expect(Reroll(page)).ToBeFocusedAsync();
+                await Expect(Reroll(page)).ToHaveAttributeAsync("aria-busy", "false");
+                Assert.NotEqual("BODY", await page.EvaluateAsync<string>("() => document.activeElement.tagName"));
+            }
 
-            await Expect(Reroll(page)).Not.ToBeFocusedAsync();
-            Assert.Equal("BODY", await page.EvaluateAsync<string>("() => document.activeElement.tagName"));
+            var beforeClick = await Alias(page).InnerTextAsync();
+            await Reroll(page).ClickAsync();
+            await Expect(Alias(page)).Not.ToHaveTextAsync(beforeClick);
+            await Expect(Reroll(page)).ToBeEnabledAsync();
+            Assert.Equal(await Alias(page).InnerTextAsync(), await page.Locator("input[type=hidden][name=Username]").InputValueAsync());
         }
 
         // Kolizja: przydomek wyświetlony w przeglądarce zajmuje ktoś inny → bez 500, komunikat, nowy przydomek, ponowienie działa.

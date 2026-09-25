@@ -33,10 +33,10 @@
         <div class="field">
             <label class="field-label" for="report-details">Szczegóły <span class="optional">(opcjonalnie)</span></label>
             <textarea id="report-details" class="textarea textarea-sm" maxlength="@ModerationLimits.DetailsMaxLength"
-                      @bind="details" @bind:event="oninput" aria-describedby="report-details-hint"></textarea>
+                      @bind="details" aria-describedby="report-details-hint"></textarea>
             <span class="field-hint" id="report-details-hint">
                 <span>Pomóż moderacji zrozumieć problem.</span>
-                <CharCounter Value="@details" Max="ModerationLimits.DetailsMaxLength" />
+                <CharCounter For="report-details" Value="@details" Max="ModerationLimits.DetailsMaxLength" />
             </span>
         </div>
     </ChildContent>
@@ -73,6 +73,8 @@
         reason = ReportReason.Spam;
         details = "";
         errorMessage = null;
+        // Najpierw render z nowym tytułem (Modal dostaje Title jako parametr), dopiero potem otwarcie okna.
+        StateHasChanged();
         await modal!.ShowAsync();
     }
 

@@ -128,6 +128,38 @@ namespace SansPost.Tests.Moderation
             Assert.StartsWith("/login", afterSuspension.Headers.Location!.OriginalString.Replace("https://localhost", ""));
         }
 
+        // Sprint 10 (A4) — unieważniona sesja na publicznej stronie: zamiast cichego trybu gościa przekierowanie
+        // z komunikatem ("sesja zakończona") i powrotem na tę stronę; cookie usunięte, kolejne wejście = zwykły gość.
+        [Fact]
+        public async Task InvalidatedCookie_OnPublicPage_RedirectsToLoginWithSessionEndedMessage()
+        {
+            var username = TestUsers.UniqueName("se");
+            await _factory.CreateUserAsync(username);
+            var browser = _factory.CreateHttpsClient();
+            var token = SansPostFactory.ExtractAntiforgeryToken(await browser.GetStringAsync("/login"));
+            await browser.PostAsync("/auth/login", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["Email"] = $"{username}@example.com",
+                ["Password"] = TestUsers.Password
+            }));
+            Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/categories")).StatusCode);
+
+            var admin = await AdminAsync();
+            await admin.PostAsJsonAsync($"/api/moderation/users/{IdOf(username)}/suspend", new { });
+
+            var ended = await browser.GetAsync("/categories?x=1");
+            Assert.Equal(HttpStatusCode.Redirect, ended.StatusCode);
+            Assert.Equal("/login?ended=1&returnUrl=%2Fcategories%3Fx%3D1", ended.Headers.Location!.OriginalString);
+            Assert.Contains(ended.Headers.GetValues("Set-Cookie"), c => c.StartsWith("SansPost.Auth=;", StringComparison.Ordinal));
+
+            var login = await browser.GetStringAsync("/login?ended=1");
+            Assert.Contains("Twoja sesja została zakończona.", login);
+
+            // Cookie już usunięte — publiczna strona jak dla gościa, bez ponownego przekierowania.
+            Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/categories")).StatusCode);
+        }
+
         // AB — zmiana roli unieważnia stary stan uwierzytelnienia (w obie strony).
         [Fact]
         public async Task RoleChange_InvalidatesStaleTokens_InBothDirections()

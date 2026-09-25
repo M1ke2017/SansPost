@@ -102,11 +102,11 @@ namespace SansPost.E2E
             Assert.DoesNotMatch(new Regex("429|Too Many|RateLimited"), await page.Locator("main").InnerTextAsync());
         }
 
-        // KNOWN ISSUE (P2): limit wyszukiwania per IP działa tylko w REST (/api/search). Wyszukiwarka Blazor woła serwis
-        // bezpośrednio, więc w UI nigdy nie dochodzi do 429. Test opisuje OBECNE zachowanie.
+        // Regresja (Sprint 9 P2, naprawione w Sprincie 10): wyszukiwarka Blazor i REST (/api/search) korzystają z jednego
+        // limitera (anonim: klucz = adres klienta). Wyszukiwania w UI zużywają limit, a po jego wyczerpaniu UI pokazuje
+        // produktowy komunikat, a REST — 429 z Retry-After.
         [Fact]
-        [Trait("KnownIssue", "P2")]
-        public async Task KnownIssue_SearchLimit_AppliesOnlyToRest_NotToBlazorSearch()
+        public async Task SearchLimit_IsSharedByBlazorSearchAndRest()
         {
             var server = await _env.StartServerAsync("ratelimit-search", new Dictionary<string, string?>
             {
@@ -114,21 +114,27 @@ namespace SansPost.E2E
                 ["RateLimiting__Search__PermitLimit"] = "3"
             });
 
-            using var api = server.CreateApiClient();
-            var statuses = new List<HttpStatusCode>();
-            for (var i = 0; i < 4; i++)
-                statuses.Add((await api.GetAsync("/api/search/posts?q=gry")).StatusCode);
-            Assert.Equal(HttpStatusCode.TooManyRequests, statuses[^1]);
-
             await using var context = await _env.NewContextAsync(server);
             var page = await context.NewPageAsync();
-            foreach (var query in new[] { "gry", "planszówka", "notatki", "portfolio", "podróż" })
+            foreach (var query in new[] { "gry", "planszówka" })
             {
                 await Ui.GotoAsync(page, $"/search?q={Uri.EscapeDataString(query)}");
                 await Expect(page.Locator("#search-hint")).Not.ToContainTextAsync("Szukanie");
+                await Expect(page.Locator(".post-list .post-card").First).ToBeVisibleAsync();
             }
 
-            await Expect(page.GetByText("Zbyt wiele")).ToHaveCountAsync(0);
+            // Trzecie użycie limitu przez REST (ten sam klient, ten sam limiter) — jeszcze w limicie.
+            using var api = server.CreateApiClient();
+            Assert.Equal(HttpStatusCode.OK, (await api.GetAsync("/api/search/posts?q=gry")).StatusCode);
+
+            // Limit wyczerpany: UI → komunikat produktowy (bez kodu HTTP), REST → 429 + Retry-After.
+            await Ui.GotoAsync(page, "/search?q=notatki");
+            await Expect(page.GetByText(new Regex(@"Zbyt wiele wyszukiwań\. Spróbuj ponownie za \d+ s\."))).ToBeVisibleAsync();
+            Assert.DoesNotMatch(new Regex("429|Too Many|RateLimited"), await page.Locator("main").InnerTextAsync());
+
+            var limited = await api.GetAsync("/api/search/posts?q=gry");
+            Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+            Assert.NotNull(limited.Headers.RetryAfter);
         }
     }
 }

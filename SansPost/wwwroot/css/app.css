@@ -183,6 +183,8 @@ hr { border: 0; border-top: 1px solid var(--border); margin: var(--space-5) 0; }
 
 /* Nagłówek fokusowany po nawigacji (FocusOnNavigate) — bez ramki, bo to nie kontrolka. */
 h1:focus, h1:focus-visible { outline: none; }
+/* Cel skip linku (<main tabindex="-1">) — fokus programowy, bez ramki wokół całej treści. */
+#main:focus, #main:focus-visible { outline: none; }
 
 ::selection { background: var(--accent-soft); color: var(--text); }
 
@@ -321,8 +323,6 @@ h1:focus, h1:focus-visible { outline: none; }
     margin: 0 auto;
     padding: var(--space-5) var(--space-4) var(--space-7);
 }
-
-.app-main.reading { max-width: calc(var(--reading-width) + 2 * var(--space-4)); }
 
 .app-footer {
     border-top: 1px solid var(--border);
@@ -481,10 +481,6 @@ h1:focus, h1:focus-visible { outline: none; }
     }
 }
 
-@media (min-width: 768px) {
-    .mobile-only { display: none !important; }
-}
-
 /* --------------------------------------------------------------------------
    5. Branding
    -------------------------------------------------------------------------- */
@@ -572,8 +568,6 @@ h1:focus, h1:focus-visible { outline: none; }
 
 .btn-primary:hover { border-color: var(--accent-hover); }
 
-.btn-secondary { /* domyślny wygląd .btn */ }
-
 .btn-ghost {
     --btn-bg: transparent;
     --btn-border: transparent;
@@ -629,6 +623,10 @@ h1:focus, h1:focus-visible { outline: none; }
    7. Formularze
    -------------------------------------------------------------------------- */
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* FormGate: fieldset bez własnego wyglądu; do podłączenia circuitu pola są zablokowane (brak utraty wpisanych danych). */
+.form-gate { border: 0; padding: 0; margin: 0; min-width: 0; }
+.form-gate[aria-busy="true"] { cursor: progress; }
 
 .field-label {
     font-size: var(--text-sm);
@@ -761,10 +759,11 @@ h1:focus, h1:focus-visible { outline: none; }
 .badge-success { background: var(--success-soft); color: var(--success); }
 
 /* Kategorie: jeden system, subtelny akcent (ikona + delikatne tło), bez siedmiu krzykliwych kolorów. */
+/* Tekst 65% odcienia: WCAG AA (≥ 4,5:1) dla wszystkich kategorii w obu motywach (najsłabsza: Pomysły, jasny — 4,85:1). */
 .category-badge {
     --cat: var(--text-muted);
     background: color-mix(in srgb, var(--cat) 13%, var(--surface));
-    color: color-mix(in srgb, var(--cat) 75%, var(--text));
+    color: color-mix(in srgb, var(--cat) 65%, var(--text));
     text-decoration: none;
 }
 
@@ -795,7 +794,7 @@ a.category-badge:hover { background: color-mix(in srgb, var(--cat) 22%, var(--su
     height: var(--avatar-size);
     border-radius: 50%;
     background: color-mix(in srgb, var(--avatar-tone, var(--accent)) 20%, var(--surface));
-    color: color-mix(in srgb, var(--avatar-tone, var(--accent)) 70%, var(--text));
+    color: color-mix(in srgb, var(--avatar-tone, var(--accent)) 50%, var(--text));   /* AA: min. 5,6:1 dla wszystkich odcieni, oba motywy */
     font-size: calc(var(--avatar-size) * 0.4);
     font-weight: var(--weight-bold);
     letter-spacing: 0.02em;
@@ -1501,8 +1500,6 @@ a.stat:hover { color: var(--accent); background: var(--surface-muted); }
     border-radius: var(--radius-lg);
 }
 
-.queue-item.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-
 .queue-preview {
     padding: var(--space-3);
     border-left: 3px solid var(--border-strong);
@@ -1937,6 +1934,8 @@ a.like-button { text-decoration: none; }
 
 .place-sign {
     display: inline-flex;
+    align-self: flex-start;   /* Sprint 10: szerokość wg treści — w kolumnie flex szyld nie rozciąga się do szerokości opisu */
+    max-width: 100%;
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
@@ -2166,4 +2165,28 @@ html:has(dialog[open]) { overflow: hidden; }
         width: auto;
         max-height: calc(100vh - var(--header-height) - var(--bottom-nav-height) - 24px);
     }
+}
+
+/* Hero (town): słońce/księżyc w safe zone — pas sceny pod treścią i CTA, między słupem telegraficznym (~45%)
+   a kaktusem (~57%), dolną krawędzią tuż przy linii wydm (ok. 54–59 px od dołu na desktopie) — tarcza "siedzi" nad horyzontem.
+   Pozycja w % szerokości i px od dołu, niezależna od kadrowania SVG sceny. */
+.frontier-banner > .frontier-celestial {
+    position: absolute;
+    z-index: auto;
+    left: calc(51% - 19px);
+    bottom: 50px;
+    width: 38px;
+    height: 38px;
+    max-width: none;
+    pointer-events: none;
+    user-select: none;
+}
+
+.frontier-celestial .scene-sun { fill: var(--scene-sun); opacity: 0.85; }
+.frontier-celestial .scene-moon { display: none; fill: var(--scene-sun); opacity: 0.9; }
+:root[data-theme="dark"] .frontier-celestial .scene-sun { display: none; }
+:root[data-theme="dark"] .frontier-celestial .scene-moon { display: inline; }
+
+@media (max-width: 639.98px) {
+    .frontier-banner > .frontier-celestial { bottom: 26px; width: 28px; height: 28px; left: calc(51% - 14px); }
 }

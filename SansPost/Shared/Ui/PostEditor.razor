@@ -1,14 +1,15 @@
 @* Wspólny edytor posta (tworzenie i edycja): etykiety, liczniki, walidacja przy polach (tekst + ikona, nie sam kolor),
    fokus na pierwszym błędnym polu. Walidacja kliencka jest wygodą — serwis waliduje ponownie. *@
-<form class="stack" @onsubmit="SubmitAsync" novalidate>
+<form @onsubmit="SubmitAsync" novalidate>
+    <FormGate Class="stack">
     <div class="field">
         <label class="field-label" for="post-title">Tytuł</label>
         <input @ref="titleRef" id="post-title" class="input" type="text" maxlength="@PostLimits.TitleMaxLength"
-               @bind="Draft.Title" @bind:event="oninput" disabled="@Disabled" autocomplete="off"
+               @bind="Draft.Title" disabled="@Disabled" autocomplete="off"
                aria-invalid="@(titleError is null ? null : "true")" aria-describedby="post-title-hint @(titleError is null ? "" : "post-title-error")" />
         <span class="field-hint" id="post-title-hint">
             <span>Konkretny tytuł pomaga innym trafić do rozmowy.</span>
-            <CharCounter Value="@Draft.Title" Max="PostLimits.TitleMaxLength" />
+            <CharCounter For="post-title" Value="@Draft.Title" Max="PostLimits.TitleMaxLength" />
         </span>
         @if (titleError is not null)
         {
@@ -35,11 +36,11 @@
     <div class="field">
         <label class="field-label" for="post-content">Treść</label>
         <textarea @ref="contentRef" id="post-content" class="textarea textarea-lg" maxlength="@PostLimits.ContentMaxLength"
-                  @bind="Draft.Content" @bind:event="oninput" disabled="@Disabled"
+                  @bind="Draft.Content" disabled="@Disabled"
                   aria-invalid="@(contentError is null ? null : "true")" aria-describedby="post-content-hint @(contentError is null ? "" : "post-content-error")"></textarea>
         <span class="field-hint" id="post-content-hint">
             <span>Zwykły tekst — puste linie dzielą akapity.</span>
-            <CharCounter Value="@Draft.Content" Max="PostLimits.ContentMaxLength" />
+            <CharCounter For="post-content" Value="@Draft.Content" Max="PostLimits.ContentMaxLength" />
         </span>
         @if (contentError is not null)
         {
@@ -65,6 +66,7 @@
         </button>
         @Actions
     </div>
+    </FormGate>
 </form>
 
 @code {

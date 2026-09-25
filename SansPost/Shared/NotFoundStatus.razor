@@ -1,0 +1,13 @@
+@inject IHttpContextAccessor HttpContextAccessor
+
+@* Semantyka HTTP dla nieznanego adresu: podczas prerenderu (odpowiedź _Host jeszcze nie wysłana) ustawia 404.
+   W interaktywnym circuicie (nawigacja po stronie klienta) nie ma odpowiedzi HTTP do zmiany — nic nie robi. *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        var context = HttpContextAccessor.HttpContext;
+        if (context is not null && !context.Response.HasStarted && !context.WebSockets.IsWebSocketRequest)
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+    }
+}

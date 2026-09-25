@@ -67,18 +67,39 @@ namespace SansPost.E2E
             }
         }
 
-        // KNOWN ISSUE (P2): nieistniejący adres pokazuje produktową stronę "nie znaleziono", ale z HTTP 200 (router Blazor).
+        // Regresja (Sprint 9 P2, naprawione w Sprincie 10): nieistniejący adres = HTTP 404 + produktowa strona "nie znaleziono"
+        // (bezpośrednie żądanie, nawigacja Playwright, odświeżenie). Nawigacja po stronie klienta nadal pokazuje tę samą stronę.
         [Fact]
-        [Trait("KnownIssue", "P2")]
-        public async Task KnownIssue_UnknownRoute_Returns200_WithNotFoundPage()
+        public async Task UnknownRoute_Returns404_WithNotFoundPage()
         {
+            using (var http = _env.Main.CreateApiClient())
+            {
+                var direct = await http.GetAsync("/to-nie-istnieje");
+                Assert.Equal(System.Net.HttpStatusCode.NotFound, direct.StatusCode);
+                Assert.Contains("Nie ma tu nic do czytania", await direct.Content.ReadAsStringAsync());
+            }
+
             await using var context = await _env.NewContextAsync();
             var page = await context.NewPageAsync();
 
             var response = await page.GotoAsync("/to-nie-istnieje");
-
-            Assert.Equal(200, response!.Status);   // docelowo 404 — Sprint 10
+            Assert.Equal(404, response!.Status);
+            await Ui.WaitInteractiveAsync(page);
             await Expect(page.Locator("h1")).ToHaveTextAsync("Nie ma tu nic do czytania");
+
+            var reload = await page.ReloadAsync();
+            Assert.Equal(404, reload!.Status);
+            await Ui.WaitInteractiveAsync(page);
+            await Expect(page.Locator("h1")).ToHaveTextAsync("Nie ma tu nic do czytania");
+
+            // Router klienta: znana strona → nieznany adres → znowu znana (bez przeładowania i bez błędu Blazora).
+            await page.EvaluateAsync("() => Blazor.navigateTo('/categories')");
+            await Expect(page.Locator("h1").First).ToHaveTextAsync("Kategorie");
+            await page.EvaluateAsync("() => Blazor.navigateTo('/jeszcze-inny-brak')");
+            await Expect(page.Locator("h1").First).ToHaveTextAsync("Nie ma tu nic do czytania");
+            await page.EvaluateAsync("() => Blazor.navigateTo('/search')");
+            await Expect(page.Locator("h1").First).ToHaveTextAsync("Szukaj");
+            Assert.Equal(0, await page.Locator("#blazor-error-ui:visible").CountAsync());
         }
 
         [Fact]

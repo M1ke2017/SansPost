@@ -120,12 +120,12 @@
                                         }
                                         <label class="visually-hidden" for="edit-comment-@comment.Id">Edytuj komentarz</label>
                                         <textarea id="edit-comment-@comment.Id" class="textarea textarea-sm" maxlength="@CommentLimits.ContentMaxLength"
-                                                  @bind="editContent" @bind:event="oninput" disabled="@editConflict" autofocus></textarea>
+                                                  @bind="editContent" disabled="@editConflict" autofocus></textarea>
                                         <div class="spread">
-                                            <CharCounter Value="@editContent" Max="CommentLimits.ContentMaxLength" />
+                                            <CharCounter For="@($"edit-comment-{comment.Id}")" Value="@editContent" Max="CommentLimits.ContentMaxLength" />
                                             <div class="cluster">
                                                 <button type="button" class="btn btn-sm btn-ghost" @onclick="CancelEdit">Anuluj</button>
-                                                <button type="button" class="btn btn-sm btn-primary" disabled="@(isBusy || editConflict || string.IsNullOrWhiteSpace(editContent))"
+                                                <button type="button" class="btn btn-sm btn-primary" disabled="@(isBusy || editConflict)"
                                                         @onclick="() => SaveEditAsync(comment)">Zapisz</button>
                                             </div>
                                         </div>
@@ -177,17 +177,18 @@
             }
             else
             {
-                <form class="composer" @onsubmit="AddCommentAsync">
+                <form @onsubmit="AddCommentAsync">
+                    <FormGate Class="composer">
                     <label class="field-label" for="new-comment">Dodaj komentarz</label>
                     @if (addError is not null)
                     {
                         <Alert Variant="@addErrorVariant">@addError</Alert>
                     }
                     <textarea id="new-comment" class="textarea textarea-sm" maxlength="@CommentLimits.ContentMaxLength"
-                              placeholder="Co o tym myślisz?" @bind="newComment" @bind:event="oninput"></textarea>
+                              placeholder="Co o tym myślisz?" @bind="newComment"></textarea>
                     <div class="spread">
-                        <CharCounter Value="@newComment" Max="CommentLimits.ContentMaxLength" />
-                        <button type="submit" class="btn btn-primary" disabled="@(isBusy || string.IsNullOrWhiteSpace(newComment))"
+                        <CharCounter For="new-comment" Value="@newComment" Max="CommentLimits.ContentMaxLength" />
+                        <button type="submit" class="btn btn-primary" disabled="@isBusy"
                                 aria-busy="@(isBusy ? "true" : "false")">
                             @if (isBusy)
                             {
@@ -200,6 +201,7 @@
                             Opublikuj komentarz
                         </button>
                     </div>
+                    </FormGate>
                 </form>
             }
         </section>
@@ -352,8 +354,16 @@
 
     private async Task AddCommentAsync()
     {
-        if (Viewer is null || isBusy || string.IsNullOrWhiteSpace(newComment))
+        if (Viewer is null || isBusy)
             return;
+
+        // Pole wiązane zdarzeniem "change" (bez round-tripu na każdy znak) — przycisk jest zawsze aktywny, pusta treść daje komunikat.
+        if (string.IsNullOrWhiteSpace(newComment))
+        {
+            addError = "Napisz treść komentarza.";
+            addErrorVariant = AlertVariant.Warning;
+            return;
+        }
 
         isBusy = true;
         addError = null;

@@ -33,6 +33,10 @@ namespace SansPost.Shared.Ui
             ? $"Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za {Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds))} s."
             : "Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za chwilę.";
 
+        public static string SearchRateLimited(TimeSpan? retryAfter) => retryAfter is { } wait && wait > TimeSpan.Zero
+            ? $"Zbyt wiele wyszukiwań. Spróbuj ponownie za {Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds))} s."
+            : "Zbyt wiele wyszukiwań. Spróbuj ponownie za chwilę.";
+
         // Ostrzeżenie (żółte) dla sytuacji przejściowych, błąd (czerwone) dla pozostałych.
         public static AlertVariant Variant(ServiceResult result) => result.Error switch
         {

@@ -352,8 +352,7 @@ namespace SansPost.Features.Posts
         {
             Title = request.Title?.Trim() ?? string.Empty,
             Content = request.Content?.Trim() ?? string.Empty,
-            Category = request.Category,
-            ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim()
+            Category = request.Category
         };
 
         private static string? Validate(PostRequest request)
@@ -370,13 +369,11 @@ namespace SansPost.Features.Posts
             var category = request.Category!.Value;
             var changed = post.Title != request.Title
                 || post.Content != request.Content
-                || post.Category != category
-                || post.ImageUrl != request.ImageUrl;
+                || post.Category != category;
 
             post.Title = request.Title;
             post.Content = request.Content;
             post.Category = category;
-            post.ImageUrl = request.ImageUrl;
 
             return changed;
         }

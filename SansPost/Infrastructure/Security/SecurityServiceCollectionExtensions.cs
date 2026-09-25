@@ -14,6 +14,7 @@ namespace SansPost.Infrastructure.Security
     public static class SecurityServiceCollectionExtensions
     {
         private const string CookieName = "SansPost.Auth";
+        private const string SessionEndedItem = "SansPost.SessionEnded";
         private static readonly TimeSpan CookieLifetime = TimeSpan.FromHours(8);
 
         public static IServiceCollection AddSansPostSecurity(this IServiceCollection services, IConfiguration configuration)
@@ -50,6 +51,8 @@ namespace SansPost.Infrastructure.Security
                         {
                             context.RejectPrincipal();
                             await context.HttpContext.SignOutAsync(AuthSchemes.Cookie);
+                            // UX: strona zamiast "cichego" trybu gościa pokaże komunikat o zakończonej sesji (UseSessionEndedRedirect).
+                            context.HttpContext.Items[SessionEndedItem] = true;
                         }
                     };
                 });
@@ -94,6 +97,30 @@ namespace SansPost.Infrastructure.Security
             return services;
         }
 
+        // Unieważnione cookie (ban, zawieszenie, przywrócenie, zmiana roli → nowa AuthVersion) przy wejściu na stronę:
+        // zamiast wyświetlić ją po cichu jako gość — przekierowanie na logowanie z komunikatem "sesja zakończona".
+        // Cookie jest już usunięte (SignOut w OnValidatePrincipal); REST (/api) i transport Blazora bez zmian.
+        public static IApplicationBuilder UseSessionEndedRedirect(this IApplicationBuilder app) => app.Use(async (context, next) =>
+        {
+            var request = context.Request;
+            if (context.Items.ContainsKey(SessionEndedItem)
+                && HttpMethods.IsGet(request.Method)
+                && !request.Path.StartsWithSegments("/api")
+                && !request.Path.StartsWithSegments("/_blazor")
+                && !request.Path.StartsWithSegments("/login"))
+            {
+                var returnUrl = request.Path + request.QueryString;
+                context.Response.Redirect("/login?ended=1&returnUrl=" + Uri.EscapeDataString(returnUrl));
+                return;
+            }
+
+            await next();
+        });
+
+        // Przydomki potrzebne w najgorszym przypadku: wszystkie sloty publiczne + konta demo (liczone ostrożnie jako rezerwa).
+        public static int RequiredAliases(PublicDemoOptions options) =>
+            options.MaxPublicAccounts + (options.SeedContent ? Features.Demo.DemoContent.Authors.Count : 0);
+
         private static void AddJwtOptions(IServiceCollection services, IConfiguration configuration)
         {
             services.AddOptions<JwtOptions>()
@@ -116,6 +143,10 @@ namespace SansPost.Infrastructure.Security
                 .Bind(configuration.GetSection(PublicDemoOptions.SectionName))
                 .Validate(o => o.MaxPublicAccounts > 0, "PublicDemo:MaxPublicAccounts musi być większe od 0.")
                 .Validate(o => o.FeaturedPostId is null or > 0, "PublicDemo:FeaturedPostId musi być dodatnim identyfikatorem posta.")
+                // Każde publiczne konto dostaje przydomek z generatora — limit kont (plus konta demo) musi zmieścić się
+                // w bezpiecznej pojemności słownika, inaczej rejestracja zaczęłaby kończyć się brakiem wolnych przydomków.
+                .Validate(o => RequiredAliases(o) <= WesternAliases.SafeCapacity,
+                    $"PublicDemo:MaxPublicAccounts (wraz z kontami demo) przekracza bezpieczną pojemność generatora przydomków ({WesternAliases.SafeCapacity} z {WesternAliases.Capacity}).")
                 .ValidateOnStart();
 
             // Bootstrap admina: przy Enabled = true dane muszą spełniać te same reguły co rejestracja.
@@ -147,6 +178,10 @@ namespace SansPost.Infrastructure.Security
             // Zapisy zalogowanych — partycja UserId, wspólna dla REST i Blazor (egzekwowana w IWriteGuard).
             services.AddSingleton(sp => new UserWriteRateLimiter(
                 sp.GetRequiredService<IOptionsMonitor<RateLimitWindowOptions>>().Get(RateLimitPolicies.Writes)));
+
+            // Wyszukiwanie — jeden limiter dla REST i Blazor (UI woła serwis bezpośrednio, z pominięciem middleware).
+            services.AddSingleton(sp => new SearchRateLimiter(
+                sp.GetRequiredService<IOptionsMonitor<RateLimitWindowOptions>>().Get(RateLimitPolicies.Search)));
 
             services.AddRateLimiter(options =>
             {

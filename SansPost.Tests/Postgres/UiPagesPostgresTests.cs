@@ -28,9 +28,9 @@ namespace SansPost.Tests.Postgres
             await author.CreatePostAsync($"Widoczny {token}");
 
             var guest = _factory.CreateHttpsClient();
-            // Świeży post jest deterministycznie widoczny w "Najnowszych", kategorii i wyszukiwarce. W "Popularnych"
+            // Świeży post jest deterministycznie widoczny w "Najnowszych" i kategorii. W "Popularnych"
             // (wspólna baza kolekcji testów) jego pozycja zależy od innych testów — tam sprawdzamy tylko, że feed się wyrenderował.
-            foreach (var (path, expectsNewPost) in new[] { ("/", true), ("/c/general", true), ($"/search?q={token}", true), ("/?sort=popular", false) })
+            foreach (var (path, expectsNewPost) in new[] { ("/", true), ("/c/general", true), ("/?sort=popular", false) })
             {
                 var html = await guest.GetStringAsync(path);
 
@@ -40,6 +40,13 @@ namespace SansPost.Tests.Postgres
                 Assert.DoesNotContain("Nie udało się wczytać postów", html);
                 Assert.DoesNotContain("Nie udało się wyświetlić tej strony", html); // ErrorBoundary layoutu
             }
+
+            // Wyszukiwarka (Sprint 10): zapytanie wykonuje dopiero circuit — prerender pokazuje stan "Szukanie…", bez wyników
+            // i bez zużycia limitu wyszukiwania (jedno wejście = jedno zapytanie). Wyniki w przeglądarce: E2E.
+            var search = await guest.GetStringAsync($"/search?q={token}");
+            Assert.Contains("Szukanie…", search);
+            Assert.DoesNotContain("class=\"post-card", search);
+            Assert.DoesNotContain("Nie udało się wyświetlić tej strony", search);
         }
     }
 }

@@ -30,6 +30,7 @@ public class Program
             .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
+        builder.Services.AddHttpContextAccessor();   // prerender: status 404 dla nieznanych adresów (NotFoundStatus)
 
         // Features — wspólne dla Controllers i Blazor UI
         builder.Services.AddScoped<IAuthService, AuthService>();
@@ -94,6 +95,7 @@ public class Program
         app.UseRateLimiter();
 
         app.UseAuthentication();
+        app.UseSessionEndedRedirect();
         app.UseAuthorization();
 
         app.MapControllers();

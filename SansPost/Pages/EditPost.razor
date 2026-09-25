@@ -173,7 +173,7 @@
         errorMessage = null;
         try
         {
-            var result = await Ui.Run((IPostService s) => s.UpdateAsync(userId, Id, version, draft.ToRequest(post.ImageUrl)));
+            var result = await Ui.Run((IPostService s) => s.UpdateAsync(userId, Id, version, draft.ToRequest()));
             if (result.Succeeded)
             {
                 Toasts.Success("Zmiany zapisane.");

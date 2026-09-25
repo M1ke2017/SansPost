@@ -183,6 +183,19 @@ namespace SansPost.Tests.Identity
     {
         private readonly TestDatabase _db = new();
 
+        // C1 (Sprint 10) — pojemność wyliczana z list; walidacja startowa liczy konta publiczne + konta demo.
+        [Fact]
+        public void Capacity_IsDerivedFromLists_AndStartupRequirementCountsDemoAccounts()
+        {
+            Assert.Equal(WesternAliases.All.Count, WesternAliases.Capacity);
+            Assert.True(WesternAliases.SafeCapacity < WesternAliases.Capacity);
+            Assert.True(WesternAliases.SafeCapacity >= 100);   // domyślne MaxPublicAccounts mieści się z zapasem
+
+            Assert.Equal(100, SansPost.Infrastructure.Security.SecurityServiceCollectionExtensions.RequiredAliases(new PublicDemoOptions { MaxPublicAccounts = 100 }));
+            Assert.Equal(100 + SansPost.Features.Demo.DemoContent.Authors.Count,
+                SansPost.Infrastructure.Security.SecurityServiceCollectionExtensions.RequiredAliases(new PublicDemoOptions { MaxPublicAccounts = 100, SeedContent = true }));
+        }
+
         // G1/G3 — każdy przydomek: prefiks + sufiks ze słownika, PascalCase, spełnia istniejące reguły nazwy konta.
         [Fact]
         public void AllAliases_AreCuratedPascalCaseAndMatchUsernameConstraints()

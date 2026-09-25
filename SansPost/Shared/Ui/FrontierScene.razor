@@ -1,11 +1,24 @@
 @* Dekoracyjna sylwetka pogranicza (własne SVG, bez zdjęć i clipartów): horyzont, wydmy, linia telegraficzna,
    kaktusy i małe miasteczko. Dzień: słońce; noc (data-theme="dark"): księżyc i gwiazdy — przełącza CSS.
    Czysta dekoracja: aria-hidden, bez fokusu i zdarzeń wskaźnika, pozycjonowana absolutnie (nie zmienia layoutu). *@
+@if (Variant == "town")
+{
+    @* Słońce/księżyc w świadomej "safe zone" hero: osobne SVG zakotwiczone w pasie sceny (pod treścią i CTA),
+       między linią telegraficzną a miasteczkiem, tuż nad horyzontem. Nie zależy od kadrowania "slice" sceny,
+       więc na żadnej szerokości nie wchodzi pod przyciski ani tekst. Rysowane PRZED sceną — wydmy zasłaniają dół tarczy. *@
+    <svg class="frontier-celestial" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+        <circle class="scene-sun" cx="20" cy="20" r="15" />
+        <path class="scene-moon" d="M22 6a14 14 0 1 0 12 22 11 11 0 1 1-12-22z" />
+    </svg>
+}
 <svg class="frontier-scene frontier-@Variant @Class" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMax slice"
      aria-hidden="true" focusable="false">
     <g class="scene-sky">
-        <circle class="scene-sun" cx="250" cy="96" r="30" />
-        <path class="scene-moon" d="M262 70a30 30 0 1 0 22 50 24 24 0 1 1-22-50z" />
+        @if (Variant != "town")
+        {
+            <circle class="scene-sun" cx="250" cy="96" r="30" />
+            <path class="scene-moon" d="M262 70a30 30 0 1 0 22 50 24 24 0 1 1-22-50z" />
+        }
         <g class="scene-stars">
             <circle cx="120" cy="40" r="1.6" /><circle cx="400" cy="30" r="1.2" /><circle cx="520" cy="62" r="1.6" />
             <circle cx="700" cy="34" r="1.2" /><circle cx="880" cy="52" r="1.6" /><circle cx="1060" cy="28" r="1.2" />

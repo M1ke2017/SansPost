@@ -127,6 +127,62 @@
         el.focus({ preventScroll: false });
     }
 
+    // ---- Liczniki znaków (tylko prezentacja) --------------------------------
+    // Pola są wiązane zdarzeniem "change" — licznik podczas pisania liczy przeglądarka. Walidacja zostaje na serwerze.
+    function formatCount(n) {
+        return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); // jak "N0" w pl-PL: 1 000
+    }
+
+    document.addEventListener("input", function (event) {
+        const field = event.target;
+        if (!field.id || !window.CSS) return;
+        const counter = document.querySelector(".counter[data-counter-for='" + CSS.escape(field.id) + "']");
+        if (!counter) return;
+        const max = Number(counter.getAttribute("data-max"));
+        const length = field.value.length;
+        const value = counter.querySelector("[data-counter-value]");
+        if (value) value.textContent = formatCount(length);
+        counter.classList.toggle("is-over", length > max);
+        counter.classList.toggle("is-near", length <= max && length >= max * 0.9);
+    });
+
+    // ---- Czas: pełna data w strefie przeglądarki ----------------------------
+    // Serwer i baza pracują w UTC; <time datetime="…Z"> dostaje w podpowiedzi datę lokalną (Intl), zamiast "… UTC".
+    const fullDate = window.Intl ? new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeStyle: "short" }) : null;
+
+    function localizeTime(el) {
+        if (!fullDate || !el || el.tagName !== "TIME") return;
+        const value = el.getAttribute("datetime");
+        if (!value || el.__spLocal === value) return;
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return;
+        el.__spLocal = value;
+        el.setAttribute("title", fullDate.format(date));
+    }
+
+    function localizeTimes(root) {
+        (root || document).querySelectorAll("time[datetime]").forEach(localizeTime);
+    }
+
+    // Elementy dorenderowane później (doładowanie, nawigacja) — w chwili wskazania.
+    document.addEventListener("pointerover", function (event) {
+        localizeTime(event.target.closest && event.target.closest("time[datetime]"));
+    });
+
+    // Skip link: router Blazora przechwytuje "#main" jako nawigację i fokus zostaje na linku. Obsługa w fazie
+    // przechwytywania (przed routerem): fokus faktycznie trafia do <main tabindex="-1">, adres się nie zmienia.
+    window.addEventListener("click", function (event) {
+        const link = event.target.closest && event.target.closest("a.skip-link[href^='#']");
+        if (!link) return;
+        const target = document.getElementById(link.getAttribute("href").slice(1));
+        if (!target) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: "start", behavior: "auto" });
+    }, true);
+
     function scrollToId(id) {
         // Po FocusOnNavigate (fokus na h1) — dlatego w następnej klatce.
         window.requestAnimationFrame(function () {
@@ -197,6 +253,7 @@
     // Znacznik "circuit podłączony" (po pierwszym interaktywnym renderze layoutu) — dla testów E2E i diagnostyki.
     function markInteractive() {
         document.documentElement.setAttribute("data-interactive", "1");
+        localizeTimes(document);
     }
 
     window.sansPost = {

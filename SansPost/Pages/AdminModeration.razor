@@ -211,8 +211,8 @@ else
             <div class="field">
                 <label class="field-label" for="moderation-reason">Uzasadnienie <span class="optional">(opcjonalnie, trafia do dziennika)</span></label>
                 <textarea id="moderation-reason" class="textarea textarea-sm" maxlength="@ModerationLimits.ReasonMaxLength" autofocus
-                          @bind="reason" @bind:event="oninput"></textarea>
-                <span class="field-hint"><span></span><CharCounter Value="@reason" Max="ModerationLimits.ReasonMaxLength" /></span>
+                          @bind="reason"></textarea>
+                <span class="field-hint"><span></span><CharCounter For="moderation-reason" Value="@reason" Max="ModerationLimits.ReasonMaxLength" /></span>
             </div>
         }
     </ChildContent>

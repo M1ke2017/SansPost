@@ -40,7 +40,7 @@ namespace SansPost.Tests.TestInfrastructure
             ["RateLimiting:Auth:PermitLimit"] = "1000",
             ["RateLimiting:Search:PermitLimit"] = "100000",
             ["RateLimiting:Writes:PermitLimit"] = "100000",
-            ["PublicDemo:MaxPublicAccounts"] = "1000000"
+            ["PublicDemo:MaxPublicAccounts"] = WesternAliases.SafeCapacity.ToString()   // maksimum dopuszczalne przez walidację startową
         };
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)

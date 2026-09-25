@@ -7,6 +7,7 @@
 @{
     // Token antiforgery dla formularzy POST /auth/* renderowanych przez komponenty Blazor.
     var antiforgeryToken = Antiforgery.GetAndStoreTokens(HttpContext).RequestToken;
+    var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
 }
 
 <!DOCTYPE html>
@@ -34,7 +35,8 @@
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
 <body>
-    <component type="typeof(App)" render-mode="ServerPrerendered" param-AntiforgeryToken="antiforgeryToken" />
+    <component type="typeof(App)" render-mode="ServerPrerendered" param-AntiforgeryToken="antiforgeryToken"
+               param-ClientAddress="clientAddress" />
 
     <div id="blazor-error-ui" role="alert">
         <div class="blazor-error-inner">

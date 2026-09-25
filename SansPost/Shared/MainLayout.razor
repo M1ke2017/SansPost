@@ -82,7 +82,7 @@
         <div class="account-banner" role="status">
             <div class="account-banner-inner">
                 <Icon Name="@Icons.Pause" />
-                <span><strong>Konto zawieszone.</strong> Możesz przeglądać SansPost, ale publikowanie, komentowanie, reakcje i zgłoszenia są wyłączone.</span>
+                <span><strong>Konto zawieszone.</strong> Możesz przeglądać SansPost, ale publikowanie jest obecnie niedostępne (posty, komentarze, reakcje i zgłoszenia).</span>
             </div>
         </div>
     }
@@ -174,7 +174,14 @@
         var user = (await stateTask).User;
         if (user.GetUserId() is not int userId)
         {
-            viewer = null;
+            // Zalogowany widok stał się anonimowy bez wylogowania (rewalidacja circuitu: nowa AuthVersion) —
+            // jasny komunikat zamiast cichego przejścia w tryb gościa.
+            if (viewer is not null)
+            {
+                viewer = null;
+                EndSession();
+            }
+
             return;
         }
 

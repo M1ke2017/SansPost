@@ -1,5 +1,6 @@
 <CascadingAuthenticationState>
     <CascadingValue Name="AntiforgeryToken" Value="AntiforgeryToken">
+    <CascadingValue Name="ClientAddress" Value="ClientAddress">
         <Router AppAssembly="@typeof(App).Assembly">
             <Found Context="routeData">
                 <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
@@ -25,6 +26,7 @@
                 <FocusOnNavigate RouteData="@routeData" Selector="h1" />
             </Found>
             <NotFound>
+                <NotFoundStatus />
                 <PageTitle>Nie znaleziono · SansPost</PageTitle>
                 <LayoutView Layout="@typeof(MainLayout)">
                     <EmptyState Title="Nie ma tu nic do czytania" HeadingLevel="1" IconName="@Icons.Compass"
@@ -36,9 +38,15 @@
             </NotFound>
         </Router>
     </CascadingValue>
+    </CascadingValue>
 </CascadingAuthenticationState>
 
 @code {
     [Parameter]
     public string? AntiforgeryToken { get; set; }
+
+    // Adres klienta z żądania strony (prerender) — klucz limitu wyszukiwania dla anonimów w circuicie,
+    // gdzie HttpContext żądania nie jest już dostępny. Parametry komponentu z _Host są chronione (Data Protection).
+    [Parameter]
+    public string? ClientAddress { get; set; }
 }

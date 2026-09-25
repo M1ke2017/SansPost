@@ -18,8 +18,7 @@ namespace SansPost.E2E.Infrastructure
 
         public static async Task LoginAsync(IPage page, string email, string password, string returnUrl = "/")
         {
-            // Najpierw circuit: prerenderowany formularz jest zastępowany po podłączeniu i wpisane wartości by przepadły
-            // (znalezisko P2 — Sprint 9 Quality Report).
+            // Najpierw circuit: do podłączenia formularz jest zablokowany (FormGate, Sprint 10 — patrz HydrationE2ETests).
             await GotoAsync(page, $"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
             await page.GetByLabel("Email").FillAsync(email);
             await page.Locator("#password").FillAsync(password);

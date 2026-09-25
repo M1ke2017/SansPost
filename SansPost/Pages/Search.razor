@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject ILogger<Search> Logger
+@inject SearchRateLimiter SearchLimiter
 
 <PageTitle>@(string.IsNullOrWhiteSpace(Q) ? "Szukaj" : $"„{Q}” — szukaj") · SansPost</PageTitle>
 
@@ -135,6 +136,7 @@ else if (hasSearched)
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(350);
 
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+    [CascadingParameter(Name = "ClientAddress")] private string? ClientAddress { get; set; }
 
     // Stan wyszukiwania w adresie: wynik można udostępnić, a "wstecz" wraca do poprzedniej frazy.
     [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
@@ -145,6 +147,7 @@ else if (hasSearched)
     private CancellationTokenSource? debounce;
     private (string?, string?) searchedFor = ("\0", null);
     private int searchSequence;
+    private bool interactive;
 
     private readonly List<PostCardModel> results = new();
     private readonly List<UserSearchResult> authors = new();
@@ -172,7 +175,37 @@ else if (hasSearched)
 
         searchedFor = key;
         input = Q ?? "";
+        // Wyszukiwanie tylko w circuicie: prerender pokazuje "Szukanie…", więc jedno wejście = jedno zapytanie do bazy
+        // i jedno użycie limitu (prerender nie jest też furtką do obejścia limitu).
+        if (!interactive)
+        {
+            isSearching = (Q?.Trim().Length ?? 0) >= SearchLimits.QueryMinLength;
+            return;
+        }
+
         await RunSearchAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        interactive = true;
+        await RunSearchAsync();
+        StateHasChanged();
+    }
+
+    // Wspólny limit wyszukiwania (REST i UI). Zalogowany → UserId, gość → adres klienta z żądania strony.
+    private bool TryAcquireSearch(int? viewerId)
+    {
+        var (acquired, retryAfter) = SearchLimiter.TryAcquire(SearchRateLimiter.ClientKey(viewerId, ClientAddress));
+        if (acquired)
+            return true;
+
+        error = UiErrors.SearchRateLimited(retryAfter);
+        errorVariant = AlertVariant.Warning;
+        return false;
     }
 
     private async Task RunSearchAsync()
@@ -195,6 +228,9 @@ else if (hasSearched)
         try
         {
             var viewerId = (await AuthState).User.GetUserId();
+            if (!TryAcquireSearch(viewerId))
+                return;
+
             var posts = await Ui.Run((ISearchService s) => s.SearchPostsAsync(new PostSearchQuery { Q = query, Category = CategoryValue }, viewerId));
             var users = CategoryValue is null
                 ? await Ui.Run((ISearchService s) => s.SearchUsersAsync(query, 6))
@@ -243,6 +279,9 @@ else if (hasSearched)
         {
             var before = results.Count;
             var viewerId = (await AuthState).User.GetUserId();
+            if (!TryAcquireSearch(viewerId))
+                return;
+
             var page = await Ui.Run((ISearchService s) => s.SearchPostsAsync(
                 new PostSearchQuery { Q = Q?.Trim(), Category = CategoryValue, Cursor = nextCursor }, viewerId));
 
