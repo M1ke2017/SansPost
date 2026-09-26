@@ -13,8 +13,13 @@ namespace SansPost.E2E.Infrastructure
             await WaitInteractiveAsync(page);
         }
 
-        public static Task WaitInteractiveAsync(IPage page) =>
-            page.WaitForSelectorAsync("html[data-interactive]", new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached });
+        // Entrance (14D-FIX): do decyzji renderera strona jest w stanie Pending (bez sceny i tabliczek) — czekamy na 3D/CSS.
+        // Na pozostałych stronach nie ma elementu .entrance, więc warunek jest spełniony od razu.
+        public static async Task WaitInteractiveAsync(IPage page)
+        {
+            await page.WaitForSelectorAsync("html[data-interactive]", new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached });
+            await page.WaitForFunctionAsync("() => !document.querySelector('.entrance[data-renderer=\"pending\"]')");
+        }
 
         public static async Task LoginAsync(IPage page, string email, string password, string returnUrl = "/saloon")
         {

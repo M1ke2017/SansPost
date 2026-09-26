@@ -83,10 +83,11 @@ namespace SansPost.E2E
             await Expect(page.Locator("h1")).ToHaveTextAsync(session.User!.Alias);
             await Expect(page.Locator(".post-card-title", new() { HasText = title + " (edytowany)" })).ToBeVisibleAsync();
 
-            // Logout → gość (brak menu użytkownika, widoczne "Zaloguj się").
+            // Logout → wejście do Saloonu jako gość (brak menu użytkownika, tabliczka "Zaloguj się").
             await page.Locator(".menu-trigger").ClickAsync();
             await page.GetByRole(AriaRole.Button, new() { Name = "Wyloguj się" }).ClickAsync();
-            await Expect(page.Locator(".app-header").GetByRole(AriaRole.Link, new() { Name = "Zaloguj się" })).ToBeVisibleAsync();
+            await Expect(page).ToHaveURLAsync(Ui.Path("/"));
+            await Expect(page.Locator("nav.entrance-signs").GetByRole(AriaRole.Link, new() { Name = "Zaloguj się" })).ToBeVisibleAsync();
             await Expect(page.Locator(".menu-trigger")).ToHaveCountAsync(0);
             await page.GotoAsync("/me");
             await Expect(page).ToHaveURLAsync(new Regex("/login"));

@@ -37,8 +37,29 @@ namespace SansPost.Tests.Ui
 
             var html = await response.Content.ReadAsStringAsync();
             Assert.Contains("id=\"entrance-title\"", html);
-            Assert.Matches("<a[^>]*href=\"/saloon\"[^>]*>Wejd", html);
+            // Wejście działa także przed podłączeniem circuitu: formularz GET na /saloon z przyciskiem.
+            Assert.Matches("<form method=\"get\" action=\"/saloon\"[^>]*>\\s*<button type=\"submit\"", html);
+            Assert.Contains("href=\"/login?returnUrl=%2Fsaloon\"", html);
+            Assert.Contains("href=\"/register\"", html);
             Assert.DoesNotContain("class=\"post-card", html);
+
+            // Własny layout (Sprint 14): bez nagłówka, nawigacji, wyszukiwarki, dolnego paska i stopki aplikacji.
+            foreach (var chrome in new[] { "class=\"app-header\"", "class=\"primary-nav\"", "id=\"header-search\"", "class=\"bottom-nav\"", "class=\"app-footer\"" })
+                Assert.DoesNotContain(chrome, html);
+            Assert.Contains("id=\"main\"", html);   // cel skip linku
+        }
+
+        // Aktywny stan "Odkrywaj" nie ginie przez query string (render serwerowy).
+        [Theory]
+        [InlineData("/saloon")]
+        [InlineData("/saloon?sort=popular")]
+        [InlineData("/saloon?utm=x&sort=newest")]
+        public async Task DiscoverNav_IsActive_WithQueryString(string path)
+        {
+            var html = await _factory.CreateHttpsClient().GetStringAsync(path);
+            var primaryNav = Regex.Match(html, "<nav class=\"primary-nav\".*?</nav>", RegexOptions.Singleline).Value;
+
+            Assert.Matches("<a href=\"/saloon\" class=\"nav-link active\"", primaryNav);
         }
 
         // Gość czyta bez konta: hub i dawny alias /posts pokazują feed.

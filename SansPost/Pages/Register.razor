@@ -4,7 +4,6 @@
 @implements IDisposable
 @inject NavigationManager Navigation
 @inject PersistentComponentState ApplicationState
-@inject ILogger<Register> Logger
 @inject UiServices Ui
 @inject IOptions<PublicDemoOptions> DemoOptions
 
@@ -53,20 +52,7 @@
                     <FormGate Class="stack">
                     <AntiforgeryField />
 
-                    @* Przydomek z zatwierdzonego słownika — nie da się go wpisać ręcznie. Pole ukryte jest tylko nośnikiem:
-                       serwer i tak weryfikuje, że to jeden z przydomków SansPost. *@
-                    <div class="field">
-                        <span class="field-label" id="alias-label">Twój przydomek</span>
-                        <div class="alias-box">
-                            <output class="alias-value" id="alias-value" aria-labelledby="alias-label" aria-live="polite">@alias</output>
-                            <button type="button" class="btn btn-sm" @onclick="RerollAsync"
-                                    aria-describedby="alias-hint" aria-busy="@(rolling ? "true" : "false")">
-                                <Icon Name="@Icons.Refresh" Size="16" /> Losuj inny
-                            </button>
-                        </div>
-                        <span class="field-hint" id="alias-hint">Przydomki pochodzą ze słownika SansPost — widoczne publicznie i stałe po rejestracji.</span>
-                        <input type="hidden" name="Username" value="@alias" />
-                    </div>
+                    <AliasPicker @bind-Alias="alias" />
 
                     <div class="field">
                         <label class="field-label" for="email">Email</label>
@@ -112,7 +98,6 @@
     private bool passwordMismatch;
     private bool identityTaken;
     private string? alias;
-    private bool rolling;
     private PersistingComponentStateSubscription persisting;
 
     private const string AliasStateKey = "register-alias";
@@ -151,54 +136,23 @@
                 break;
             case "mismatch":
                 passwordMismatch = true;
-                errorMessage = "Hasła nie są identyczne. Wpisz je ponownie.";
+                errorMessage = AuthText.PasswordMismatch;
                 break;
             case "conflict":
                 identityTaken = true;
-                errorMessage = "Nie można utworzyć konta z tym adresem email. Użyj innego.";
+                errorMessage = AuthText.IdentityTaken;
                 break;
             case "alias-taken":
                 errorVariant = AlertVariant.Warning;
-                errorMessage = "Ten przydomek został właśnie zajęty. Wylosowaliśmy dla Ciebie nowy.";
+                errorMessage = AuthText.AliasTaken;
                 break;
             case "rate-limited":
                 errorVariant = AlertVariant.Warning;
-                errorMessage = "Zbyt wiele prób w krótkim czasie. Odczekaj chwilę i spróbuj ponownie.";
+                errorMessage = AuthText.RegisterRateLimited;
                 break;
             default:
-                errorMessage = $"Sprawdź dane: poprawny email i hasło {PasswordPolicy.MinLength}–{PasswordPolicy.MaxLength} znaków.";
+                errorMessage = AuthText.InvalidRegistration;
                 break;
-        }
-    }
-
-    // "Losuj inny": nowa propozycja z tego samego słownika. Niczego nie tworzy ani nie rezerwuje.
-    private async Task RerollAsync()
-    {
-        // Blokada logiczna zamiast disabled: przycisk zachowuje fokus (Enter/Spacja działają dalej),
-        // a trwające losowanie nie uruchamia drugiego żądania. Nowy przydomek ogłasza <output aria-live>.
-        if (rolling)
-            return;
-
-        rolling = true;
-        try
-        {
-            for (var attempt = 0; attempt < 3; attempt++)
-            {
-                var next = await Ui.Run((IAliasGenerator s) => s.SuggestAsync());
-                if (next is not null && next != alias)
-                {
-                    alias = next;
-                    break;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Nie udało się wylosować przydomka.");
-        }
-        finally
-        {
-            rolling = false;
         }
     }
 

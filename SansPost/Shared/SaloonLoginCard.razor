@@ -1,0 +1,100 @@
+@inject IJSRuntime JS
+
+@* "Karta powrotu do Saloonu" — prezentacja istniejącego logowania (POST /auth/login) w oknie na Entrance.
+   Formularz jest zwykłym HTML-em (etykiety, autocomplete, walidacja przeglądarki); wysyła go sansPost.submitAuthForm,
+   więc błąd zostaje w karcie, a po sukcesie Entrance najpierw otwiera drzwi, potem przeładowuje /saloon (nowe cookie). *@
+<Modal @ref="modal" Title="Karta powrotu do Saloonu" Kicker="SansPost Saloon" Class="dialog-card">
+    @if (registered)
+    {
+        <Alert Variant="AlertVariant.Success" Title="Konto utworzone">Zaloguj się, aby wejść do Saloonu.</Alert>
+    }
+    @if (error is not null)
+    {
+        <Alert Variant="@errorVariant">@error</Alert>
+    }
+
+    <form class="card-form stack" method="post" action="auth/login" @ref="form" @onsubmit="SubmitAsync">
+        <AntiforgeryField />
+        <input type="hidden" name="ReturnUrl" value="@SaloonRoutes.Hub" />
+
+        <div class="field">
+            <label class="field-label" for="card-login-email">Email</label>
+            <input class="input" type="email" id="card-login-email" name="Email" autocomplete="username" required autofocus
+                   aria-invalid="@(invalidCredentials ? "true" : null)" />
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="card-login-password">Hasło</label>
+            <PasswordInput Id="card-login-password" Name="Password" Autocomplete="current-password" Invalid="invalidCredentials" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block card-submit" aria-busy="@(busy ? "true" : "false")">
+            @(busy ? "Otwieranie drzwi…" : "Wróć do Saloonu")
+        </button>
+    </form>
+
+    <p class="card-switch">Nie masz jeszcze karty? <button type="button" class="card-link" @onclick="SwitchAsync">Załóż konto</button></p>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback OnSignedIn { get; set; }
+    [Parameter] public EventCallback OnSwitchToRegister { get; set; }
+
+    private Modal? modal;
+    private ElementReference form;
+    private string? error;
+    private AlertVariant errorVariant = AlertVariant.Danger;
+    private bool invalidCredentials;
+    private bool registered;
+    private bool busy;
+
+    public async Task ShowAsync(bool afterRegistration = false)
+    {
+        registered = afterRegistration;
+        error = null;
+        invalidCredentials = false;
+        busy = false;
+        await modal!.ShowAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (busy)
+            return;
+
+        busy = true;
+        error = null;
+        AuthPostResult result;
+        try
+        {
+            result = await JS.InvokeAsync<AuthPostResult>("sansPost.submitAuthForm", form);
+        }
+        catch (JSException)
+        {
+            result = new AuthPostResult("login", 0, "", "");
+        }
+
+        if (result.SignedIn)
+        {
+            await modal!.CloseAsync();
+            await OnSignedIn.InvokeAsync();
+            return;
+        }
+
+        busy = false;
+        registered = false;
+        invalidCredentials = result.Error is "invalid";
+        (error, errorVariant) = result.Error switch
+        {
+            "rate-limited" => (AuthText.LoginRateLimited, AlertVariant.Warning),
+            "network" => (AuthText.Unavailable, AlertVariant.Warning),
+            _ => (AuthText.InvalidCredentials, AlertVariant.Danger)
+        };
+    }
+
+    private async Task SwitchAsync()
+    {
+        await modal!.CloseAsync();
+        await OnSwitchToRegister.InvokeAsync();
+    }
+}

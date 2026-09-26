@@ -50,6 +50,26 @@ namespace SansPost.E2E
                     await Ui.GotoAsync(guest, path);
                     await AuditAsync(guest, $"{name} ({scheme})");
                 }
+
+                // Sprint 14D: karty Saloonu na Entrance (rejestracja z przydomkiem, logowanie) — po animacji otwarcia.
+                await Ui.GotoAsync(guest, "/");
+                foreach (var (sign, name) in new[] { ("Załóż konto", "Register card"), ("Zaloguj się", "Login card") })
+                {
+                    await guest.Locator("nav.entrance-signs").GetByRole(AriaRole.Link, new() { Name = sign }).ClickAsync();
+                    await Expect(guest.Locator("dialog[open] .card-form")).ToBeVisibleAsync();
+                    await guest.Locator("dialog[open]").EvaluateAsync("d => Promise.all(d.getAnimations({ subtree: true }).map(a => a.finished))");
+                    await AuditAsync(guest, $"Entrance {name} ({scheme})");
+                    await guest.Keyboard.PressAsync("Escape");
+                    await Expect(guest.Locator("dialog[open]")).ToHaveCountAsync(0);
+                }
+
+                // Scena 3D (wymuszona — headless ma tylko WebGL programowy) z tabliczkami na tablicach przy drzwiach.
+                await using var motion = await _env.NewContextAsync(colorScheme: scheme);
+                var scene = await motion.NewPageAsync();
+                await Ui.GotoAsync(scene, "/?scene=3d");
+                await Expect(scene.Locator(".entrance")).ToHaveAttributeAsync("data-renderer", "3d", new() { Timeout = 20_000 });
+                await scene.WaitForTimeoutAsync(700);   // przenikanie CSS → WebGL
+                await AuditAsync(scene, $"Entrance 3D ({scheme})");
             }
 
             // Panel powiadomień (zalogowany, z powiadomieniem) i moderacja (admin, z otwartym oknem potwierdzenia).

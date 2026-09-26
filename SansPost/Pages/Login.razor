@@ -77,12 +77,12 @@
         if (error == "rate-limited")
         {
             errorVariant = AlertVariant.Warning;
-            errorMessage = "Zbyt wiele prób logowania. Odczekaj chwilę i spróbuj ponownie.";
+            errorMessage = AuthText.LoginRateLimited;
             return;
         }
 
         // Jedna, ogólna odpowiedź — bez ujawniania, czy konto istnieje lub jest zablokowane.
         invalidCredentials = true;
-        errorMessage = "Nieprawidłowy email lub hasło.";
+        errorMessage = AuthText.InvalidCredentials;
     }
 }

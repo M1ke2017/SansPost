@@ -2192,3 +2192,1020 @@ html:has(dialog[open]) { overflow: hidden; }
 @media (max-width: 639.98px) {
     .place-header > .frontier-celestial { bottom: 24px; width: 28px; height: 28px; left: calc(51% - 14px); }
 }
+
+/* ==========================================================================
+   Sprint 14 / 14B — Entrance: wejście do Saloonu (CSS + inline SVG, bez zdjęć, bez canvas/WebGL)
+   Warstwy (od najdalszej): niebo → chmury → miasteczko → fasada z szyldem → wejście (światło wnętrza)
+   → wahadłowe drzwi → pierwszy plan (poręcz, beczka) → deski ganku z tabliczkami.
+   2.5D: każda warstwa ma własną skalę/przesunięcie przy wejściu. Parallax od wskaźnika (desktop) dotyczy tylko TŁA
+   (niebo ze słońcem/księżycem, chmury, dalekie miasteczko, głównie w osi X); fasada ±2 px w poziomie, podłoże,
+   pierwszy plan i tabliczki stoją — linia gruntu nigdy się nie przesuwa.
+   Parallax wskaźnika używa właściwości `translate`, animacje wejścia — `transform`, więc się nie nadpisują.
+   Jasny motyw: ciepły zachód. Ciemny: noc, ciepłe światło Saloonu. Ten sam układ, inne tokeny.
+   ========================================================================== */
+.entrance-main { position: relative; min-height: 100vh; min-height: 100svh; }
+.entrance-main:focus { outline: none; }
+
+.entrance {
+    --sky-top: #f2b981;
+    --sky-horizon: #f7e0bf;
+    --sun: #f6c77a;
+    --cloud: rgb(255 244 228 / 0.75);
+    --town-far: #d9ad86;
+    --town-near: #c79671;
+    --town-window: transparent;
+    --wood: #8a5a36;
+    --wood-dark: #6f4629;
+    --wood-seam: rgb(52 30 16 / 0.28);
+    --trim: #5a381f;
+    --sign-board: #2f1d12;
+    --sign-text: #f7e8cf;
+    --sign-kicker: #e7b567;
+    --window-glow: #ffd98f;
+    --interior-hot: #ffd690;
+    --interior-mid: #b8672c;
+    --interior-deep: #3a1c0c;
+    --door: #7a4b2b;
+    --door-slat: rgb(45 25 12 / 0.35);
+    --boardwalk: #7a5436;
+    --boardwalk-seam: rgb(40 22 10 / 0.35);
+    --plank: #5d3920;
+    --plank-edge: #3f2513;
+    --plank-text: #fbf0de;
+    --lead-text: #fbf0de;
+    --foreground: #4a2c18;
+    --dust: rgb(255 226 180 / 0.55);
+
+    /* Czas wejścia (ustawia Entrance.razor) i siła "kamery". Parallax wskaźnika: --px/--py w zakresie -1..1. */
+    --enter-ms: 1500ms;
+    --zoom: 1.55;
+    --px: 0;
+    --py: 0;
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100svh;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--sky-top), var(--sky-horizon));
+}
+
+:root[data-theme="dark"] .entrance {
+    --sky-top: #0e1424;
+    --sky-horizon: #2a1f2a;
+    --sun: #f1e6cf;
+    --cloud: rgb(120 130 160 / 0.12);
+    --town-far: #1c1a24;
+    --town-near: #15131a;
+    --town-window: #f2b35f;
+    --wood: #4d3120;
+    --wood-dark: #3b2517;
+    --wood-seam: rgb(0 0 0 / 0.35);
+    --trim: #2a190f;
+    --sign-board: #1a100a;
+    --sign-text: #fbe6c2;
+    --sign-kicker: #f0b35c;
+    --window-glow: #ffc768;
+    --interior-hot: #ffcc73;
+    --interior-mid: #a4531f;
+    --interior-deep: #200e06;
+    --door: #5a3822;
+    --boardwalk: #3a2618;
+    --plank: #4a2d19;
+    --plank-edge: #2c1a0e;
+    --foreground: #120b07;
+}
+
+/* ---- Scena ------------------------------------------------------------ */
+.entrance-stage {
+    position: relative;
+    flex: 1 0 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    min-height: min(66svh, 620px);
+    padding: 72px 16px 0;
+}
+
+.entrance-sky {
+    position: absolute;
+    inset: -3%;
+    translate: calc(var(--px) * -8px) calc(var(--py) * -3px);   /* niebo + słońce/księżyc: Y ≤ 3 px */
+    background:
+        radial-gradient(circle at 80% 56%, var(--sun) 0 46px, transparent 47px),
+        radial-gradient(ellipse 55% 40% at 80% 60%, color-mix(in srgb, var(--sun) 40%, transparent), transparent 70%);
+}
+
+:root[data-theme="dark"] .entrance-sky {
+    background:
+        radial-gradient(circle at 80% 22%, var(--sun) 0 22px, transparent 23px),
+        radial-gradient(circle at 80% 22%, rgb(241 230 207 / 0.18) 0 40px, transparent 60px),
+        radial-gradient(1.2px 1.2px at 12% 18%, #f3ead8 99%, transparent),
+        radial-gradient(1px 1px at 24% 32%, #f3ead8 99%, transparent),
+        radial-gradient(1.4px 1.4px at 38% 12%, #f3ead8 99%, transparent),
+        radial-gradient(1px 1px at 90% 40%, #f3ead8 99%, transparent);
+}
+
+/* Migoczące gwiazdy (tylko noc) — osobna warstwa, animowana wyłącznie opacity. */
+:root[data-theme="dark"] .entrance-sky::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(1px 1px at 55% 26%, #fff6e2 99%, transparent),
+        radial-gradient(1.3px 1.3px at 66% 10%, #fff6e2 99%, transparent),
+        radial-gradient(1px 1px at 6% 44%, #fff6e2 99%, transparent),
+        radial-gradient(1.2px 1.2px at 30% 8%, #fff6e2 99%, transparent),
+        radial-gradient(1px 1px at 72% 34%, #fff6e2 99%, transparent);
+    animation: stars-twinkle 5.5s ease-in-out infinite alternate;
+}
+
+@keyframes stars-twinkle { from { opacity: 0.35; } to { opacity: 1; } }
+
+/* Chmury: bardzo wolny dryf (tylko dzień; w nocy nieruchome i ledwo widoczne). */
+.entrance-clouds {
+    position: absolute;
+    inset: 0 -10% 40% -10%;
+    translate: calc(var(--px) * -14px) calc(var(--py) * -5px);   /* chmury: Y ≤ 5 px */
+    pointer-events: none;
+}
+
+.cloud {
+    position: absolute;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--cloud);
+    filter: blur(3px);
+    animation: cloud-drift 110s linear infinite alternate;
+}
+
+.cloud::before {
+    content: "";
+    position: absolute;
+    left: 22%;
+    bottom: 40%;
+    width: 46%;
+    height: 150%;
+    border-radius: 999px;
+    background: inherit;
+}
+
+.cloud.c1 { top: 18%; left: 12%; width: 150px; }
+.cloud.c2 { top: 30%; left: 52%; width: 110px; animation-duration: 140s; animation-delay: -40s; }
+.cloud.c3 { top: 12%; left: 76%; width: 90px; animation-duration: 160s; animation-delay: -80s; }
+
+:root[data-theme="dark"] .cloud { animation: none; }
+
+@keyframes cloud-drift { from { transform: translateX(-60px); } to { transform: translateX(60px); } }
+
+.entrance-town {
+    position: absolute;
+    left: -2%;
+    right: -2%;
+    bottom: 0;
+    width: 104%;
+    height: 44%;
+    pointer-events: none;
+    transform-origin: 50% 100%;
+    translate: calc(var(--px) * -8px) calc(var(--py) * -1.5px);   /* dalekie miasteczko: Y ≤ 1,5 px */
+    /* Pas w kolorze miasteczka pod sylwetką (w spoczynku schowany pod deskami) — przy minimalnym uniesieniu
+       nie odsłania się szczelina nieba nad podłożem. */
+    box-shadow: 0 8px 0 var(--town-far);
+}
+
+.entrance-town .town-far { fill: var(--town-far); }
+.entrance-town .town-near { fill: var(--town-near); }
+.entrance-town .town-windows { fill: var(--town-window); }
+
+/* Kurz przy ziemi (tylko dzień): pas drobinek przesuwany transformacją. */
+.entrance-dust {
+    position: absolute;
+    left: -20%;
+    right: -20%;
+    bottom: 0;
+    height: 70px;
+    pointer-events: none;
+    background:
+        radial-gradient(2px 2px at 8% 60%, var(--dust) 99%, transparent),
+        radial-gradient(1.5px 1.5px at 22% 30%, var(--dust) 99%, transparent),
+        radial-gradient(2px 2px at 41% 70%, var(--dust) 99%, transparent),
+        radial-gradient(1.5px 1.5px at 63% 40%, var(--dust) 99%, transparent),
+        radial-gradient(2px 2px at 81% 65%, var(--dust) 99%, transparent),
+        linear-gradient(0deg, rgb(255 224 176 / 0.28), transparent);
+    animation: dust-drift 26s linear infinite alternate;
+}
+
+:root[data-theme="dark"] .entrance-dust { display: none; }
+
+@keyframes dust-drift { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+
+/* ---- Fasada ----------------------------------------------------------- */
+.saloon {
+    position: relative;
+    z-index: 1;
+    width: min(760px, 100%);
+    transform-origin: 50% 100%;
+    translate: calc(var(--px) * -2px) 0;   /* grunt: bez ruchu w pionie */
+}
+
+/* Cień budynku na deskach — oddziela fasadę od pierwszego planu. */
+.saloon::after {
+    content: "";
+    position: absolute;
+    left: 4%;
+    right: 4%;
+    bottom: -14px;
+    height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 0, rgb(30 14 4 / 0.45), transparent 70%);
+    z-index: -1;
+}
+
+.saloon-front {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 78%;
+    margin: 0 auto;
+    padding: 30px 16px 14px;
+    background:
+        linear-gradient(90deg, rgb(20 10 4 / 0.18), transparent 16%, transparent 84%, rgb(20 10 4 / 0.18)),
+        repeating-linear-gradient(180deg, transparent 0 17px, var(--wood-seam) 17px 19px),
+        linear-gradient(180deg, var(--wood), var(--wood-dark));
+    clip-path: polygon(0 22%, 8% 22%, 8% 10%, 20% 10%, 20% 0, 80% 0, 80% 10%, 92% 10%, 92% 22%, 100% 22%, 100% 100%, 0 100%);
+}
+
+/* Szyld: wisi na fasadzie, ledwo zauważalnie się kołysze. */
+.saloon-sign {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 10px 28px 12px;
+    background: var(--sign-board);
+    border: 3px solid var(--trim);
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgb(255 230 190 / 0.12), 0 6px 10px -4px rgb(0 0 0 / 0.5);
+    transform-origin: 50% -20px;
+    animation: sign-sway 7s ease-in-out infinite alternate;
+}
+
+@keyframes sign-sway { from { rotate: -0.6deg; } to { rotate: 0.6deg; } }
+
+.saloon-kicker {
+    font-size: 0.72rem;
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--sign-kicker);
+}
+
+.saloon-sign h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 1.2rem + 3vw, 3.2rem);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.04em;
+    line-height: 1.05;
+    color: var(--sign-text);
+}
+
+.saloon-body {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 26% 1fr;
+    align-items: end;
+    aspect-ratio: 760 / 300;
+    padding: 34px 6% 0;
+    background:
+        linear-gradient(180deg, rgb(20 10 4 / 0.32), transparent 46px),
+        linear-gradient(90deg, rgb(20 10 4 / 0.22), transparent 14%, transparent 86%, rgb(20 10 4 / 0.22)),
+        repeating-linear-gradient(90deg, transparent 0 22px, var(--wood-seam) 22px 24px),
+        linear-gradient(180deg, var(--wood), var(--wood-dark));
+    border-top: 6px solid var(--trim);
+    /* Cień bryły jako box-shadow (drop-shadow na całej fasadzie kosztował ~40% klatek przy przybliżeniu). */
+    box-shadow: 0 22px 36px -18px rgb(30 14 4 / 0.55), 0 0 40px -12px rgb(30 14 4 / 0.35);
+}
+
+.saloon-porch {
+    position: absolute;
+    left: -2%;
+    right: -2%;
+    top: 0;
+    height: 100%;
+    pointer-events: none;
+    background:
+        linear-gradient(90deg, var(--trim) 0 10px, transparent 10px) 3% 16px / 10px 100% no-repeat,
+        linear-gradient(90deg, var(--trim) 0 10px, transparent 10px) 97% 16px / 10px 100% no-repeat,
+        linear-gradient(180deg, var(--trim), color-mix(in srgb, var(--trim) 70%, #000)) 0 0 / 100% 16px no-repeat;
+}
+
+.saloon-window {
+    align-self: center;
+    justify-self: center;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    width: 56%;
+    aspect-ratio: 5 / 4;
+    padding: 4px;
+    background: var(--trim);
+    border-radius: 3px;
+}
+
+.saloon-window span {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--window-glow) 85%, #fff), var(--window-glow));
+    box-shadow: inset 0 0 12px rgb(120 60 10 / 0.35);
+}
+
+:root[data-theme="dark"] .saloon-window { box-shadow: 0 0 28px rgb(255 190 90 / 0.35); }
+
+/* ---- Wejście: rama, wnętrze i wahadłowe drzwi ----------------------------- */
+.saloon-door {
+    position: relative;
+    align-self: stretch;
+    min-height: 120px;
+    background: var(--trim);
+    perspective: 700px;
+}
+
+/* Wnętrze z głębią: tylna ściana (ciemniej), światło lamp, lada baru na pierwszym planie wnętrza. */
+.saloon-interior {
+    position: absolute;
+    inset: 6px 6px 0;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, transparent 58%, rgb(20 8 2 / 0.35) 58% 60%, transparent 60%),
+        radial-gradient(ellipse 70% 60% at 50% 42%, var(--interior-hot), var(--interior-mid) 55%, var(--interior-deep));
+}
+
+.interior-lamps {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: 34%;
+    stroke: var(--interior-deep);
+    stroke-width: 1.4;
+    fill: none;
+}
+
+.interior-lamps .lamp { fill: #fff1c9; stroke: none; }
+
+/* Lampy nocą lekko pulsują (tylko opacity). */
+:root[data-theme="dark"] .interior-lamps .lamp { animation: lamp-glow 3.2s ease-in-out infinite alternate; }
+
+@keyframes lamp-glow { from { opacity: 0.8; } to { opacity: 1; } }
+
+.interior-bar {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 0;
+    height: 22%;
+    background: linear-gradient(180deg, var(--interior-deep), color-mix(in srgb, var(--interior-deep) 70%, #000));
+    opacity: 0.85;
+}
+
+.door {
+    position: absolute;
+    top: 24%;
+    height: 52%;
+    width: calc(50% - 6px);
+    background:
+        repeating-linear-gradient(90deg, transparent 0 9px, var(--door-slat) 9px 11px),
+        linear-gradient(180deg, color-mix(in srgb, var(--door) 88%, #fff), var(--door));
+}
+
+/* Podświetlenie wewnętrznej krawędzi skrzydła (światło zza drzwi) — pojawia się przy otwieraniu. */
+.door::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.door-left {
+    left: 6px;
+    transform-origin: left center;
+    clip-path: polygon(0 0, 30% 4%, 60% 12%, 85% 22%, 100% 30%, 100% 100%, 0 100%);
+}
+
+.door-left::after { background: linear-gradient(270deg, rgb(255 222 160 / 0.85), transparent 38%); }
+
+.door-right {
+    right: 6px;
+    transform-origin: right center;
+    clip-path: polygon(0 30%, 15% 22%, 40% 12%, 70% 4%, 100% 0, 100% 100%, 0 100%);
+}
+
+.door-right::after { background: linear-gradient(90deg, rgb(255 222 160 / 0.85), transparent 38%); }
+
+/* ---- Pierwszy plan: poręcz do przywiązywania koni i beczka (najbliższa warstwa, największy ruch) ---- */
+.entrance-foreground {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 3%;
+    pointer-events: none;
+}
+
+.entrance-foreground svg {
+    display: block;
+    height: clamp(58px, 9vw, 96px);
+    width: auto;
+    fill: var(--foreground);
+    filter: drop-shadow(0 6px 6px rgb(0 0 0 / 0.25));
+}
+
+.entrance-flash {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 72%, #fff3d6, #ffd690 45%, color-mix(in srgb, #ffd690 30%, transparent));
+    opacity: 0;
+}
+
+/* ---- Deski ganku z tabliczkami ---------------------------------------- */
+.entrance-boardwalk {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    padding: 20px 16px 32px;
+    background:
+        radial-gradient(ellipse 22% 60% at 50% 0, color-mix(in srgb, var(--interior-hot) 45%, transparent), transparent 70%),
+        repeating-linear-gradient(180deg, transparent 0 18px, var(--boardwalk-seam) 18px 20px),
+        var(--boardwalk);
+    border-top: 6px solid var(--plank-edge);
+}
+
+/* Światło z otwartych drzwi rozlewające się na deski. */
+.entrance-boardwalk::before {
+    content: "";
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    top: 0;
+    height: 80%;
+    pointer-events: none;
+    background: radial-gradient(ellipse 50% 70% at 50% 0, rgb(255 214 144 / 0.7), transparent 70%);
+    opacity: 0;
+    transform-origin: 50% 0;
+}
+
+.entrance-lead {
+    position: relative;
+    max-width: 46rem;
+    margin: 0;
+    text-align: center;
+    color: var(--lead-text);
+    font-size: var(--text-base);
+    line-height: 1.5;
+}
+
+.entrance-signs {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+}
+
+.entrance-signs form { display: contents; }
+
+.entrance-sign {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 11rem;
+    min-height: 52px;
+    padding: 10px 28px;
+    font: inherit;
+    font-weight: var(--weight-bold);
+    font-size: var(--text-base);
+    letter-spacing: 0.02em;
+    color: var(--plank-text);
+    text-decoration: none;
+    background:
+        repeating-linear-gradient(90deg, transparent 0 38px, rgb(0 0 0 / 0.08) 38px 40px),
+        linear-gradient(180deg, color-mix(in srgb, var(--plank) 85%, #fff), var(--plank));
+    border: 2px solid var(--plank-edge);
+    border-radius: 6px;
+    box-shadow: 0 4px 0 var(--plank-edge), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+    cursor: pointer;
+    transition: transform 120ms var(--ease), box-shadow 120ms var(--ease);
+}
+
+.entrance-sign::before,
+.entrance-sign::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    margin-top: -2.5px;
+    border-radius: 50%;
+    background: #c9a978;
+    box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.4);
+}
+
+.entrance-sign::before { left: 9px; }
+.entrance-sign::after { right: 9px; }
+
+.entrance-sign.is-primary {
+    background:
+        repeating-linear-gradient(90deg, transparent 0 38px, rgb(0 0 0 / 0.08) 38px 40px),
+        linear-gradient(180deg, #8f3a22, #6f2a16);
+    border-color: #4a1a0c;
+    box-shadow: 0 4px 0 #4a1a0c, 0 8px 16px -8px rgb(0 0 0 / 0.5);
+}
+
+.entrance-sign:hover { transform: translateY(-2px); color: var(--plank-text); }
+.entrance-sign:active { transform: translateY(2px); }
+.entrance-sign:focus-visible { outline: 3px solid #f6d27a; outline-offset: 4px; }
+
+.entrance-theme {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 4;
+}
+
+.entrance-theme .theme-toggle {
+    color: #fbf0de;
+    background: rgb(30 18 10 / 0.45);
+}
+
+.entrance-theme .theme-toggle:hover { background: rgb(30 18 10 / 0.6); color: #fff; }
+
+/* ==========================================================================
+   Sekwencja wejścia (procenty z --enter-ms; przy 1500 ms):
+     0–10%   (0–150)     reakcja sceny na kliknięcie
+     10–23%  (150–350)   światło zza drzwi rośnie
+     17–47%  (250–700)   drzwi otwierają się (z lekkim odbiciem)
+     27–73%  (400–1100)  "kamera" przybliża się do wejścia — każda warstwa w swoim tempie (parallax)
+     47–87%  (700–1300)  wnętrze staje się dominantą (światło wypełnia kadr)
+     100%    (1500)      nawigacja do /saloon (Entrance.razor)
+   Tylko transform / opacity / filter — bez zmian layoutu.
+   ========================================================================== */
+.is-entering .entrance-sky { animation: layer-sky var(--enter-ms) cubic-bezier(0.45, 0, 0.2, 1) forwards; }
+.is-entering .entrance-clouds { animation: layer-sky var(--enter-ms) cubic-bezier(0.45, 0, 0.2, 1) forwards; }
+.is-entering .entrance-town { animation: layer-town var(--enter-ms) cubic-bezier(0.45, 0, 0.2, 1) forwards; }
+.is-entering .saloon { animation: layer-saloon var(--enter-ms) linear forwards; }
+.is-entering .saloon-sign { animation: none; }
+.is-entering .saloon-interior { animation: interior-light var(--enter-ms) ease-out forwards; }
+.is-entering .door-left { animation: door-left var(--enter-ms) linear forwards; }
+.is-entering .door-right { animation: door-right var(--enter-ms) linear forwards; }
+.is-entering .door::after { animation: door-edge var(--enter-ms) ease-out forwards; }
+.is-entering .entrance-foreground { animation: layer-foreground var(--enter-ms) cubic-bezier(0.45, 0, 0.2, 1) forwards; }
+.is-entering .entrance-boardwalk { animation: layer-boardwalk var(--enter-ms) cubic-bezier(0.45, 0, 0.2, 1) forwards; }
+.is-entering .entrance-boardwalk::before { animation: boardwalk-spill var(--enter-ms) ease-out forwards; }
+.is-entering .entrance-flash { animation: interior-flash var(--enter-ms) ease-in forwards; }
+
+@keyframes layer-sky {
+    0%, 27% { transform: none; }
+    100% { transform: scale(1.05); }
+}
+
+@keyframes layer-town {
+    0%, 27% { transform: none; }
+    100% { transform: translateY(2%) scale(1.14); }
+}
+
+@keyframes layer-saloon {
+    0% { transform: none; }
+    10% { transform: translateY(-3px) scale(1.012); animation-timing-function: ease-out; }
+    27% { transform: translateY(-2px) scale(1.02); animation-timing-function: cubic-bezier(0.5, 0, 0.3, 1); }
+    73% { transform: translateY(5%) scale(var(--zoom)); animation-timing-function: ease-out; }
+    100% { transform: translateY(7%) scale(calc(var(--zoom) * 1.08)); }
+}
+
+@keyframes interior-light {
+    0%, 10% { filter: brightness(1); }
+    23% { filter: brightness(1.22); }
+    47% { filter: brightness(1.35); }
+    87%, 100% { filter: brightness(1.75) saturate(1.1); }
+}
+
+@keyframes door-left {
+    0% { transform: none; }
+    10% { transform: rotateY(-4deg); }
+    17% { transform: rotateY(-2deg); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+    47% { transform: rotateY(84deg); animation-timing-function: ease-in-out; }
+    58% { transform: rotateY(72deg); animation-timing-function: ease-in-out; }
+    68%, 100% { transform: rotateY(78deg); }
+}
+
+@keyframes door-right {
+    0% { transform: none; }
+    10% { transform: rotateY(4deg); }
+    17% { transform: rotateY(2deg); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+    47% { transform: rotateY(-84deg); animation-timing-function: ease-in-out; }
+    58% { transform: rotateY(-72deg); animation-timing-function: ease-in-out; }
+    68%, 100% { transform: rotateY(-78deg); }
+}
+
+@keyframes door-edge {
+    0%, 17% { opacity: 0; }
+    40%, 100% { opacity: 1; }
+}
+
+@keyframes layer-foreground {
+    0%, 27% { transform: none; opacity: 1; }
+    100% { transform: translateY(18%) scale(1.5); opacity: 0; }
+}
+
+@keyframes layer-boardwalk {
+    0%, 27% { transform: none; }
+    100% { transform: translateY(14%); }
+}
+
+@keyframes boardwalk-spill {
+    0%, 10% { opacity: 0; transform: scale(0.8); }
+    47% { opacity: 0.8; transform: scale(1); }
+    100% { opacity: 1; transform: scale(1.3); }
+}
+
+@keyframes interior-flash {
+    0%, 47% { opacity: 0; }
+    87% { opacity: 0.8; }
+    100% { opacity: 0.96; }
+}
+
+/* ---- Mobile: słabsza "kamera", bez parallaxu wskaźnika i bez poręczy ------- */
+@media (max-width: 639.98px) {
+    .entrance { --zoom: 1.32; }
+    .entrance-stage { min-height: 54svh; padding-top: 64px; }
+    .saloon-front { width: 94%; }
+    .saloon-sign { padding: 8px 18px 10px; }
+    .saloon-body { grid-template-columns: 1fr 38% 1fr; aspect-ratio: 360 / 220; padding-top: 26px; }
+    .saloon-window { width: 72%; }
+    .entrance-foreground .rail { display: none; }
+    .entrance-foreground { justify-content: flex-end; }
+    .entrance-foreground svg { height: 48px; }
+    .entrance-signs { flex-direction: column; align-items: stretch; width: min(320px, 100%); }
+    .entrance-sign { width: 100%; }
+}
+
+/* Bez ruchu: brak parallaxu, zoomu, dryfu chmur, kurzu, kołysania szyldu i drzwi. JS zwraca 0 ms → od razu /saloon. */
+@media (prefers-reduced-motion: reduce) {
+    .entrance, .entrance *, .entrance *::before, .entrance *::after { transition: none !important; animation: none !important; }
+    .entrance { --px: 0 !important; --py: 0 !important; }
+    .entrance-sign:hover, .entrance-sign:active { transform: none; }
+}
+
+.entrance-foreground .hoop { fill: color-mix(in srgb, var(--foreground) 65%, #c9a978); }
+
+/* Warstwy poruszane przy wejściu jako osobne warstwy kompozytora — skalowanie bez ponownego malowania (drop-shadow, drewno). */
+.saloon, .entrance-town, .entrance-foreground, .entrance-sky, .entrance-boardwalk { will-change: transform; }
+
+/* ==========================================================================
+   Sprint 14D — Entrance 3D (Three.js, js/entrance3d.js): renderer główny na urządzeniach z wydajnym GPU.
+   Canvas pod HTML-em; scena CSS/SVG wygaszana (opacity — h1 zostaje w drzewie dostępności) i zatrzymana.
+   Tabliczki: "porch" — na tablicach ogłoszeń przy drzwiach (pozycje z projekcji 3D: --login-x/y, --register-x/y,
+   --guest-x/y, rozmiar --sign-w/--sign-h), "stack" — kolumna na drogowskazie pod saloonem (wąskie ekrany).
+   ========================================================================== */
+.entrance-3d { position: absolute; inset: 0; z-index: 0; }
+
+.entrance-3d-canvas { display: block; width: 100%; height: 100%; }
+
+/* Scena CSS przy 3D: niewidoczna od pierwszej klatki (bez przejścia — nie może mignąć). */
+.has-3d .entrance-stage { opacity: 0; pointer-events: none; }
+
+.has-3d .entrance-stage *,
+.has-3d .entrance-stage *::before,
+.has-3d .entrance-stage *::after { animation: none !important; }
+
+.has-3d .entrance-boardwalk {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: block;
+    padding: 0;
+    background: none;
+    border: 0;
+    pointer-events: none;
+    transition: opacity 250ms var(--ease);
+}
+
+.has-3d .entrance-boardwalk::before { display: none; }
+
+.has-3d .entrance-lead {
+    position: absolute;
+    left: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    translate: -50% 0;
+    width: max-content;
+    max-width: min(44rem, calc(100% - 32px));
+    padding: 6px 16px;
+    font-size: var(--text-sm);
+    color: #fbf0de;
+    background: rgb(30 18 10 / 0.78);
+    border-radius: 999px;
+    pointer-events: auto;
+}
+
+/* ---- Tabliczki na tablicach ogłoszeń przy drzwiach ---------------------- */
+.has-3d [data-sign-layout="porch"] .entrance-signs {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+
+.has-3d [data-sign-layout="porch"] .entrance-sign {
+    position: absolute;
+    width: var(--sign-w, 160px);
+    min-width: 0;
+    min-height: var(--sign-h, 48px);
+    padding: 6px 14px;
+    font-size: clamp(0.8125rem, calc(var(--sign-w, 160px) * 0.088), 1.0625rem);
+    white-space: nowrap;
+    line-height: 1.2;
+    translate: -50% -50%;
+    pointer-events: auto;
+}
+
+.has-3d [data-sign-layout="porch"] .entrance-sign.is-primary {
+    min-height: calc(var(--sign-h, 48px) * 1.3);
+    font-size: clamp(0.8125rem, calc(var(--sign-w, 160px) * 0.094), 1.125rem);
+}
+
+.has-3d [data-sign-layout="porch"] [data-anchor="login"] { left: var(--login-x); top: var(--login-y); }
+.has-3d [data-sign-layout="porch"] [data-anchor="register"] { left: var(--register-x); top: var(--register-y); }
+.has-3d [data-sign-layout="porch"] [data-anchor="guest"] { left: var(--guest-x); top: var(--guest-y); }
+
+/* ---- Drogowskaz pod saloonem (wąskie ekrany) ----------------------------- */
+.has-3d [data-sign-layout="stack"] {
+    top: auto;
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding: 28px 16px max(20px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgb(24 14 7 / 0.82), rgb(24 14 7 / 0.6) 72%, transparent);
+}
+
+.has-3d [data-sign-layout="stack"] .entrance-lead {
+    position: static;
+    translate: none;
+    width: auto;
+    max-width: 30rem;
+    padding: 0;
+    background: none;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+
+.has-3d [data-sign-layout="stack"] .entrance-signs {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    width: min(320px, 100%);
+}
+
+/* Słup drogowskazu za tabliczkami. */
+.has-3d [data-sign-layout="stack"] .entrance-signs::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -14px;
+    bottom: -40px;
+    width: 16px;
+    translate: -50% 0;
+    z-index: -1;
+    background: linear-gradient(90deg, var(--plank-edge), var(--plank) 45%, var(--plank-edge));
+    border-radius: 3px;
+}
+
+.has-3d [data-sign-layout="stack"] .entrance-sign { width: 100%; pointer-events: auto; }
+
+/* Wejście przy 3D: tabliczki znikają od razu, przejazd kamery robi scena WebGL, flash dopiero na ostatnie ~25%. */
+.has-3d.is-entering .entrance-boardwalk { animation: none; opacity: 0; }
+.has-3d.is-entering .entrance-flash { animation-name: interior-flash-3d; }
+
+@keyframes interior-flash-3d {
+    0%, 72% { opacity: 0; }
+    100% { opacity: 0.96; }
+}
+
+/* ==========================================================================
+   Sprint 14D — karty Saloonu (logowanie i rejestracja na Entrance): list / karta meldunkowa.
+   Bez tekstur pergaminu — klimat z koloru papieru, podwójnej ramki, kroju szeryfowego i ozdobnika.
+   ========================================================================== */
+.dialog-card {
+    --card-paper: #f6ecd8;
+    --card-ink: #3a2616;
+    --card-muted: #6d5540;
+    --card-rule: #c2a076;
+    --card-accent: #8f3a22;
+    --card-kicker: #8a4f25;
+    --card-field: #fffaf0;
+
+    width: min(460px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    background: var(--card-paper);
+    color: var(--card-ink);
+    border: 1px solid var(--card-rule);
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 7px var(--card-paper), inset 0 0 0 8px var(--card-rule), 0 28px 70px -24px rgb(0 0 0 / 0.7);
+}
+
+:root[data-theme="dark"] .dialog-card {
+    --card-paper: #271c14;
+    --card-ink: #f3e5c9;
+    --card-muted: #c9b391;
+    --card-rule: #8a6a44;
+    --card-accent: #9c3f24;
+    --card-kicker: #e6ad66;
+    --card-field: #1c140e;
+}
+
+.dialog-card::backdrop { background: rgb(18 10 5 / 0.62); }
+
+.dialog-card .dialog-header { padding: 26px 26px 0; }
+.dialog-card .dialog-body { padding: 16px 26px 26px; }
+.dialog-card .dialog-heading { flex: 1; text-align: center; padding-left: 36px; }
+
+.dialog-kicker {
+    margin: 0 0 4px;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--card-kicker, var(--text-muted));
+}
+
+.dialog-card .dialog-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1.2;
+    color: var(--card-ink);
+}
+
+/* Ozdobnik pod tytułem: linia, gwiazdka, linia. */
+.dialog-card .dialog-heading::after {
+    content: "\2726";
+    display: block;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--card-kicker);
+    background:
+        linear-gradient(var(--card-rule), var(--card-rule)) left 50% / calc(50% - 14px) 1px no-repeat,
+        linear-gradient(var(--card-rule), var(--card-rule)) right 50% / calc(50% - 14px) 1px no-repeat;
+}
+
+.dialog-card .dialog-header .btn-icon { color: var(--card-muted); }
+.dialog-card .dialog-header .btn-icon:hover { color: var(--card-ink); background: rgb(0 0 0 / 0.06); }
+
+.dialog-card .field-label { color: var(--card-ink); }
+.dialog-card .field-hint, .dialog-card .muted { color: var(--card-muted); }
+
+.dialog-card .input {
+    background: var(--card-field);
+    border-color: var(--card-rule);
+    color: var(--card-ink);
+}
+
+.dialog-card .input-action { color: var(--card-muted); }
+
+/* Przydomek jak wpis w karcie meldunkowej. */
+.dialog-card .alias-box {
+    padding: 10px 12px;
+    background: transparent;
+    border: 1px dashed var(--card-rule);
+    border-radius: 4px;
+}
+
+.dialog-card .alias-value {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    color: var(--card-accent);
+}
+
+:root[data-theme="dark"] .dialog-card .alias-value { color: #f0b36e; }
+
+.dialog-card .alias-box .btn {
+    color: var(--card-ink);
+    background: var(--card-field);
+    border-color: var(--card-rule);
+}
+
+.card-submit.btn-primary {
+    margin-top: 4px;
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    color: #fbf0de;
+    background: var(--card-accent);
+    border-color: #5a1f0e;
+    box-shadow: 0 3px 0 #5a1f0e;
+}
+
+.card-submit.btn-primary:hover { background: color-mix(in srgb, var(--card-accent) 88%, #000); color: #fff; }
+
+.card-switch {
+    margin: 0;
+    text-align: center;
+    font-size: var(--text-sm);
+    color: var(--card-muted);
+}
+
+.card-link {
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--card-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+:root[data-theme="dark"] .card-link { color: #f0b36e; }
+
+@media (max-width: 479.98px) {
+    .dialog-card { border-radius: 10px 10px 0 0; max-height: calc(100dvh - 12px); }
+    .dialog-card .dialog-header { padding: 22px 18px 0; }
+    .dialog-card .dialog-body { padding: 14px 18px 22px; }
+}
+
+/* ==========================================================================
+   Sprint 14D-FIX — stan Pending: decyzja renderera jeszcze nie zapadła. Warstwa w kolorach motywu z logo i jednym zdaniem;
+   scena CSS i tabliczki są wtedy ukryte (visibility — bez fokusu i bez zmiany układu: ta sama wysokość co CSS i 3D).
+   Przy 3D warstwa znika dopiero, gdy pierwsza klatka Three.js jest już narysowana pod nią; przy CSS — po decyzji fallback.
+   ========================================================================== */
+.entrance[data-renderer="pending"] .entrance-stage,
+.entrance[data-renderer="pending"] .entrance-boardwalk {
+    visibility: hidden;
+    opacity: 0;
+}
+
+.entrance[data-renderer="pending"] .entrance-stage *,
+.entrance[data-renderer="pending"] .entrance-stage *::before,
+.entrance[data-renderer="pending"] .entrance-stage *::after { animation: none !important; }
+
+.entrance-pending {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 6px;
+    padding: 16px;
+    text-align: center;
+    color: var(--sign-text);
+    background: linear-gradient(180deg, var(--sky-top), var(--sky-horizon));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 320ms var(--ease), visibility 0s linear 320ms;
+}
+
+.entrance[data-renderer="pending"] .entrance-pending {
+    opacity: 1;
+    visibility: visible;
+    transition: none;
+}
+
+.entrance-pending-kicker {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--sign-kicker);
+}
+
+.entrance-pending-logo {
+    padding: 6px 22px 8px;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 6vw, 3rem);
+    font-weight: var(--weight-bold);
+    line-height: 1.1;
+    color: var(--sign-text);
+    background: var(--sign-board);
+    border: 2px solid var(--sign-kicker);
+    border-radius: 4px;
+    box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.5);
+}
+
+.entrance-pending-text {
+    margin-top: 10px;
+    font-size: var(--text-sm);
+    color: var(--lead-text);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+
+:root:not([data-theme="dark"]) .entrance-pending-text { color: #5a3a22; text-shadow: none; }
+:root:not([data-theme="dark"]) .entrance-pending-kicker { color: #8a4f25; }

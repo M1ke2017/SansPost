@@ -49,4 +49,12 @@
     // gdzie HttpContext żądania nie jest już dostępny. Parametry komponentu z _Host są chronione (Data Protection).
     [Parameter]
     public string? ClientAddress { get; set; }
+
+    // Renderer przestrzeni z ciasteczka "sp-scene" (prerender i circuit dostają tę samą wartość) — patrz ScenePreference.
+    [Parameter]
+    public string? SceneHint { get; set; }
+
+    [Inject] private ScenePreference Scene { get; set; } = default!;
+
+    protected override void OnInitialized() => Scene.Renderer ??= ScenePreference.Parse(SceneHint);
 }

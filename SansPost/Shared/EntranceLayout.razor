@@ -1,0 +1,28 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+
+@* Entrance to samodzielna scena: bez nagłówka aplikacji, nawigacji, wyszukiwarki, dolnego paska i stopki.
+   Zostaje tylko to, co potrzebne każdej stronie: skip link, <main> (cel skip linku) i przełącznik motywu. *@
+<a class="skip-link" href="#main">Przejdź do treści</a>
+
+<main id="main" class="entrance-main" tabindex="-1">
+    <div class="entrance-theme"><ThemeToggle /></div>
+    @Body
+</main>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Znacznik "circuit podłączony" — ten sam co w MainLayout (E2E i diagnostyka).
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.markInteractive");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

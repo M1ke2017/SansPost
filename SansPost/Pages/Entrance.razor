@@ -1,13 +1,271 @@
 @page "/"
+@layout EntranceLayout
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ScenePreference Preference
 
-<PageTitle>SansPost — wejście</PageTitle>
+<PageTitle>SansPost — Saloon</PageTitle>
 
-@* Entrance: świadome wejście do SansPost. Na razie prosty szkielet — fasada i drzwi Saloonu to kolejny sprint.
-   Czytanie nie wymaga konta: "Wejdź do Saloonu" działa także dla gościa. *@
-<section class="stack" aria-labelledby="entrance-title" style="max-width: 36rem; margin: var(--space-8) auto; text-align: center">
-    <h1 id="entrance-title">SansPost</h1>
-    <p class="muted">Cyfrowy saloon na pograniczu: rozmowy o technologii, grach, podróżach, pomysłach i projektach.</p>
-    <div class="cluster" style="justify-content: center">
-        <a class="btn btn-primary btn-lg" href="@SaloonRoutes.Hub">Wejdź do Saloonu</a>
+@* Wejście do Saloonu. Renderer główny: Three.js (js/entrance3d.js) — wybierany automatycznie, gdy przeglądarka ma wydajny GPU;
+   inaczej (brak WebGL, WebGL programowy, słaba płynność, reduced motion, błąd) zostaje scena 2.5D z CSS + inline SVG.
+   HTML (h1, tekst, tabliczki, karty logowania/rejestracji) jest ten sam dla obu rendererów — przy 3D warstwy CSS są
+   tylko wygaszane, a tabliczki ustawiane na tablicach ogłoszeń przy drzwiach (albo pod saloonem na wąskich ekranach).
+   Trzy stany renderera: Pending (decyzja jeszcze nie zapadła — tylko spokojna warstwa z logo, bez starej sceny i tabliczek),
+   ThreeD (pierwsza klatka Three.js narysowana) i CssFallback (świadoma decyzja: brak WebGL, WebGL programowy, słaby sprzęt,
+   oszczędzanie danych, reduced motion, błąd). Scena CSS pojawia się wyłącznie w CssFallback. Serwer zna wcześniejszą
+   decyzję z ciasteczka "sp-scene" (ScenePreference): "css" → od razu CssFallback, "3d" albo brak → Pending.
+   "/?scene=3d" / "/?scene=css" wymuszają renderer (diagnostyka, testy). Wejście: światło, drzwi, kamera przez próg, /saloon;
+   przy reduced motion — od razu. *@
+<div class="entrance @(animating ? "is-entering" : "") @(renderer == EntranceRenderer.ThreeD ? "has-3d" : "")" style="--enter-ms: @(enterMs)ms"
+     data-enter-ms="@(animating ? enterMs : null)" data-renderer="@RendererAttribute" data-renderer-reason="@rendererReason" @ref="scene">
+    @if (mount3d)
+    {
+        <div class="entrance-3d" @ref="host3d" aria-hidden="true"></div>
+    }
+
+    @* Pending: tło w kolorach motywu, logo i jedno zdanie — do chwili decyzji (3D: pierwsza klatka; CSS: fallback). *@
+    <div class="entrance-pending" role="status">
+        <span class="entrance-pending-kicker" aria-hidden="true">Saloon</span>
+        <span class="entrance-pending-logo" aria-hidden="true">SansPost</span>
+        <span class="entrance-pending-text">Saloon otwiera drzwi…</span>
     </div>
-</section>
+
+    <div class="entrance-stage">
+        <div class="entrance-sky" aria-hidden="true"></div>
+        <div class="entrance-clouds" aria-hidden="true"><span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span></div>
+
+        <svg class="entrance-town" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+            <path class="town-far" d="M0 220V150h40v-18h36v18h28v-30h44v30h30v-12h40v12h60v-26h48v26h40V150h56v-22h40v22h460v-20h44v20h36v-34h52v34h40v-16h36v16h50v-24h44v24h36v70z" />
+            <path class="town-near" d="M0 220V168h70v-26h14l10-12 10 12h12v26h60v-40h80v40h30V220zM940 220v-60h36v-14h56v14h24v-32h70v32h74v60z" />
+            <g class="town-windows">
+                <rect x="96" y="150" width="8" height="10" /><rect x="176" y="146" width="8" height="10" /><rect x="204" y="146" width="8" height="10" />
+                <rect x="990" y="170" width="8" height="10" /><rect x="1100" y="152" width="8" height="10" /><rect x="1130" y="152" width="8" height="10" />
+            </g>
+        </svg>
+        <div class="entrance-dust" aria-hidden="true"></div>
+
+        <div class="saloon">
+            <div class="saloon-front">
+                <div class="saloon-sign">
+                    <span class="saloon-kicker" aria-hidden="true">Saloon</span>
+                    <h1 id="entrance-title">SansPost</h1>
+                </div>
+            </div>
+
+            <div class="saloon-body">
+                <div class="saloon-porch" aria-hidden="true"></div>
+                <div class="saloon-window" aria-hidden="true"><span></span><span></span></div>
+
+                <div class="saloon-door" aria-hidden="true">
+                    <div class="saloon-interior">
+                        <svg class="interior-lamps" viewBox="0 0 100 60" preserveAspectRatio="xMidYMin meet" focusable="false">
+                            <path d="M30 0v14M70 0v10" />
+                            <path class="lamp" d="M24 14h12l-3 7h-6zM64 10h12l-3 7h-6z" />
+                        </svg>
+                        <div class="interior-bar"></div>
+                    </div>
+                    <div class="door door-left"></div>
+                    <div class="door door-right"></div>
+                </div>
+
+                <div class="saloon-window" aria-hidden="true"><span></span><span></span></div>
+            </div>
+        </div>
+
+        @* Pierwszy plan: najbliższa warstwa — przy wejściu "mija" kamerę. *@
+        <div class="entrance-foreground" aria-hidden="true">
+            <svg class="rail" viewBox="0 0 120 60" focusable="false"><path d="M10 60V14h8v46zM102 60V14h8v46zM4 16h112v8H4zM4 30h112v5H4z" /></svg>
+            <svg class="barrel" viewBox="0 0 50 60" focusable="false"><path d="M9 4q16-6 32 0q7 26 0 52q-16 6-32 0q-7-26 0-52z" /><path class="hoop" d="M6 16q19 5 38 0v4q-19 5-38 0zM6 40q19 5 38 0v4q-19 5-38 0z" /></svg>
+        </div>
+    </div>
+
+    <div class="entrance-boardwalk" @ref="boardwalk">
+        <p class="entrance-lead">
+            @if (alias is not null)
+            {
+                <span>Witaj z powrotem, <strong>@alias</strong>. Drzwi są otwarte.</span>
+            }
+            else
+            {
+                <span>Rozmowy o technologii, grach, podróżach, pomysłach i projektach. Czytać można bez konta.</span>
+            }
+        </p>
+
+        <nav class="entrance-signs" aria-label="Wejście do SansPost">
+            @if (alias is null)
+            {
+                <a class="entrance-sign" data-anchor="login" href="@LoginHref" aria-haspopup="dialog" @onclick="OpenLoginAsync" @onclick:preventDefault>Zaloguj się</a>
+                <a class="entrance-sign" data-anchor="register" href="/register" aria-haspopup="dialog" @onclick="OpenRegisterAsync" @onclick:preventDefault>Załóż konto</a>
+            }
+            @* Wejście: przycisk w formularzu GET — działa też przed podłączeniem circuitu (zwykłe przejście na /saloon),
+               a po podłączeniu Blazor przechwytuje submit i najpierw otwiera drzwi. Enter i Spacja jak w każdym przycisku. *@
+            <form method="get" action="@SaloonRoutes.Hub" @onsubmit="EnterAsGuestAsync">
+                <button type="submit" class="entrance-sign is-primary" data-anchor="guest" aria-busy="@(entering ? "true" : "false")">
+                    @(alias is null ? "Wejdź jako gość" : "Wejdź do Saloonu")
+                </button>
+            </form>
+        </nav>
+    </div>
+
+    @* Światło wnętrza wypełnia cały kadr (także deski z tabliczkami) w ostatniej fazie wejścia. *@
+    <div class="entrance-flash" aria-hidden="true"></div>
+</div>
+
+@if (alias is null)
+{
+    @* Karty Saloonu (natywny <dialog>): prezentacja istniejącego logowania i rejestracji — bez nowego backendu. *@
+    <SaloonLoginCard @ref="loginCard" OnSignedIn="EnterSignedInAsync" OnSwitchToRegister="OpenRegisterAsync" />
+    <SaloonRegisterCard @ref="registerCard" OnSignedIn="EnterSignedInAsync" OnRegisteredWithoutSignIn="OpenLoginAfterRegistrationAsync"
+                        OnSwitchToLogin="OpenLoginAsync" OnGuest="EnterAsGuestAsync" />
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private static readonly string LoginHref = $"/login?returnUrl={Uri.EscapeDataString(SaloonRoutes.Hub)}";
+
+    // "/?scene=3d" — Three.js bez kryteriów wydajności; "/?scene=css" — zawsze CSS/SVG. Domyślnie: wybór automatyczny.
+    [SupplyParameterFromQuery(Name = "scene")] public string? Scene { get; set; }
+
+    private enum EntranceRenderer { Pending, ThreeD, CssFallback }
+
+    private sealed record RendererDecision(string Renderer, string Reason);
+
+    private ElementReference scene;
+    private ElementReference host3d;
+    private ElementReference boardwalk;
+    private IJSObjectReference? renderer3d;
+    private SaloonLoginCard? loginCard;
+    private SaloonRegisterCard? registerCard;
+    private EntranceRenderer renderer;
+    private bool mount3d;
+    private string rendererReason = "pending";
+    private string? alias;
+    private bool entering;
+    private int enterMs;
+
+    private bool animating => entering && enterMs > 0;
+
+    private string RendererAttribute => renderer switch
+    {
+        EntranceRenderer.ThreeD => "3d",
+        EntranceRenderer.CssFallback => "css",
+        _ => "pending"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState).User;
+        alias = user.Identity?.IsAuthenticated == true ? user.Identity.Name : null;
+
+        // Stan początkowy (także w prerenderze): CSS tylko wtedy, gdy decyzja fallback już zapadła albo jest wymuszona.
+        if (Scene == "css")
+            (renderer, rendererReason) = (EntranceRenderer.CssFallback, "forced");
+        else if (Scene != "3d" && Preference.Renderer == "css")
+            (renderer, rendererReason) = (EntranceRenderer.CssFallback, "known");
+        else
+            renderer = EntranceRenderer.Pending;
+        mount3d = renderer == EntranceRenderer.Pending;
+    }
+
+    // Pending → decyzja w js/entrance3d.js (WebGL2, GPU, próba płynności przy pierwszym wyborze). Przy "3d" init kończy się
+    // dopiero po narysowaniu pierwszej klatki — wtedy warstwa Pending znika (crossfade), bez pośredniej sceny CSS.
+    // Każdy błąd = świadomy fallback CSS/SVG. Parallax dotyczy tylko sceny CSS.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.bindEntranceParallax", scene);
+            if (renderer != EntranceRenderer.Pending)
+                return;
+
+            renderer3d = await JS.InvokeAsync<IJSObjectReference>("import", "./js/entrance3d.js");
+            var decision = await renderer3d.InvokeAsync<RendererDecision>("init", host3d,
+                new { force = Scene == "3d", signs = boardwalk, known3d = Preference.Renderer == "3d" });
+            rendererReason = decision.Reason;
+            renderer = decision.Renderer == "3d" ? EntranceRenderer.ThreeD : EntranceRenderer.CssFallback;
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        catch (JSException)
+        {
+            (renderer, rendererReason) = (EntranceRenderer.CssFallback, "init-failed");
+        }
+
+        if (rendererReason != "cancelled")
+            Preference.Renderer = renderer == EntranceRenderer.ThreeD ? "3d" : "css";
+        StateHasChanged();
+    }
+
+    private Task OpenLoginAsync() => entering ? Task.CompletedTask : loginCard!.ShowAsync();
+
+    private Task OpenLoginAfterRegistrationAsync() => loginCard!.ShowAsync(afterRegistration: true);
+
+    private Task OpenRegisterAsync() => entering ? Task.CompletedTask : registerCard!.ShowAsync();
+
+    private Task EnterAsGuestAsync() => EnterAsync(reload: false);
+
+    // Po zalogowaniu (cookie ustawione przez /auth/login) circuit nadal zna gościa — /saloon ładowany od nowa.
+    private Task EnterSignedInAsync() => EnterAsync(reload: true);
+
+    // Jedno wejście naraz (podwójne kliknięcie nic nie robi). Czas animacji wybiera przeglądarka:
+    // 0 przy reduced motion, krótszy przy kolejnym wejściu w tej samej sesji.
+    private async Task EnterAsync(bool reload)
+    {
+        if (entering)
+            return;
+
+        entering = true;
+        try
+        {
+            enterMs = await JS.InvokeAsync<int>("sansPost.saloonEntryDuration");
+        }
+        catch (JSException)
+        {
+            enterMs = 0;
+        }
+
+        if (enterMs > 0 && renderer == EntranceRenderer.ThreeD && renderer3d is not null)
+        {
+            // 3D: przejazd kamery 1,8 s (kolejne wejście 0,7 s); światło HTML (flash) na ten sam czas.
+            enterMs = enterMs >= 1500 ? 1800 : 700;
+            StateHasChanged();
+            try
+            {
+                await renderer3d.InvokeVoidAsync("enter", enterMs);
+            }
+            catch (JSException)
+            {
+            }
+        }
+        else if (enterMs > 0)
+        {
+            StateHasChanged();
+            await Task.Delay(enterMs);
+        }
+
+        Navigation.NavigateTo(SaloonRoutes.Hub, forceLoad: reload);
+    }
+
+    // Opuszczenie "/": zatrzymanie pętli renderowania, obserwatorów i zwolnienie zasobów WebGL.
+    public async ValueTask DisposeAsync()
+    {
+        if (renderer3d is null)
+            return;
+
+        try
+        {
+            await renderer3d.InvokeVoidAsync("dispose");
+            await renderer3d.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

@@ -212,6 +212,80 @@
         }, 400);
     });
 
+    // ---- Wejście do Saloonu (Entrance) -----------------------------------
+    // Czas otwarcia drzwi: 0 przy reduced motion (od razu /saloon), pełny przy pierwszym wejściu w sesji, krótszy
+    // przy kolejnych. Tylko sessionStorage — Entrance nie znika na stałe.
+    const SALOON_ENTERED_KEY = "sp-saloon-entered";
+
+    function saloonEntryDuration() {
+        if (reducedMotion()) return 0;
+        const repeat = safeGet("sessionStorage", SALOON_ENTERED_KEY);
+        safeSet("sessionStorage", SALOON_ENTERED_KEY, "1");
+        return repeat ? 600 : 1500;
+    }
+
+    // Parallax 2.5D od wskaźnika: tylko mysz/trackpad (hover + fine pointer), bez reduced motion. Zapis --px/--py
+    // (zakres -1..1) raz na klatkę. Ruszają się tylko warstwy tła (niebo, chmury, dalekie miasteczko) przez CSS
+    // `translate`; fasada wyłącznie o 2 px w poziomie, podłoże wcale. JS nigdy nie ustawia `transform` —
+    // animacje wejścia (kamera, drzwi) mają własne `transform`. Podczas wejścia parallax jest zamrożony.
+    function bindEntranceParallax(scene) {
+        if (!scene || scene.__spParallax || reducedMotion()) return;
+        if (!window.matchMedia || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+        scene.__spParallax = true;
+        let frame = 0, x = 0, y = 0;
+        // Kursor poza sceną → powrót do położenia spoczynkowego.
+        scene.addEventListener("pointerleave", function () {
+            if (scene.classList.contains("is-entering")) return;
+            scene.style.removeProperty("--px");
+            scene.style.removeProperty("--py");
+        }, { passive: true });
+        scene.addEventListener("pointermove", function (event) {
+            if (scene.classList.contains("is-entering")) return;
+            const box = scene.getBoundingClientRect();
+            x = ((event.clientX - box.left) / box.width) * 2 - 1;
+            y = ((event.clientY - box.top) / box.height) * 2 - 1;
+            if (frame) return;
+            frame = window.requestAnimationFrame(function () {
+                frame = 0;
+                scene.style.setProperty("--px", x.toFixed(3));
+                scene.style.setProperty("--py", y.toFixed(3));
+            });
+        }, { passive: true });
+    }
+
+    // ---- Karty logowania i rejestracji na Entrance ------------------------
+    // Ten sam natywny POST co strony /login i /register (antiforgery, rate limiting, cookie ustawia AccountController),
+    // tylko wysłany przez fetch: błąd zostaje w karcie, a po sukcesie najpierw otwierają się drzwi. Wynik to adres
+    // końcowy po przekierowaniach (np. /saloon albo /login?error=invalid) — ta sama umowa co przy zwykłym formularzu.
+    async function postForm(url, body) {
+        try {
+            const response = await fetch(url, { method: "POST", body: body, credentials: "same-origin", redirect: "follow" });
+            const end = new URL(response.url);
+            return { status: response.status, path: end.pathname, query: end.search };
+        } catch {
+            return { status: 0, path: "", query: "" };
+        }
+    }
+
+    async function submitAuthForm(form) {
+        return Object.assign({ stage: "login" }, await postForm(form.action, new FormData(form)));
+    }
+
+    // Rejestracja, a po sukcesie (przekierowanie na /login?registered=1) logowanie tymi samymi danymi —
+    // dwa istniejące kroki backendu jeden po drugim, bez nowego endpointu.
+    async function registerAndSignIn(form) {
+        const registered = await postForm(form.action, new FormData(form));
+        if (registered.path !== "/login" || !/[?&]registered=/.test(registered.query))
+            return Object.assign({ stage: "register" }, registered);
+
+        const body = new FormData();
+        body.set("__RequestVerificationToken", form.elements["__RequestVerificationToken"].value);
+        body.set("Email", form.elements["Email"].value);
+        body.set("Password", form.elements["Password"].value);
+        body.set("ReturnUrl", "/saloon");
+        return Object.assign({ stage: "login" }, await postForm(new URL("auth/login", document.baseURI).href, body));
+    }
+
     // Znacznik "circuit podłączony" (po pierwszym interaktywnym renderze layoutu) — dla testów E2E i diagnostyki.
     function markInteractive() {
         document.documentElement.setAttribute("data-interactive", "1");
@@ -220,6 +294,10 @@
 
     window.sansPost = {
         markInteractive: markInteractive,
+        saloonEntryDuration: saloonEntryDuration,
+        bindEntranceParallax: bindEntranceParallax,
+        submitAuthForm: submitAuthForm,
+        registerAndSignIn: registerAndSignIn,
         bindScroller: bindScroller,
         scrollToId: scrollToId,
         showDialog: showDialog,

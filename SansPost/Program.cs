@@ -58,6 +58,7 @@ public class Program
         builder.Services.AddServerSideBlazor();
         builder.Services.AddHttpContextAccessor();   // prerender: status 404 dla nieznanych adresów (NotFoundStatus)
         builder.Services.AddScoped<ToastService>();
+        builder.Services.AddScoped<SansPost.Shared.ScenePreference>();   // renderer przestrzeni (3D/CSS) w obrębie circuitu
         builder.Services.AddSingleton<UiServices>();   // osobny scope DI (DbContext) na każdą operację UI
 
         // live = proces działa (bez zależności), ready = PostgreSQL osiągalny.

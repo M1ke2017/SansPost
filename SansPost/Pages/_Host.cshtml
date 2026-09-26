@@ -8,6 +8,8 @@
     // Token antiforgery dla formularzy POST /auth/* renderowanych przez komponenty Blazor.
     var antiforgeryToken = Antiforgery.GetAndStoreTokens(HttpContext).RequestToken;
     var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+    // Renderer przestrzeni wybrany wcześniej przez przeglądarkę (3D albo CSS) — prerender /saloon od razu w tym trybie.
+    var sceneHint = SansPost.Shared.ScenePreference.Parse(HttpContext.Request.Cookies[SansPost.Shared.ScenePreference.CookieName]);
 }
 
 <!DOCTYPE html>
@@ -31,12 +33,36 @@
         })();
     </script>
     <link rel="stylesheet" href="css/app.css" asp-append-version="true" />
+    @if (HttpContext.Request.Path == "/")
+    {
+        @* Entrance: decyzja renderera i pobieranie Three.js startują od razu, równolegle z blazor.server.js — nie dopiero
+           po podłączeniu circuitu. Przy znanej decyzji "css" nic się nie pobiera. Bez JS: scena CSS zamiast warstwy Pending. *@
+        if (sceneHint != "css")
+        {
+            <link rel="modulepreload" href="js/scene3d-common.js" />
+            <link rel="modulepreload" href="js/entrance3d.js" />
+            if (sceneHint == "3d")
+            {
+                <link rel="modulepreload" href="lib/three/three.module.min.js" />
+            }
+            <script type="module">
+                const scene = new URLSearchParams(location.search).get("scene");
+                if (scene !== "css") import("./js/scene3d-common.js").then(m => m.warmUp(scene === "3d"));
+            </script>
+        }
+        <noscript>
+            <style>
+                .entrance[data-renderer="pending"] .entrance-stage, .entrance[data-renderer="pending"] .entrance-boardwalk { visibility: visible; opacity: 1; }
+                .entrance-pending { display: none; }
+            </style>
+        </noscript>
+    }
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
 <body>
     <component type="typeof(App)" render-mode="ServerPrerendered" param-AntiforgeryToken="antiforgeryToken"
-               param-ClientAddress="clientAddress" />
+               param-ClientAddress="clientAddress" param-SceneHint="sceneHint" />
 
     <div id="blazor-error-ui" role="alert">
         <div class="blazor-error-inner">

@@ -69,6 +69,10 @@ namespace SansPost.E2E
             await using var context = await _env.NewContextAsync(_server, 1280, 800, scheme, reducedMotion: true);
             var page = await context.NewPageAsync();
 
+            // Entrance w stanie spoczynku (drzwi zamknięte, bez animacji).
+            await Ui.GotoAsync(page, "/");
+            await SnapshotAsync(page, $"entrance-{theme}-desktop");
+
             await Ui.GotoAsync(page, "/saloon");
             await Expect(page.Locator(".post-card").First).ToBeVisibleAsync();
             await SnapshotAsync(page, $"home-{theme}");
@@ -88,6 +92,17 @@ namespace SansPost.E2E
                 await Expect(page.Locator(".post-card").First).ToBeVisibleAsync();
                 await SnapshotAsync(page, "category-dark");
             }
+        }
+
+        [Theory]
+        [InlineData("light")]
+        [InlineData("dark")]
+        public async Task EntranceMobile(string theme)
+        {
+            await using var context = await _env.NewContextAsync(_server, 390, 844, theme == "dark" ? ColorScheme.Dark : ColorScheme.Light, reducedMotion: true);
+            var page = await context.NewPageAsync();
+            await Ui.GotoAsync(page, "/");
+            await SnapshotAsync(page, $"entrance-{theme}-mobile");
         }
 
         [Fact]
