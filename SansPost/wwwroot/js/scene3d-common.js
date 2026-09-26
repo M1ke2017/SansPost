@@ -145,6 +145,72 @@ export function phase(t, from, to) { return clamp01((t - from) / (to - from)); }
 export function easeInOutCubic(x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; }
 export function easeOut(x) { return 1 - Math.pow(1 - x, 3); }
 
+// ---- Start sceny --------------------------------------------------------------------------------------------------
+
+// Jedna sekwencja startu dla każdej sceny 3D (Entrance, Main Hall): decyzja → Three.js → fonty → budowa → shadery →
+// pierwsza klatka narysowana → (próba płynności przy pierwszym wyborze) → zapamiętanie wyboru.
+// Wynik ("3d" | "css" + powód) zapada dopiero, gdy wiadomo, co pokazać: przy "3d" pierwsza klatka jest już w canvasie,
+// więc strona może przejść z Pending prosto do sceny. Przy "css" (świadomy fallback) scena jest już posprzątana.
+//   build()     — tworzy scenę i zwraca { renderer, scene, camera } (wołane dopiero po załadowaniu Three.js),
+//   isCurrent() — false, gdy w międzyczasie strona odmontowała scenę (dispose),
+//   fail()      — sprząta po nieudanym starcie albo zbyt wolnej próbie.
+// timings (ms): decision, importThree, fonts, build, compile, firstFrame, probe, probeMedian, total.
+export async function startScene({ force = false, known3d = false, build, isCurrent, fail }) {
+    const timings = { decision: 0, importThree: 0, fonts: 0, build: 0, compile: 0, firstFrame: 0, probe: null, probeMedian: null, total: 0 };
+    const started = performance.now();
+    let mark = started;
+    const lap = name => { const now = performance.now(); timings[name] = Math.round(now - mark); mark = now; };
+    const finish = (renderer, reason) => {
+        timings.total = Math.round(performance.now() - started);
+        return { renderer, reason, timings };
+    };
+
+    const decision = decideRenderer(force);
+    lap("decision");
+    if (decision.renderer !== "3d") {
+        rememberRenderer("css");
+        return finish("css", decision.reason);
+    }
+
+    let view;
+    try {
+        await loadThree();                       // zwykle już w pamięci — warmUp z <head> zaczął pobieranie wcześniej
+        lap("importThree");
+        await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 800))]);
+        lap("fonts");
+        if (!isCurrent()) return finish("css", "cancelled");
+        view = build();
+        lap("build");
+        await view.renderer.compileAsync(view.scene, view.camera);   // shadery przed pierwszą klatką (bez przycięcia)
+        lap("compile");
+        if (!isCurrent()) return finish("css", "cancelled");
+        view.renderer.render(view.scene, view.camera);
+        await new Promise(resolve => requestAnimationFrame(() => resolve()));   // klatka oddana do wyświetlenia
+        lap("firstFrame");
+    } catch (e) {
+        console.warn("SansPost 3D: inicjalizacja nieudana, zostaje widok CSS/HTML.", e);
+        fail();
+        rememberRenderer("css");
+        return finish("css", "init-failed");
+    }
+
+    // Krótka próba płynności, raz na sesję i tylko przy pierwszym wyborze: słaby GPU → CSS bez blokowania strony.
+    if (needsFrameProbe(force, known3d)) {
+        const result = await measureFrames(() => view.renderer.render(view.scene, view.camera));
+        lap("probe");
+        timings.probeMedian = result.median;
+        if (!isCurrent()) return finish("css", "cancelled");
+        if (!result.ok) {
+            fail();
+            rememberRenderer("css");
+            return finish("css", "slow-frames");
+        }
+    }
+    if (!isCurrent()) return finish("css", "cancelled");
+    rememberRenderer("3d");
+    return finish("3d", decision.reason);
+}
+
 // ---- Renderer -----------------------------------------------------------------------------------------------------
 
 export function createRenderer(host, force) {

@@ -1,0 +1,43 @@
+@inject NavigationManager Navigation
+
+@* Feed Saloonu (sortowanie, kategorie, wyróżniony post, lista) — ten sam w klasycznym widoku /saloon i w panelu baru
+   Main Hall 3D. Sortowanie w adresie (?sort=popular): link można udostępnić, a "wstecz" przywraca widok. *@
+<section aria-labelledby="@HeadingId" class="stack">
+    <div class="spread">
+        <h2 id="@HeadingId" class="@(HeadingHidden ? "visually-hidden" : "")" tabindex="-1">@Heading</h2>
+        <div class="segmented" role="group" aria-label="Sortowanie postów">
+            <button type="button" aria-pressed="@(Sort == PostSort.Newest ? "true" : "false")" @onclick="() => SetSort(PostSort.Newest)">
+                <Icon Name="@Icons.Clock" Size="16" /> Najnowsze
+            </button>
+            <button type="button" aria-pressed="@(Sort == PostSort.Popular ? "true" : "false")" @onclick="() => SetSort(PostSort.Popular)">
+                <Icon Name="@Icons.Trending" Size="16" /> Popularne
+            </button>
+        </div>
+    </div>
+
+    <CategoryStrip Current="null" />
+
+    @if (Featured is not null)
+    {
+        <PostCard Post="Featured" Featured="true" />
+    }
+
+    <FeedList Sort="Sort" ExcludePostId="Featured?.Id" Label="@(Sort == PostSort.Popular ? "Popularne posty" : "Najnowsze posty")">
+        <Empty>
+            <EmptyState Title="Nie ma jeszcze postów" Text="SansPost dopiero się rozkręca. Zacznij pierwszą rozmowę.">
+                <a class="btn btn-primary" href="/new"><Icon Name="@Icons.Cactus" /> Napisz post</a>
+            </EmptyState>
+        </Empty>
+    </FeedList>
+</section>
+
+@code {
+    [Parameter] public PostSort Sort { get; set; }
+    [Parameter] public PostCardModel? Featured { get; set; }
+    [Parameter, EditorRequired] public string HeadingId { get; set; } = "";
+    [Parameter, EditorRequired] public string Heading { get; set; } = "";
+    [Parameter] public bool HeadingHidden { get; set; }
+
+    private void SetSort(PostSort sort) =>
+        Navigation.NavigateTo(sort == PostSort.Popular ? $"{SaloonRoutes.Hub}?sort=popular" : SaloonRoutes.Hub, replace: false);
+}

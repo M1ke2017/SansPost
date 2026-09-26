@@ -7,7 +7,7 @@
 // Decyzja renderera, tekstury, scalanie geometrii i sprzątanie: js/scene3d-common.js (wspólne dla scen 3D).
 
 import {
-    THREE, loadThree, decideRenderer, needsFrameProbe, measureFrames, rememberRenderer, theme, random,
+    THREE, startScene, theme, random,
     clamp01, phase, easeInOutCubic, easeOut, createRenderer, disposeScene, canvasTexture, boardsTexture, noiseTexture,
     wallpaperTexture, signTexture, signMesh as sign, Batch, worldUv
 } from "./scene3d-common.js";
@@ -592,68 +592,17 @@ function applyTheme(s, colors) {
 // options: { force (?scene=3d), signs (kontener tabliczek), known3d (przeglądarka już wcześniej wybrała 3D — bez próby) }.
 export async function init(host, options) {
     const force = !!options?.force;
-    const timings = { decision: 0, importThree: 0, fonts: 0, build: 0, compile: 0, firstFrame: 0, probe: null, probeMedian: null, total: 0 };
-    window.__sansPost3dTimings = timings;
-    const started = performance.now();
-    let mark = started;
-    const lap = name => { const now = performance.now(); timings[name] = Math.round(now - mark); mark = now; };
-    const finish = result => { timings.total = Math.round(performance.now() - started); return result; };
-
-    const decision = decideRenderer(force);
-    lap("decision");
-    if (decision.renderer !== "3d") {
-        rememberRenderer("css");
-        return finish(decision);
-    }
-
     dispose();
     const token = ++generation;
-    const cancelled = () => token !== generation;
-    try {
-        await loadThree();                       // zwykle już w pamięci — warmUp z <head> zaczął pobieranie wcześniej
-        lap("importThree");
-        await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 800))]);
-        lap("fonts");
-        if (cancelled()) return finish({ renderer: "css", reason: "cancelled" });
-        setup(host, options?.signs, force);
-        lap("build");
-        const s = state;
-        await s.renderer.compileAsync(s.scene, s.camera);   // shadery przed pierwszą klatką (bez przycięcia w próbie)
-        lap("compile");
-        if (cancelled()) return finish({ renderer: "css", reason: "cancelled" });
-        await firstFrame(s);
-        lap("firstFrame");
-    } catch (e) {
-        console.warn("SansPost 3D: inicjalizacja nieudana, zostaje CSS/SVG.", e);
-        dispose();
-        rememberRenderer("css");
-        return finish({ renderer: "css", reason: "init-failed" });
-    }
-
-    // Krótka próba płynności, raz na sesję i tylko przy pierwszym wyborze: słaby GPU → CSS bez blokowania strony.
-    if (needsFrameProbe(force, !!options?.known3d)) {
-        const s = state;
-        const result = await measureFrames(() => s.renderer.render(s.scene, s.camera));
-        lap("probe");
-        timings.probeMedian = result.median;
-        if (cancelled()) return finish({ renderer: "css", reason: "cancelled" });
-        if (!result.ok) {
-            dispose();
-            rememberRenderer("css");
-            return finish({ renderer: "css", reason: "slow-frames" });
-        }
-    }
-    if (cancelled()) return finish({ renderer: "css", reason: "cancelled" });
-    rememberRenderer("3d");
-    return finish(decision);
-}
-
-// Pierwsza klatka narysowana i oddana do wyświetlenia (następny requestAnimationFrame) — sygnał "scena gotowa".
-function firstFrame(s) {
-    s.dirty = false;
-    s.debug.frames++;
-    s.renderer.render(s.scene, s.camera);
-    return new Promise(resolve => requestAnimationFrame(() => resolve()));
+    const result = await startScene({
+        force,
+        known3d: !!options?.known3d,
+        build: () => { setup(host, options?.signs, force); return state; },
+        isCurrent: () => token === generation,
+        fail: dispose
+    });
+    window.__sansPost3dTimings = result.timings;
+    return { renderer: result.renderer, reason: result.reason };
 }
 
 function setup(host, signs, force) {
@@ -744,6 +693,7 @@ function tick(time) {
 }
 
 // Wejście: światło, drzwi, kamera przez próg; Promise kończy się po animacji (Entrance nawiguje do /saloon).
+// Znacznik "sp-through-door" mówi Main Hall, że gość właśnie przeszedł przez drzwi (krótki "settle" kamery).
 export function enter(durationMs) {
     const s = state;
     if (!s) return Promise.resolve();
@@ -751,6 +701,7 @@ export function enter(durationMs) {
     let resolve;
     const promise = new Promise(r => { resolve = r; });
     s.entering = { start: performance.now(), duration: Math.max(1, durationMs), resolve, promise, done: false };
+    try { sessionStorage.setItem("sp-through-door", String(Date.now())); } catch { /* bez storage — sala bez "settle" */ }
     return promise;
 }
 

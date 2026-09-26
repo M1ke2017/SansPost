@@ -70,6 +70,25 @@ namespace SansPost.E2E
                 await Expect(scene.Locator(".entrance")).ToHaveAttributeAsync("data-renderer", "3d", new() { Timeout = 20_000 });
                 await scene.WaitForTimeoutAsync(700);   // przenikanie CSS → WebGL
                 await AuditAsync(scene, $"Entrance 3D ({scheme})");
+
+                // Sprint 15: Main Hall 3D (wymuszona) z przyciskami stref, potem otwarty panel baru z feedem.
+                await Ui.GotoAsync(scene, "/saloon?scene=3d");
+                await Expect(scene.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = 20_000 });
+                await scene.WaitForTimeoutAsync(500);   // przenikanie Pending → sala
+                await AuditAsync(scene, $"Main Hall 3D ({scheme})");
+                await scene.Locator(".hall-zone[data-zone='bar']").ClickAsync();
+                await Expect(scene.Locator("dialog[open] .post-card").First).ToBeVisibleAsync();
+                await scene.Locator("dialog[open]").EvaluateAsync("d => Promise.all(d.getAnimations({ subtree: true }).map(a => a.finished))");
+                await AuditAsync(scene, $"Main Hall bar panel ({scheme})");
+
+                // Sprint 15C: zapowiedź strefy "Wkrótce" i pasek stref po onboardingu (kompaktowy).
+                await scene.Keyboard.PressAsync("Escape");
+                await Expect(scene.Locator("dialog[open]")).ToHaveCountAsync(0);
+                await scene.Locator(".hall-zone[data-zone='wanted']").ClickAsync();
+                await Expect(scene.Locator("#hall-note .hall-note")).ToBeVisibleAsync();
+                await Expect(scene.Locator("nav.hall-zones.is-compact")).ToHaveCountAsync(1);
+                await scene.WaitForFunctionAsync("() => window.__sansPostHall.moving === false");
+                await AuditAsync(scene, $"Main Hall zone note ({scheme})");
             }
 
             // Panel powiadomień (zalogowany, z powiadomieniem) i moderacja (admin, z otwartym oknem potwierdzenia).

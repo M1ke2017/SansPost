@@ -253,6 +253,30 @@
         }, { passive: true });
     }
 
+    // ---- Saloon Main Hall ---------------------------------------------------
+    // Gość przeszedł właśnie przez drzwi Entrance 3D (znacznik z entrance3d.enter) — sala zaczyna od kadru progu.
+    function takeDoorArrival() {
+        const at = Number(safeGet("sessionStorage", "sp-through-door"));
+        try { sessionStorage.removeItem("sp-through-door"); } catch { /* bez storage */ }
+        return at > 0 && Date.now() - at < 15000;
+    }
+
+    // Otwarta strefa sali (bar z feedem) — powrót "wstecz" z posta przywraca panel zamiast pustej sali.
+    function hallArea() {
+        return safeGet("sessionStorage", "sp-hall-area");
+    }
+
+    function rememberHallArea(area) {
+        if (area) safeSet("sessionStorage", "sp-hall-area", area);
+        else try { sessionStorage.removeItem("sp-hall-area"); } catch { /* bez storage */ }
+    }
+
+    // Onboarding sali: pełny pasek stref do pierwszego świadomego wyboru strefy w tej sesji, potem kompaktowy.
+    function hallOnboarded(done) {
+        if (done) safeSet("sessionStorage", "sp-hall-onboarded", "1");
+        return safeGet("sessionStorage", "sp-hall-onboarded") === "1";
+    }
+
     // ---- Karty logowania i rejestracji na Entrance ------------------------
     // Ten sam natywny POST co strony /login i /register (antiforgery, rate limiting, cookie ustawia AccountController),
     // tylko wysłany przez fetch: błąd zostaje w karcie, a po sukcesie najpierw otwierają się drzwi. Wynik to adres
@@ -296,6 +320,10 @@
         markInteractive: markInteractive,
         saloonEntryDuration: saloonEntryDuration,
         bindEntranceParallax: bindEntranceParallax,
+        takeDoorArrival: takeDoorArrival,
+        hallArea: hallArea,
+        rememberHallArea: rememberHallArea,
+        hallOnboarded: hallOnboarded,
         submitAuthForm: submitAuthForm,
         registerAndSignIn: registerAndSignIn,
         bindScroller: bindScroller,

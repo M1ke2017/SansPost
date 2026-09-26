@@ -2,12 +2,24 @@
 @page "/posts"
 @using SansPost.Features.Demo
 @inject UiServices Ui
-@inject NavigationManager Navigation
+@inject ScenePreference Preference
 @inject ILogger<Saloon> Logger
 
 <PageTitle>SansPost — rozmowy, które mają sens</PageTitle>
 
 @* Saloon — główna przestrzeń SansPost (dawniej "/"). "/posts" to dawny alias feedu — zostaje. Główny plac: baner z pejzażem pogranicza. Gość dostaje wyjaśnienie i wejście; zalogowany — krótkie powitanie. *@
+@* Sprint 15: na urządzeniach, które wybrały renderer 3D (ta sama decyzja co Entrance), /saloon to Main Hall 3D (SaloonHall),
+   a feed otwiera się w panelu baru. Trzy stany: Pending (sala z warstwą ładowania; klasyczny widok ukryty — tylko dla
+   robotów i bez JS), ThreeD (sala) i CssFallback (klasyczny widok poniżej). Klasyczny UI nie jest ekranem ładowania 3D.
+   "?scene=3d" / "?scene=css" wymuszają tryb (diagnostyka, testy). *@
+@if (renderer != SaloonRenderer.CssFallback)
+{
+    <SaloonHall Sort="SortValue" Featured="featured" Force="@(Scene == "3d")" Known3d="known3d" OnDecided="OnHallDecided" />
+}
+
+@if (renderer == SaloonRenderer.CssFallback || (renderer == SaloonRenderer.Pending && !known3d))
+{
+<div class="saloon-classic @(renderer == SaloonRenderer.Pending ? "is-pending" : "")">
 @if (Viewer is null)
 {
     <section class="frontier-banner" aria-labelledby="intro-title">
@@ -32,34 +44,8 @@ else
 }
 
 <div class="layout-with-aside">
-    <section aria-labelledby="@(Viewer is null ? "feed-title" : "feed-list-title")" class="stack">
-        <div class="spread">
-            <h2 id="@(Viewer is null ? "feed-title" : "feed-list-title")" class="@(Viewer is null ? "" : "visually-hidden")" tabindex="-1">@(Viewer is null ? "Odkrywaj" : "Posty")</h2>
-            <div class="segmented" role="group" aria-label="Sortowanie postów">
-                <button type="button" aria-pressed="@(SortValue == PostSort.Newest ? "true" : "false")" @onclick="() => SetSort(PostSort.Newest)">
-                    <Icon Name="@Icons.Clock" Size="16" /> Najnowsze
-                </button>
-                <button type="button" aria-pressed="@(SortValue == PostSort.Popular ? "true" : "false")" @onclick="() => SetSort(PostSort.Popular)">
-                    <Icon Name="@Icons.Trending" Size="16" /> Popularne
-                </button>
-            </div>
-        </div>
-
-        <CategoryStrip Current="null" />
-
-        @if (featured is not null)
-        {
-            <PostCard Post="featured" Featured="true" />
-        }
-
-        <FeedList Sort="SortValue" ExcludePostId="featured?.Id" Label="@(SortValue == PostSort.Popular ? "Popularne posty" : "Najnowsze posty")">
-            <Empty>
-                <EmptyState Title="Nie ma jeszcze postów" Text="SansPost dopiero się rozkręca. Zacznij pierwszą rozmowę.">
-                    <a class="btn btn-primary" href="/new"><Icon Name="@Icons.Cactus" /> Napisz post</a>
-                </EmptyState>
-            </Empty>
-        </FeedList>
-    </section>
+    <SaloonFeed Sort="SortValue" Featured="featured" HeadingId="@(Viewer is null ? "feed-title" : "feed-list-title")"
+                Heading="@(Viewer is null ? "Odkrywaj" : "Posty")" HeadingHidden="Viewer is not null" />
 
     <aside class="aside" aria-label="Kategorie i informacje">
         @if (categories is not null)
@@ -105,11 +91,22 @@ else
     </aside>
 </div>
 
+</div>
+}
+
 @code {
     [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
     [CascadingParameter] private ViewerContext? Viewer { get; set; }
 
     [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+
+    // "?scene=3d" — sala 3D bez kryteriów wydajności; "?scene=css" — zawsze widok klasyczny.
+    [SupplyParameterFromQuery(Name = "scene")] public string? Scene { get; set; }
+
+    private enum SaloonRenderer { Pending, ThreeD, CssFallback }
+
+    private SaloonRenderer renderer;
+    private bool known3d;
 
     private PostCardModel? featured;
     private IReadOnlyList<CategorySummaryResponse>? categories;
@@ -118,6 +115,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // Stan początkowy (także w prerenderze): widok klasyczny tylko przy znanej albo wymuszonej decyzji fallback.
+        if (Scene == "css" || (Scene != "3d" && Preference.Renderer == "css"))
+            renderer = SaloonRenderer.CssFallback;
+        known3d = Scene != "css" && Preference.Renderer == "3d";
+
         try
         {
             var viewerId = (await AuthState).User.GetUserId();
@@ -134,7 +136,10 @@ else
         }
     }
 
-    // Sortowanie w adresie (?sort=popular) — link można udostępnić, a "wstecz" przywraca widok.
-    private void SetSort(PostSort sort) =>
-        Navigation.NavigateTo(sort == PostSort.Popular ? $"{SaloonRoutes.Hub}?sort=popular" : SaloonRoutes.Hub, replace: false);
+    // Decyzja sali: "3d" (pierwsza klatka narysowana) albo "css" (świadomy fallback) — zapamiętana dla kolejnych stron.
+    private void OnHallDecided(string decided)
+    {
+        renderer = decided == "3d" ? SaloonRenderer.ThreeD : SaloonRenderer.CssFallback;
+        Preference.Renderer = decided == "3d" ? "3d" : "css";
+    }
 }

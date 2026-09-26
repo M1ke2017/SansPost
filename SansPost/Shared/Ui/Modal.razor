@@ -37,6 +37,9 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Kicker { get; set; }
 
+    // Wywoływane po każdym zamknięciu (przycisk, Escape, klik w tło) — np. powrót kamery sali do kadru głównego.
+    [Parameter] public EventCallback OnClosed { get; set; }
+
     private readonly string titleId = "dialog-" + Guid.NewGuid().ToString("N")[..8];
     private ElementReference element;
     private DotNetObjectReference<Modal>? selfReference;
@@ -73,13 +76,14 @@
     }
 
     [JSInvokable]
-    public void OnDialogClosed()
+    public async Task OnDialogClosed()
     {
         if (!isOpen)
             return;
 
         isOpen = false;
         StateHasChanged();
+        await OnClosed.InvokeAsync();
     }
 
     public ValueTask DisposeAsync()

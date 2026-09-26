@@ -1,0 +1,275 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Saloon Main Hall 3D (Sprint 15): sala Three.js (js/saloon3d.js) z czterema strefami. Canvas jest tylko obrazem sali —
+   każda strefa ma prawdziwy przycisk HTML (Tab, Enter/Spacja, fokus widoczny), a treść zostaje HTML-em/Blazorem:
+   BAR otwiera istniejący feed w panelu (natywny <dialog>: Escape, "Zamknij", powrót fokusu), pozostałe strefy — "Wkrótce".
+   Do decyzji renderera sala jest w stanie Pending (warstwa z logo, bez klasycznego feedu); OnDecided("3d" | "css")
+   dostaje strona /saloon dopiero wtedy, gdy pierwsza klatka jest narysowana albo zapadła decyzja fallback. *@
+<section class="saloon-hall @(ready ? "is-ready" : "")" aria-labelledby="hall-title" aria-describedby="hall-description" @onkeydown="OnKeyDownAsync">
+    <h1 id="hall-title" class="visually-hidden">Saloon SansPost — sala główna</h1>
+    <p id="hall-description" class="visually-hidden">Wybierz miejsce w sali: bar z rozmowami, tablicę Wanted, stół gry albo kącik muzyczny.</p>
+
+    <div class="hall-3d" @ref="host" aria-hidden="true"></div>
+    <div class="hall-vignette" aria-hidden="true"></div>
+
+    @* Desktop: nagłówek aplikacji jest nad salą ukryty (sala to główny widok). Dyskretny narożnik zostawia tylko
+       naprawdę globalne akcje: wyjście, motyw i konto. Wyszukiwanie i kategorie trafią do BAR (rozmowy), sala ma własną
+       nawigację stref. Na mobile zostaje zwykły nagłówek. *@
+    <nav class="hall-corner" aria-label="SansPost">
+        <a class="hall-corner-brand" href="/" title="SansPost — wejście do Saloonu">
+            <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                <circle cx="16" cy="13.5" r="6" fill="currentColor" />
+                <path d="M4 21.5h24M9 26h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none" />
+            </svg>
+            <span>Sans<span class="brand-post">Post</span></span>
+        </a>
+        <span class="hall-corner-actions">
+            <ThemeToggle />
+            @if (Viewer is null)
+            {
+                <a class="hall-corner-link hall-corner-text" href="@UiText.LoginUrl("/saloon")">Zaloguj się</a>
+            }
+            else
+            {
+                <a class="hall-corner-link" href="/me" aria-label="Moje konto (@Viewer.Username)" title="Moje konto"><Icon Name="@Icons.User" Size="18" /></a>
+            }
+        </span>
+    </nav>
+
+    @* Pasek stref: jedyny zestaw przycisków stref (klawiatura, czytniki, dotyk). Desktop: pełny przy pierwszym wejściu
+       w sesji, po pierwszym wyborze strefy kompaktowy (pełny przy wskazaniu/fokusie). Mobile: zawsze pełny, przyklejony
+       u dołu. Obiekty i szyldy w scenie (canvas) prowadzą do tego samego SelectZoneAsync. *@
+    <nav class="hall-zones @(helperCompact ? "is-compact" : "")" aria-label="Strefy Saloonu" @ref="zonesElement">
+        @if (!helperCompact)
+        {
+            <p class="hall-zones-caption">Wybierz miejsce — w sali albo tutaj</p>
+        }
+        @foreach (var zone in Zones)
+        {
+            <button type="button" class="hall-zone @(zone.Id == "bar" ? "is-primary" : "")" data-zone="@zone.Id"
+                    aria-haspopup="@(zone.Id == "bar" ? "dialog" : null)"
+                    aria-expanded="@(zone.Id == "bar" ? null : note == zone ? "true" : "false")"
+                    aria-controls="@(zone.Id == "bar" ? null : "hall-note")"
+                    @onclick="() => SelectZoneAsync(zone.Id)">
+                <span class="hall-zone-name">@zone.Name</span>
+                <span class="hall-zone-hint">@zone.Hint</span>
+            </button>
+        }
+    </nav>
+
+    <div class="hall-note-region" id="hall-note" role="status">
+        @if (note is not null)
+        {
+            <div class="hall-note">
+                <p class="hall-note-kicker">Wkrótce</p>
+                <h2 class="hall-note-title">@note.Name</h2>
+                <p class="hall-note-text">@note.Note</p>
+                <button type="button" class="btn btn-sm" @onclick="BackToHallAsync">Wróć do sali</button>
+            </div>
+        }
+    </div>
+
+    @* Pending: ciepłe wnętrze + logo do chwili, gdy pierwsza klatka sali jest gotowa (potem krótkie przenikanie). *@
+    <div class="hall-pending" role="status">
+        <span class="hall-pending-kicker" aria-hidden="true">Saloon</span>
+        <span class="hall-pending-logo" aria-hidden="true">SansPost</span>
+        <span class="hall-pending-text">Zapalamy lampy w Saloonie…</span>
+    </div>
+</section>
+
+<Modal @ref="barPanel" Title="Bar — rozmowy" Kicker="SansPost Saloon" Class="dialog-panel" OnClosed="OnBarClosedAsync">
+    @if (Viewer is null)
+    {
+        <p class="text-sm muted">Czytać można bez konta. <a href="/register">Załóż konto</a>, żeby dołączyć do rozmowy.</p>
+    }
+    <SaloonFeed Sort="Sort" Featured="Featured" HeadingId="bar-feed-title" Heading="Posty" HeadingHidden="true" />
+</Modal>
+
+@code {
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    [Parameter] public PostSort Sort { get; set; }
+    [Parameter] public PostCardModel? Featured { get; set; }
+
+    // "/saloon?scene=3d" — sala bez kryteriów wydajności (diagnostyka, testy).
+    [Parameter] public bool Force { get; set; }
+
+    // Przeglądarka wybrała już wcześniej 3D (ScenePreference) — bez próby płynności.
+    [Parameter] public bool Known3d { get; set; }
+
+    [Parameter] public EventCallback<string> OnDecided { get; set; }
+
+    private sealed record Zone(string Id, string Name, string Hint, string? Note);
+
+    private sealed record RendererDecision(string Renderer, string Reason);
+
+    private static readonly Zone[] Zones =
+    {
+        new("bar", "Bar", "rozmowy", null),
+        new("wanted", "Tablica Wanted", "wkrótce", "Zawisną tu najciekawsze rozmowy tygodnia. Na razie tablica czeka na pierwsze listy gończe."),
+        new("game", "Stół gry", "wkrótce", "Szybkie pojedynki jeden na jeden. Karty są już rozdane — brakuje tylko graczy."),
+        new("music", "Kącik muzyczny", "wkrótce", "Zagra tu radio country. Pianino jest nastrojone, gramofon czeka na płytę.")
+    };
+
+    private ElementReference host;
+    private ElementReference zonesElement;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<SaloonHall>? self;
+    private Modal? barPanel;
+    private Zone? note;
+    private bool ready;
+    private bool busy;
+    // Onboarding paska stref: po pierwszym świadomym wyborze strefy w sesji pasek na desktopie staje się kompaktowy.
+    private bool helperCompact;
+    // Strefa otwarta kliknięciem w scenę — po powrocie fokus nie jest przerzucany na przycisk paska.
+    private bool openedFromCanvas;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        RendererDecision decision;
+        bool restoreBar = false;
+        try
+        {
+            self = DotNetObjectReference.Create(this);
+            var arrived = await JS.InvokeAsync<bool>("sansPost.takeDoorArrival");
+            restoreBar = await JS.InvokeAsync<string?>("sansPost.hallArea") == "bar";
+            helperCompact = await JS.InvokeAsync<bool>("sansPost.hallOnboarded", false);
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/saloon3d.js");
+            decision = await module.InvokeAsync<RendererDecision>("init", host,
+                new { force = Force, known3d = Known3d, zones = zonesElement, dotnet = self, arrived, area = restoreBar ? "bar" : null });
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        catch (JSException)
+        {
+            decision = new RendererDecision("css", "init-failed");
+        }
+
+        if (decision.Reason == "cancelled")
+            return;
+
+        ready = decision.Renderer == "3d";
+        await OnDecided.InvokeAsync(decision.Renderer);
+        if (!ready)
+            return;
+
+        StateHasChanged();
+        // Powrót "wstecz" z posta otwartego z baru — panel z feedem od razu, kamera już przy barze.
+        if (restoreBar)
+            await barPanel!.ShowAsync();
+    }
+
+    // Kliknięcie w strefę na canvas (raycasting w saloon3d.js) — ta sama ścieżka co przycisk HTML.
+    [JSInvokable]
+    public Task SelectZone(string zone) => SelectZoneAsync(zone, fromCanvas: true);
+
+    private async Task SelectZoneAsync(string zoneId, bool fromCanvas = false)
+    {
+        if (!ready || busy || barPanel?.IsOpen == true || Zones.All(z => z.Id != zoneId))
+            return;
+
+        busy = true;
+        note = null;
+        openedFromCanvas = fromCanvas;
+        StateHasChanged();
+        try
+        {
+            if (!helperCompact)
+            {
+                helperCompact = true;
+                await JS.InvokeAsync<bool>("sansPost.hallOnboarded", true);
+            }
+
+            // Kamera do strefy (przy reduced motion — od razu), potem treść.
+            if (module is not null)
+                await module.InvokeVoidAsync("focusArea", zoneId);
+
+            if (zoneId == "bar")
+            {
+                await JS.InvokeVoidAsync("sansPost.rememberHallArea", "bar");
+                await barPanel!.ShowAsync();
+            }
+            else
+            {
+                note = Zones.First(z => z.Id == zoneId);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task BackToHallAsync()
+    {
+        var zone = note?.Id;
+        note = null;
+        await ResetViewAsync();
+        // Fokus wraca do elementu, który otworzył strefę; po kliknięciu w scenę zostaje w sali (bez skoku do paska).
+        if (zone is not null && !openedFromCanvas)
+            await JS.InvokeVoidAsync("sansPost.focusSelector", $".hall-zone[data-zone='{zone}']");
+    }
+
+    private async Task OnBarClosedAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.rememberHallArea", (string?)null);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        await ResetViewAsync();
+    }
+
+    private async Task ResetViewAsync()
+    {
+        try
+        {
+            if (module is not null)
+                await module.InvokeVoidAsync("resetView");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && note is not null)
+            await BackToHallAsync();
+    }
+
+    // Opuszczenie /saloon (albo fallback na widok klasyczny): pętla, listenery, obserwatory i zasoby WebGL.
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (module is not null)
+            {
+                await module.InvokeVoidAsync("dispose");
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        self?.Dispose();
+    }
+}

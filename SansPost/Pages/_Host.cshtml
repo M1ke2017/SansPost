@@ -10,6 +10,13 @@
     var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
     // Renderer przestrzeni wybrany wcześniej przez przeglądarkę (3D albo CSS) — prerender /saloon od razu w tym trybie.
     var sceneHint = SansPost.Shared.ScenePreference.Parse(HttpContext.Request.Cookies[SansPost.Shared.ScenePreference.CookieName]);
+    // Moduł sceny 3D strony (Entrance albo Main Hall) — tylko te strony dostają wczesny start renderera.
+    var scenePage = HttpContext.Request.Path.Value?.ToLowerInvariant() switch
+    {
+        "/" => "js/entrance3d.js",
+        "/saloon" or "/posts" => "js/saloon3d.js",
+        _ => null
+    };
 }
 
 <!DOCTYPE html>
@@ -33,14 +40,15 @@
         })();
     </script>
     <link rel="stylesheet" href="css/app.css" asp-append-version="true" />
-    @if (HttpContext.Request.Path == "/")
+    @if (scenePage is not null)
     {
-        @* Entrance: decyzja renderera i pobieranie Three.js startują od razu, równolegle z blazor.server.js — nie dopiero
-           po podłączeniu circuitu. Przy znanej decyzji "css" nic się nie pobiera. Bez JS: scena CSS zamiast warstwy Pending. *@
+        @* Przestrzenie 3D (Entrance "/", Main Hall "/saloon"): decyzja renderera i pobieranie Three.js startują od razu,
+           równolegle z blazor.server.js — nie dopiero po podłączeniu circuitu. Przy znanej decyzji "css" nic się nie pobiera.
+           Bez JS: widok CSS/klasyczny zamiast warstwy Pending. *@
         if (sceneHint != "css")
         {
             <link rel="modulepreload" href="js/scene3d-common.js" />
-            <link rel="modulepreload" href="js/entrance3d.js" />
+            <link rel="modulepreload" href="@scenePage" />
             if (sceneHint == "3d")
             {
                 <link rel="modulepreload" href="lib/three/three.module.min.js" />
@@ -53,7 +61,8 @@
         <noscript>
             <style>
                 .entrance[data-renderer="pending"] .entrance-stage, .entrance[data-renderer="pending"] .entrance-boardwalk { visibility: visible; opacity: 1; }
-                .entrance-pending { display: none; }
+                .entrance-pending, .saloon-hall { display: none; }
+                .saloon-classic.is-pending { display: contents; }
             </style>
         </noscript>
     }

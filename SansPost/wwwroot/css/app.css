@@ -3209,3 +3209,374 @@ html:has(dialog[open]) { overflow: hidden; }
 
 :root:not([data-theme="dark"]) .entrance-pending-text { color: #5a3a22; text-shadow: none; }
 :root:not([data-theme="dark"]) .entrance-pending-kicker { color: #8a4f25; }
+
+/* ==========================================================================
+   Sprint 15 — Saloon Main Hall 3D (/saloon, js/saloon3d.js + SaloonHall.razor)
+   Sala wypełnia ekran pod nagłówkiem (bez stopki, bez marginesów treści). Canvas pod HTML-em: przyciski stref wiszą nad
+   obiektami ("pins", pozycje z projekcji 3D: --bar-x/y, --wanted-x/y, --game-x/y, --music-x/y) albo stoją w pasku
+   u dołu ("dock": wąski ekran, kamera przy strefie). Warstwa Pending znika dopiero po pierwszej klatce sali.
+   Klasyczny widok (.saloon-classic) w stanie Pending jest ukryty — to fallback, nie ekran ładowania.
+   ========================================================================== */
+.saloon-classic { display: contents; }
+.saloon-classic.is-pending { display: none; }
+
+/* Pełna szerokość bez zmiany paddingu .app-main: sala znosi go ujemnymi marginesami. Tak klasyczny widok, który po
+   decyzji fallback zastępuje salę, nigdy nie trafia na zerowy padding (nawet gdy :has() przeliczy się klatkę później). */
+.app:has(.saloon-hall) .app-main { max-width: none; }
+
+.app:has(.saloon-hall) .app-footer { display: none; }
+
+.saloon-hall {
+    --hall-ink: #f6e6c6;
+    position: relative;
+    height: calc(100svh - var(--header-height) - 1px);   /* nagłówek = --header-height + 1 px obramowania */
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) calc(-1 * var(--space-7));
+    min-height: 420px;
+    overflow: hidden;
+    background: radial-gradient(ellipse 70% 60% at 50% 55%, #6b3a1c, #2a170c 70%, #150b05);
+    isolation: isolate;
+}
+
+.hall-3d { position: absolute; inset: 0; z-index: 0; }
+.hall-3d-canvas { display: block; width: 100%; height: 100%; }
+
+/* ---- Pending ------------------------------------------------------------ */
+.hall-pending {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 6px;
+    padding: 16px;
+    text-align: center;
+    background: radial-gradient(ellipse 70% 60% at 50% 55%, #6b3a1c, #2a170c 70%, #150b05);
+    transition: opacity 320ms var(--ease), visibility 0s linear 320ms;
+}
+
+.saloon-hall.is-ready .hall-pending { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.hall-pending-kicker {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #e6ad66;
+}
+
+.hall-pending-logo {
+    padding: 6px 22px 8px;
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-weight: var(--weight-bold);
+    line-height: 1.1;
+    color: var(--hall-ink);
+    background: #1a100a;
+    border: 2px solid #c99a52;
+    border-radius: 4px;
+}
+
+.hall-pending-text { margin-top: 10px; font-size: var(--text-sm); color: var(--hall-ink); }
+
+/* ---- Pasek stref ------------------------------------------------------------
+   Jedyny zestaw przycisków stref (klawiatura, czytnik, dotyk); obiekty w scenie prowadzą do tej samej ścieżki.
+   Desktop: pełny z podpisem przy pierwszym wejściu w sesji, po pierwszym wyborze strefy kompaktowy i przygaszony
+   (pełny przy wskazaniu/fokusie). Mobile: zawsze pełny, przyklejony u dołu, siatka 2×2. */
+.hall-zones {
+    position: absolute;
+    left: 50%;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 32px);
+    padding: 8px;
+    translate: -50% 0;
+    background: rgb(22 12 6 / 0.78);
+    border: 1px solid rgb(201 154 82 / 0.45);
+    border-radius: 12px;
+    box-shadow: 0 16px 36px -18px rgb(0 0 0 / 0.8);
+    backdrop-filter: blur(3px);
+    transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+}
+
+.hall-zones-caption {
+    flex-basis: 100%;
+    margin: 0 0 2px;
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-align: center;
+    color: #f3e2c4;
+}
+
+.hall-zone {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 7.5rem;
+    min-height: 44px;
+    padding: 6px 14px 7px;
+    font: inherit;
+    line-height: 1.15;
+    color: #fbf0de;
+    background: linear-gradient(180deg, #6a4226, #4e2f1a);
+    border: 2px solid #2e1a0d;
+    border-radius: 6px;
+    box-shadow: 0 3px 0 #2e1a0d, 0 10px 20px -10px rgb(0 0 0 / 0.7);
+    cursor: pointer;
+    transition: transform 120ms var(--ease), background 120ms var(--ease);
+}
+
+.hall-zone.is-primary { background: linear-gradient(180deg, #9a3f23, #702a16); border-color: #4a1a0c; }
+
+.hall-zone-name { font-weight: var(--weight-bold); font-size: var(--text-sm); }
+.hall-zone-hint { font-size: var(--text-xs); color: #f0d9b0; }
+
+.hall-zone:hover,
+.hall-zones[data-hover="bar"] [data-zone="bar"],
+.hall-zones[data-hover="wanted"] [data-zone="wanted"],
+.hall-zones[data-hover="game"] [data-zone="game"],
+.hall-zones[data-hover="music"] [data-zone="music"] { transform: translateY(-2px); filter: brightness(1.12); }
+
+.hall-zone:focus-visible { outline: 3px solid #f6d27a; outline-offset: 3px; }
+
+/* Desktop: pasek to pomocniczy dok, nie drugi navbar — jedna niska linia, półprzezroczyste tło, cienka ramka,
+   przyciski bez własnego tła (podświetlenie dopiero przy wskazaniu, fokusie albo wskazaniu strefy w sali).
+   Po onboardingu: bez podpisu i podpowiedzi, przygaszony; pełny przy wskazaniu/fokusie. */
+@media (min-width: 768px) {
+    .hall-zones {
+        flex-wrap: nowrap;
+        gap: 2px;
+        padding: 3px;
+        bottom: max(16px, env(safe-area-inset-bottom));
+        background: rgb(20 11 5 / 0.42);
+        border-color: rgb(246 226 196 / 0.16);
+        border-radius: 999px;
+        box-shadow: 0 10px 28px -16px rgb(0 0 0 / 0.7);
+        backdrop-filter: blur(6px);
+    }
+    .hall-zones-caption {
+        flex-basis: auto;
+        margin: 0 6px 0 12px;
+        white-space: nowrap;
+        color: rgb(246 230 198 / 0.78);
+    }
+    .hall-zone {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        min-height: 34px;
+        padding: 7px 14px;
+        white-space: nowrap;
+        color: #f6e6c6;
+        background: transparent;
+        border: 0;
+        border-radius: 999px;
+        box-shadow: none;
+    }
+    .hall-zone.is-primary { color: #ffd79a; background: rgb(154 63 35 / 0.42); }
+    .hall-zone-name { font-weight: var(--weight-semibold, 600); }
+    .hall-zone-hint { color: rgb(240 217 176 / 0.62); }
+    .hall-zone:hover,
+    .hall-zones[data-hover="bar"] [data-zone="bar"],
+    .hall-zones[data-hover="wanted"] [data-zone="wanted"],
+    .hall-zones[data-hover="game"] [data-zone="game"],
+    .hall-zones[data-hover="music"] [data-zone="music"] { transform: none; filter: none; background: rgb(246 210 122 / 0.16); }
+    .hall-zone.is-primary:hover,
+    .hall-zones[data-hover="bar"] [data-zone="bar"] { background: rgb(154 63 35 / 0.62); }
+    .hall-zone:focus-visible { outline-offset: 1px; }
+
+    .hall-zones.is-compact { opacity: 0.66; }
+    .hall-zones.is-compact .hall-zone-hint { display: none; }
+    .hall-zones.is-compact:hover,
+    .hall-zones.is-compact:focus-within,
+    .hall-zones.is-compact[data-hover] { opacity: 1; }
+}
+
+/* Węższy desktop/tablet: podpowiedzi pod nazwami znikają, żeby dok został jedną linią. */
+@media (min-width: 768px) and (max-width: 1099.98px) {
+    .hall-zone-hint { display: none; }
+}
+
+/* ---- Pełnoekranowa sala na desktopie -------------------------------------------------------------------------
+   Nad salą 3D (także w Pending) nie ma nagłówka aplikacji — scena jest głównym widokiem. Przy klasycznym widoku
+   (fallback CSS) .saloon-hall nie istnieje, więc nagłówek wraca sam. Mobile: nagłówek i dolna nawigacja zostają. */
+.hall-corner { display: none; }
+
+@media (min-width: 768px) {
+    .app:has(.saloon-hall) .app-header { display: none; }
+    .saloon-hall { height: 100svh; }
+    .saloon-hall .hall-note-region { top: 62px; }   /* pod narożnikiem */
+
+    .hall-corner {
+        position: absolute;
+        inset: 14px 16px auto;
+        z-index: 6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none;
+    }
+    .hall-corner > * { pointer-events: auto; }
+    .hall-corner-brand,
+    .hall-corner-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 3px;
+        color: #f6e6c6;
+        background: rgb(20 11 5 / 0.42);
+        border: 1px solid rgb(246 226 196 / 0.16);
+        border-radius: 999px;
+        backdrop-filter: blur(6px);
+        opacity: 0.8;
+        transition: opacity 160ms var(--ease);
+    }
+    .hall-corner-brand {
+        gap: 7px;
+        padding: 6px 14px 6px 10px;
+        font-family: var(--font-display);
+        font-weight: var(--weight-bold);
+        text-decoration: none;
+    }
+    .hall-corner-brand .brand-post { color: #f0a36a; }
+    .hall-corner-brand:hover,
+    .hall-corner-brand:focus-visible,
+    .hall-corner-actions:hover,
+    .hall-corner-actions:focus-within { opacity: 1; }
+    .hall-corner-link,
+    .hall-corner .theme-toggle {
+        display: inline-grid;
+        place-items: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 8px;
+        color: inherit;
+        background: transparent;
+        border: 0;
+        border-radius: 999px;
+        text-decoration: none;
+    }
+    .hall-corner-text { padding: 0 12px; font-size: var(--text-sm); }
+    .hall-corner-link:hover,
+    .hall-corner .theme-toggle:hover { color: #fff3dc; background: rgb(246 210 122 / 0.16); }
+    .hall-corner a:focus-visible,
+    .hall-corner button:focus-visible { outline: 3px solid #f6d27a; outline-offset: 1px; }
+}
+
+/* Winieta: ciemniejsze boki i narożniki, jasne centrum z barem. */
+.hall-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 75% 70% at 50% 45%, transparent 55%, rgb(12 6 2 / 0.42) 100%),
+        linear-gradient(to bottom, rgb(12 6 2 / 0.18), transparent 22%, transparent 78%, rgb(12 6 2 / 0.3));
+}
+
+:root:not([data-theme="dark"]) .hall-vignette {
+    background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 60%, rgb(40 20 8 / 0.28) 100%);
+}
+
+/* ---- Zapowiedź strefy ("Wkrótce") ---------------------------------------- */
+.hall-note-region {
+    position: absolute;
+    left: 50%;
+    top: 16px;
+    z-index: 3;
+    width: min(420px, calc(100% - 32px));
+    translate: -50% 0;
+    pointer-events: none;
+}
+
+.hall-note {
+    display: grid;
+    justify-items: start;
+    gap: 6px;
+    padding: 16px 18px;
+    color: #3a2616;
+    background: #f6ecd8;
+    border: 1px solid #c2a076;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 5px #f6ecd8, inset 0 0 0 6px #c2a076, 0 18px 40px -18px rgb(0 0 0 / 0.7);
+    pointer-events: auto;
+}
+
+.hall-note-kicker {
+    margin: 0;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #8a4f25;
+}
+
+.hall-note-title { margin: 0; font-family: var(--font-display); font-size: 1.25rem; color: #3a2616; }
+.hall-note-text { margin: 0; font-size: var(--text-sm); color: #5a4330; }
+
+/* ---- Panel baru z feedem (natywny <dialog> jako szuflada z prawej) --------- */
+.dialog.dialog-panel {
+    width: min(760px, 100vw);
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0 0 0 auto;
+    overflow-y: auto;
+    border-radius: 0;
+    border-width: 0 0 0 1px;
+}
+
+.dialog.dialog-panel[open] { animation: panel-in 260ms var(--ease); }
+.dialog-panel::backdrop { background: rgb(18 10 5 / 0.3); }
+
+.dialog-panel .dialog-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-bottom: var(--space-3);
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+}
+
+@keyframes panel-in {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+@media (max-width: 767.98px) {
+    .saloon-hall {
+        height: calc(100svh - var(--header-height) - 1px - var(--bottom-nav-height) - env(safe-area-inset-bottom, 0px));
+        min-height: 360px;
+        margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) calc(-1 * (var(--bottom-nav-height) + var(--space-6)));
+    }
+    /* Mobile: pasek zawsze pełny, przyklejony u dołu sali, siatka 2×2 bez nachodzenia przycisków. */
+    .hall-zones {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        max-width: none;
+        padding: 6px;
+        translate: none;
+    }
+    .hall-zones-caption { grid-column: 1 / -1; }
+    .hall-zone { min-width: 0; width: 100%; padding: 5px 8px 6px; }
+    /* Zapowiedź strefy nad paskiem, w całości w widoku (scena nad nią zostaje czytelna). */
+    .hall-note-region { top: auto; bottom: 124px; width: calc(100% - 16px); }
+    .hall-note { padding: 12px 14px; }
+    .dialog.dialog-panel { width: 100vw; margin: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hall-pending, .hall-zone, .hall-zones { transition: none; }
+    .dialog.dialog-panel[open] { animation: none; }
+}
