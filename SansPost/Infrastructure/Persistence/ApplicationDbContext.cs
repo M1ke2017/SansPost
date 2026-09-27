@@ -80,8 +80,9 @@ namespace SansPost.Infrastructure.Persistence
                 user.HasIndex(u => u.NormalizedEmail).IsUnique();
                 user.HasIndex(u => u.NormalizedUsername).IsUnique();
 
-                // Status konta — osobny od roli. Brak indeksu: żadne zapytanie nie filtruje zbiorczo po statusie
-                // (walidacja sesji i WriteGuard czytają pojedynczy wiersz po PK).
+                // Status konta — osobny od roli. Brak indeksu: żadne zapytanie nie wybiera kont po statusie
+                // (walidacja sesji i WriteGuard czytają pojedynczy wiersz po PK; tablica Wanted sprawdza status autora
+                // kandydatów przy złączeniu posts → users, które prowadzi okno IX_posts_feed).
                 EnumAsText(user, u => u.Status, "status", "users");
 
                 user.HasOne(u => u.Subscription)

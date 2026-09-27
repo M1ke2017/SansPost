@@ -112,6 +112,9 @@ else
     [SupplyParameterFromQuery(Name = "next")] public string? NextParam { get; set; }
     [SupplyParameterFromQuery(Name = "back")] public string? BackParam { get; set; }
 
+    // Tablica Wanted (Sprint 17): ?wanted=board | post (z id) | login / register — ten sam model stanu co BAR.
+    [SupplyParameterFromQuery(Name = "wanted")] public string? WantedParam { get; set; }
+
     private enum SaloonRenderer { Pending, ThreeD, CssFallback }
 
     private SaloonRenderer renderer;
@@ -122,7 +125,7 @@ else
 
     private PostSort SortValue => string.Equals(Sort, "popular", StringComparison.OrdinalIgnoreCase) ? PostSort.Popular : PostSort.Newest;
 
-    private BarState? BarValue => BarState.Parse(BarParam, CategoryParam, Sort, QueryParam, PostIdParam, FromParam, NextParam, BackParam);
+    private BarState? BarValue => BarState.Parse(BarParam, CategoryParam, Sort, QueryParam, PostIdParam, FromParam, NextParam, BackParam, WantedParam);
 
     protected override async Task OnInitializedAsync()
     {

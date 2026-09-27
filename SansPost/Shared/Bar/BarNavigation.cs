@@ -20,7 +20,7 @@ namespace SansPost.Shared.Bar
             return parts is [ "sp-bar", var depth, var root ] && int.TryParse(depth, out var n) && n > 0 ? (n, root == "h") : (0, false);
         }
 
-        // Nowy poziom (Karta rozmów z sali, lista lub wyszukiwanie z Karty) — nowy wpis historii.
+        // Nowy poziom (Karta rozmów albo tablica Wanted z sali, lista, wyszukiwanie, rozmowa) — nowy wpis historii.
         public static void Push(NavigationManager navigation, BarState state)
         {
             var (depth, fromHall) = Read(navigation);
@@ -49,7 +49,9 @@ namespace SansPost.Shared.Bar
                 navigation.NavigateTo(SaloonRoutes.Hub, new NavigationOptions { ReplaceHistoryEntry = true });
         }
 
+        // Adres z otwartym oknem sali: BAR (?bar=…) albo tablica Wanted (?wanted=…).
         private static bool IsBarUrl(string uri) =>
-            uri.Contains("/saloon?", StringComparison.OrdinalIgnoreCase) && uri.Contains("bar=", StringComparison.OrdinalIgnoreCase);
+            uri.Contains("/saloon?", StringComparison.OrdinalIgnoreCase)
+            && (uri.Contains("bar=", StringComparison.OrdinalIgnoreCase) || uri.Contains("wanted=", StringComparison.OrdinalIgnoreCase));
     }
 }

@@ -8,8 +8,11 @@
    Rozmowa otwiera się w tym samym oknie: lista pod nią zostaje (ukryta), więc powrót trafia dokładnie w to samo
    miejsce — te same wczytane strony, przewinięcie i fokus na karcie, która otworzyła rozmowę.
    Escape cofa o jeden poziom, na Karcie rozmów zamyka bar; "Zamknij" i klik w scenę zamykają bar od razu.
-   Otwarcie i zamknięcie (z kamerą) prowadzi SaloonHall. *@
-<Modal @ref="modal" Title="Karta rozmów" Kicker="Bar · SansPost Saloon" Class="dialog-panel bar-panel"
+   Otwarcie i zamknięcie (z kamerą) prowadzi SaloonHall.
+   Sprint 17: to samo okno (te same poziomy, historia, Escape i fokus) pokazuje też tablicę Wanted — plakat otwiera
+   rozmowę, a powrót prowadzi do tablicy, nie do baru. Strefę wyznacza stan (BarState.IsWanted). *@
+<Modal @ref="modal" Title="@(Wanted ? "Tablica Wanted" : "Karta rozmów")" Kicker="@(Wanted ? "Most Wanted · SansPost Saloon" : "Bar · SansPost Saloon")"
+       Class="@(Wanted ? "dialog-panel bar-panel wanted-panel" : "dialog-panel bar-panel")"
        OnDismiss="OnDismissAsync" OnClosed="OnClosed">
     @if (State is { } state)
     {
@@ -20,9 +23,9 @@
         var conversation = under.View == BarView.Conversation ? under : null;
         var level = conversation is not null ? conversation.Origin ?? BarState.Menu : under;
         <div class="bar-view" data-bar-view="@state.View.ToString().ToLowerInvariant()">
-            @* Poziom listy — widoczny albo ukryty pod rozmową (ta sama instancja: bez ponownego wczytywania). *@
+            @* Poziom listy (albo tablica Wanted) — widoczny albo ukryty pod rozmową (ta sama instancja: bez ponownego wczytywania). *@
             <div class="bar-level" hidden="@(auth || conversation is not null)">
-                @if (level.View != BarView.Menu)
+                @if (level.Parent is not null)
                 {
                     <button type="button" class="bar-back" @onclick="UpAsync">
                         <Icon Name="@Icons.ArrowLeft" Size="16" /> @(level.Parent?.Title ?? "Karta rozmów")
@@ -40,6 +43,10 @@
 
                 @switch (level.View)
                 {
+                    case BarView.Wanted:
+                        <WantedBoard Active="@(!auth && conversation is null)" FocusMainPoster="@(state.View == BarView.Wanted)"
+                                     OnOpen="OpenConversation" OnLoaded="OnWantedLoaded" />
+                        break;
                     case BarView.Menu:
                         <BarMenu Categories="Categories" OnSelect="Open" />
                         break;
@@ -56,6 +63,7 @@
             {
                 <div class="bar-conversation-slot" hidden="@auth">
                     <BarConversationDetail @key="conversation.PostId" PostId="conversation.PostId" OriginTitle="@level.Title"
+                                           BackLabel="@(level.View == BarView.Wanted ? "Wróć do tablicy Wanted" : "Wróć do rozmów w barze")"
                                            ReturnUrl="@conversation.Url" OnBack="UpAsync" />
                 </div>
             }
@@ -77,6 +85,9 @@
     // Okno zamknięte (także gdy przeglądarka zamknęła je sama) — SaloonHall cofa kamerę i ewentualnie adres.
     [Parameter] public EventCallback OnClosed { get; set; }
 
+    // Tablica Wanted wczytana w oknie — SaloonHall odświeża plakaty na tablicy 3D.
+    [Parameter] public EventCallback<IReadOnlyList<WantedPosterResponse>> OnWantedLoaded { get; set; }
+
     private Modal? modal;
     private DotNetObjectReference<BarConversationPanel>? self;
     private IJSObjectReference? linkBinding;
@@ -86,6 +97,9 @@
     private bool authAfterRegistration;
 
     public bool IsOpen => modal?.IsOpen == true;
+
+    // Okno pokazuje tablicę Wanted (nagłówek, wygląd); po zamknięciu zostaje wygląd ostatnio pokazanej strefy.
+    private bool Wanted => (State ?? shown)?.IsWanted == true;
 
     public Task ShowAsync() => modal!.ShowAsync();
 
@@ -114,7 +128,8 @@
         if (keepFocus || previous is null)
         {
             keepFocus = false;
-            // Wejście prosto w rozmowę (link, odświeżenie) — też od jej tytułu.
+            // Wejście prosto w rozmowę (link, odświeżenie) — też od jej tytułu. Tablica Wanted ustawia fokus na głównym
+            // plakacie sama, gdy plakaty się wczytają (WantedBoard.FocusMainPoster; pusta tablica — domyślny fokus okna).
             if (previous is null && State.View == BarView.Conversation)
                 focusTarget = ConversationFocus;
             else if (previous is null && State.IsAuth)
@@ -141,9 +156,11 @@
         if (current.View == BarView.Conversation)
             return previous.View == BarView.Conversation && previous.PostId == current.PostId ? null : ConversationFocus;
 
-        // Z rozmowy z powrotem na listę: karta, która ją otworzyła (lista czekała pod rozmową).
+        // Z rozmowy z powrotem na listę: karta, która ją otworzyła (lista czekała pod rozmową); z tablicy Wanted — plakat.
         if (previous.View == BarView.Conversation && current == previous.Origin)
-            return ($"#post-{previous.PostId}-title a, #post-{previous.PostId}-title-featured a", "#bar-level-title", false);
+            return current.View == BarView.Wanted
+                ? ($"[data-wanted-post='{previous.PostId}']", "[data-wanted-post]", false)
+                : ($"#post-{previous.PostId}-title a, #post-{previous.PostId}-title-featured a", "#bar-level-title", false);
 
         if (current.View == BarView.Menu)
             return (MenuSelector(MenuItemOf(previous.View == BarView.Conversation ? previous.Origin ?? previous : previous)), null, false);
@@ -222,7 +239,7 @@
         if (State is not { } state)
             return;
 
-        if (reason == "escape" && state.View != BarView.Menu)
+        if (reason == "escape" && state.View is not (BarView.Menu or BarView.Wanted))
             await UpAsync();
         else
             await BarNavigation.CloseAsync(Navigation, JS);
@@ -265,13 +282,17 @@
         }
     }
 
+    // Rozmowa z tablicy Wanted (plakat) albo z linku w oknie: poziomem nadrzędnym jest tablica, lista albo Karta rozmów.
     [JSInvokable]
     public Task OpenConversation(int postId)
     {
         if (!IsOpen || State is not { } state || postId <= 0 || (state.View == BarView.Conversation && state.PostId == postId))
             return Task.CompletedTask;
 
-        var origin = state.View == BarView.Conversation ? state.Origin ?? BarState.Menu : state.IsList ? state : BarState.Menu;
+        var origin = state.View == BarView.Conversation ? state.Origin ?? BarState.Menu
+            : state.IsList || state.View == BarView.Wanted ? state
+            : state.IsWanted ? BarState.Wanted
+            : BarState.Menu;
         Open(BarState.Conversation(postId, origin));
         return Task.CompletedTask;
     }

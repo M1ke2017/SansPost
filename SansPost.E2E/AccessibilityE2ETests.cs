@@ -104,10 +104,25 @@ namespace SansPost.E2E
                 await scene.WaitForFunctionAsync("() => document.querySelector('dialog[open] .search-results') && !document.querySelector('#bar-search-hint .spinner')");
                 await AuditAsync(scene, $"BAR — wyniki wyszukiwania ({scheme})");
 
-                // Sprint 15C: zapowiedź strefy "Wkrótce" i pasek stref po onboardingu (kompaktowy).
+                // Sprint 17: tablica Wanted (plakaty) i rozmowa otwarta z plakatu.
                 await scene.Locator("dialog[open]").GetByRole(AriaRole.Button, new() { Name = "Zamknij okno" }).ClickAsync();
                 await Expect(scene.Locator("dialog[open]")).ToHaveCountAsync(0);
+                await scene.WaitForFunctionAsync("() => window.__sansPostHall.moving === false && window.__sansPostHall.area === null");
                 await scene.Locator(".hall-zone[data-zone='wanted']").ClickAsync();
+                await Expect(scene.Locator("dialog[open] [data-wanted-post]").First).ToBeFocusedAsync();
+                await scene.Locator("dialog[open]").EvaluateAsync("d => Promise.allSettled(d.getAnimations({ subtree: true }).map(a => a.finished))");
+                await AuditAsync(scene, $"Wanted — tablica ({scheme})");
+                await scene.Keyboard.PressAsync("Enter");
+                await Expect(scene.Locator("#bar-conversation-title")).ToBeFocusedAsync();
+                await AuditAsync(scene, $"Wanted — rozmowa ({scheme})");
+                await scene.Keyboard.PressAsync("Escape");
+                await Expect(scene.Locator("dialog[open] [data-wanted-post]").First).ToBeFocusedAsync();
+                await scene.Keyboard.PressAsync("Escape");
+                await Expect(scene.Locator("dialog[open]")).ToHaveCountAsync(0);
+                await scene.WaitForFunctionAsync("() => window.__sansPostHall.moving === false && window.__sansPostHall.area === null");
+
+                // Sprint 15C: zapowiedź strefy "Wkrótce" i pasek stref po onboardingu (kompaktowy).
+                await scene.Locator(".hall-zone[data-zone='game']").ClickAsync();
                 await Expect(scene.Locator("#hall-note .hall-note")).ToBeVisibleAsync();
                 await Expect(scene.Locator("nav.hall-zones.is-compact")).ToHaveCountAsync(1);
                 await scene.WaitForFunctionAsync("() => window.__sansPostHall.moving === false");

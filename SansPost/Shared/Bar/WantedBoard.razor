@@ -1,0 +1,164 @@
+@inject UiServices Ui
+@inject IJSRuntime JS
+@inject ILogger<WantedBoard> Logger
+
+@* Tablica Wanted (Sprint 17) w oknie sali: najbardziej angażujące rozmowy ostatnich 7 dni (IPostService.GetWantedAsync —
+   ranking reakcje + komentarze, te same zasady widoczności co feed). Plakaty to zwykły HTML: tytuł rozmowy jest przyciskiem
+   (Tab, Enter, Spacja), który otwiera rozmowę w tym samym oknie — bez klasycznej strony /post-view. Tablica wczytuje się
+   przy każdym otwarciu (ukryta rozmowa znika od razu); pod otwartą rozmową zostaje w DOM, więc powrót trafia na ten sam
+   plakat — i po cichu odświeża liczniki (np. własny komentarz). Wynik trafia też do sceny (OnLoaded) — główny plakat
+   na tablicy 3D pokazuje ten sam przydomek. *@
+<div class="wanted-board">
+    <p class="wanted-intro">
+        Najgłośniejsze rozmowy Saloonu z ostatnich 7 dni. Ich autorzy są poszukiwani — za rozmowy, które poruszyły salę.
+    </p>
+
+    @if (failed)
+    {
+        <Alert Variant="AlertVariant.Warning">Nie udało się przybić listów gończych. Spróbuj ponownie za chwilę.</Alert>
+        <button type="button" class="btn btn-sm wanted-retry" @onclick="LoadAsync">Spróbuj ponownie</button>
+    }
+    else if (posters is null)
+    {
+        <p class="wanted-loading" role="status">Przybijamy listy gończe…</p>
+    }
+    else if (posters.Count == 0)
+    {
+        <div class="wanted-empty" role="status">
+            <p class="wanted-empty-title">Tablica czeka na pierwszą rozmowę.</p>
+            <p class="wanted-empty-text">Gdy w barze zacznie się rozmowa, jej autor zawiśnie tu jako pierwszy poszukiwany.</p>
+        </div>
+    }
+    else
+    {
+        var main = posters[0];
+        <article @key="main.PostId" class="wanted-poster is-featured" aria-labelledby="wanted-title-@main.PostId" aria-describedby="wanted-alias-@main.PostId">
+            <p class="wanted-poster-kicker">Most Wanted</p>
+            <p class="wanted-poster-alias" id="wanted-alias-@main.PostId">@main.Alias</p>
+            <p class="wanted-poster-reason">za rozmowę, która rozpaliła Saloon</p>
+            <h3 class="wanted-poster-title" id="wanted-title-@main.PostId">
+                <button type="button" class="wanted-open" data-wanted-post="@main.PostId" @onclick="() => OnOpen.InvokeAsync(main.PostId)">@main.Title</button>
+            </h3>
+            <p class="wanted-poster-preview">@main.Preview</p>
+            @Meta(main)
+        </article>
+
+        @if (posters.Count > 1)
+        {
+            <section class="wanted-others" aria-labelledby="wanted-others-title">
+                <h3 class="wanted-others-title" id="wanted-others-title">Pozostali poszukiwani</h3>
+                <ol class="wanted-list">
+                    @foreach (var poster in posters.Skip(1))
+                    {
+                        <li @key="poster.PostId" class="wanted-poster is-small">
+                            <p class="wanted-rank"><span class="visually-hidden">Miejsce </span><span aria-hidden="true">#</span>@poster.Rank</p>
+                            <p class="wanted-poster-alias" id="wanted-alias-@poster.PostId">@poster.Alias</p>
+                            <h4 class="wanted-poster-title" id="wanted-title-@poster.PostId">
+                                <button type="button" class="wanted-open" data-wanted-post="@poster.PostId" @onclick="() => OnOpen.InvokeAsync(poster.PostId)">@poster.Title</button>
+                            </h4>
+                            @Meta(poster)
+                        </li>
+                    }
+                </ol>
+            </section>
+        }
+
+        <p class="wanted-rule">
+            @if (posters.Any(p => !p.InWindow))
+            {
+                <span>W ostatnich 7 dniach było mniej rozmów — tablicę uzupełniają najnowsze wcześniejsze. </span>
+            }
+            Kolejność: reakcje + komentarze. Przy remisie wyżej wisi rozmowa z większą liczbą reakcji, potem komentarzy, potem nowsza.
+        </p>
+    }
+</div>
+
+@code {
+    // Plakat kliknięty (przycisk z tytułem) — okno otwiera rozmowę jako kolejny poziom (BarState.Conversation z tablicy).
+    [Parameter] public EventCallback<int> OnOpen { get; set; }
+
+    // Świeży wynik tablicy — scena 3D aktualizuje główny plakat.
+    [Parameter] public EventCallback<IReadOnlyList<WantedPosterResponse>> OnLoaded { get; set; }
+
+    // Tablica widoczna (false — przykryta otwartą rozmową albo kartą logowania). Powrót odświeża ją bez migotania.
+    [Parameter] public bool Active { get; set; } = true;
+
+    // Okno otwarte prosto na tablicy: fokus na głównym plakacie, gdy plakaty się pojawią (po wczytaniu, bez limitu
+    // czasu). Tablica otwarta pod rozmową (link do rozmowy) — fokus prowadzi okno.
+    [Parameter] public bool FocusMainPoster { get; set; }
+
+    private IReadOnlyList<WantedPosterResponse>? posters;
+    private bool failed;
+    private bool active = true;
+    private bool firstPostersRendered;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstPostersRendered || posters is not { Count: > 0 })
+            return;
+
+        firstPostersRendered = true;
+        if (FocusMainPoster && Active)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("sansPost.focusInDialog", "[data-wanted-post]", true);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var returned = Active && !active;
+        active = Active;
+        if (!returned || posters is null)
+            return;
+
+        // Plakaty zostają na miejscu (fokus na plakacie, z którego otwarto rozmowę) do chwili nowego wyniku.
+        try
+        {
+            posters = await Ui.Run((IPostService s) => s.GetWantedAsync());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Nie udało się odświeżyć tablicy Wanted.");
+            return;
+        }
+        await OnLoaded.InvokeAsync(posters);
+    }
+
+    private async Task LoadAsync()
+    {
+        failed = false;
+        posters = null;
+        try
+        {
+            posters = await Ui.Run((IPostService s) => s.GetWantedAsync());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Nie udało się wczytać tablicy Wanted.");
+            failed = true;
+            return;
+        }
+
+        await OnLoaded.InvokeAsync(posters);
+    }
+
+    private static RenderFragment Meta(WantedPosterResponse poster) =>
+        @<p class="wanted-poster-meta">
+            <span class="wanted-category @CategoryMeta.CssClass(poster.Category)"><Icon Name="@CategoryMeta.Icon(poster.Category)" Size="13" StrokeWidth="2" /> @poster.Category.DisplayName()</span>
+            <TimeAgo Value="poster.CreatedAt" />
+            <span>@UiText.Reactions(poster.ReactionCount)</span>
+            <span>@UiText.Comments(poster.CommentCount)</span>
+            @if (!poster.InWindow)
+            {
+                <span class="wanted-older">sprzed tygodnia</span>
+            }
+        </p>;
+}

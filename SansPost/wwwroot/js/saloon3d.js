@@ -35,8 +35,10 @@ const ZONES = {
     wanted: {
         sign: { center: [-6.29, 2.15, -9.5], w: 3.4, h: 2.2, facing: "+x" },
         hit: [[1.0, 3.0, 4.0], [-6.0, 2.2, -9.5]],
-        // Na wprost tablicy, z zapasem na zapowiedź nad nią — cała tablica w kadrze; nisko, żeby lampy baru zostały nad kadrem.
-        view: { position: [-1.3, 2.1, -9.5], target: [-6.4, 2.25, -9.5] },
+        // Niemal na wprost tablicy, cała tablica w kadrze; kamera obrócona w stronę tylnej ściany, więc tablica leży w lewej
+        // części ekranu — prawą stronę na desktopie zajmuje okno Wanted (Sprint 17), a tablica 3D zostaje widoczna obok.
+        // Nisko, żeby lampy baru zostały nad kadrem.
+        view: { position: [0.3, 2.1, -9.0], target: [-5.22, 2.15, -11.34] },
         portrait: { position: [-0.5, 2.1, -9.5], target: [-6.3, 2.15, -9.5] }
     },
     game: {
@@ -353,105 +355,198 @@ function chalkTexture(font) {
     }, false);
 }
 
-// Tablica Wanted: nagłówek, postarzałe listy gończe ze szkicem sylwetki (kapelusz, ramiona), nagroda "???", pinezki,
-// dwie drobne notatki i czerwona pieczątka "WKRÓTCE". Bez prawdziwych treści — to zapowiedź przyszłej strefy.
-function wantedTexture(font) {
-    return canvasTexture(768, 512, (ctx, w, h) => {
-        const rnd = random(31);
-        const board = ctx.createLinearGradient(0, 0, w, h);
-        board.addColorStop(0, "#4a2d19");
-        board.addColorStop(1, "#33200f");
-        ctx.fillStyle = board;
-        ctx.fillRect(0, 0, w, h);
-        for (let g = 0; g < 60; g++) {
-            ctx.strokeStyle = `rgba(0,0,0,${0.08 + rnd() * 0.12})`;
-            ctx.lineWidth = 1 + rnd() * 2;
-            const y = rnd() * h;
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(w * 0.3, y + 4, w * 0.7, y - 4, w, y + (rnd() - 0.5) * 6); ctx.stroke();
-        }
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.font = `700 72px ${font}`;
-        ctx.letterSpacing = "14px";
-        ctx.fillText("WANTED", w / 2 + 3, 60);
-        ctx.fillStyle = "#f0d08a";
-        ctx.fillText("WANTED", w / 2, 56);
-        ctx.letterSpacing = "0px";
+// Tablica Wanted: jedna tekstura (canvas 1024×664) dla całej tablicy — nagłówek, główny list gończy "MOST WANTED"
+// (przydomek i tytuł rozmowy z rankingu) i cztery mniejsze (#2–#5). Rysowana od razu z pustymi listami (sylwetka i "?"),
+// potem setWanted przerysowuje ten sam canvas wynikiem z serwera. Pusta tablica: "Tablica czeka na pierwszą rozmowę."
+// Bez sztucznych nazwisk — wolne miejsca to anonimowe, wyblakłe listy.
+const WANTED_CANVAS = [1024, 664];
+const WANTED_MAIN = { x: 272, y: 372, w: 372, h: 520, angle: -0.018 };
+const WANTED_SMALL = [[606, 250], [846, 262], [606, 520], [846, 530]].map(([x, y], i) => ({ x, y, w: 212, h: 248, angle: [0.03, -0.025, -0.02, 0.028][i] }));
+const WANTED_SERIF = "Georgia, 'Times New Roman', serif";
 
-        const poster = (x, y, pw, ph, angle, variant) => {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            ctx.shadowColor = "rgba(0,0,0,0.45)";
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetY = 5;
-            const paper = ctx.createRadialGradient(0, 0, pw * 0.2, 0, 0, pw * 0.9);
-            paper.addColorStop(0, "#f0e0bc");
-            paper.addColorStop(0.75, "#e0c894");
-            paper.addColorStop(1, "#b98f58");
-            ctx.fillStyle = paper;
-            ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
-            ctx.shadowColor = "transparent";
-            ctx.fillStyle = "rgba(60,36,18,0.9)";
-            ctx.font = `700 ${Math.round(pw * 0.17)}px ${font}`;
-            ctx.fillText("WANTED", 0, -ph / 2 + pw * 0.17);
-            // Szkic poszukiwanego: kapelusz, głowa, ramiona (węgiel), w ramce.
-            const fx = -pw * 0.36, fy = -ph / 2 + pw * 0.32, fw = pw * 0.72, fh = pw * 0.72;
-            ctx.strokeStyle = "rgba(60,36,18,0.6)";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(fx, fy, fw, fh);
-            ctx.save();
-            ctx.beginPath(); ctx.rect(fx, fy, fw, fh); ctx.clip();
-            const cx = 0, cy = fy + fh * 0.55;
-            ctx.fillStyle = "rgba(40,24,12,0.72)";
-            ctx.beginPath(); ctx.ellipse(cx, cy + fh * 0.45, fw * 0.42, fh * 0.28, 0, Math.PI, 0); ctx.fill();          // ramiona
-            ctx.beginPath(); ctx.ellipse(cx, cy, fw * 0.16, fh * 0.2, 0, 0, Math.PI * 2); ctx.fill();                        // głowa
-            ctx.beginPath(); ctx.ellipse(cx, cy - fh * 0.16, fw * 0.36, fh * 0.05, variant * 0.08, 0, Math.PI * 2); ctx.fill(); // rondo
-            ctx.fillRect(cx - fw * 0.15, cy - fh * 0.36, fw * 0.3, fh * 0.2);                                                   // główka kapelusza
-            ctx.fillStyle = "rgba(230,210,170,0.25)";
-            ctx.font = `700 ${Math.round(fw * 0.4)}px ${font}`;
-            ctx.fillText("?", cx, cy + fh * 0.04);
-            ctx.restore();
-            ctx.fillStyle = "rgba(60,36,18,0.85)";
-            ctx.font = `700 ${Math.round(pw * 0.1)}px ${font}`;
-            ctx.fillText("NAGRODA ???", 0, fy + fh + pw * 0.12);
-            for (let l = 0; l < 3; l++) ctx.fillRect(-pw * 0.34, fy + fh + pw * (0.24 + l * 0.08), pw * (0.68 - rnd() * 0.2), 2);
-            ctx.fillStyle = "#a3342a";
-            ctx.beginPath(); ctx.arc(0, -ph / 2 + 8, 6, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "rgba(255,255,255,0.5)";
-            ctx.beginPath(); ctx.arc(-2, -ph / 2 + 6, 2, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-        };
-        const sizes = [[150, 250], [140, 232], [150, 250], [138, 228]];
-        sizes.forEach(([pw, ph], i) => poster(120 + i * 176, 120 + ph / 2 + (i % 2) * 18, pw, ph, (rnd() - 0.5) * 0.09, i));
-        // Drobne notatki przypięte obok.
-        for (const [x, y, a] of [[60, 440, -0.12], [712, 452, 0.1]]) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(a);
-            ctx.fillStyle = "#e7d6b0";
-            ctx.fillRect(-40, -34, 80, 68);
-            ctx.fillStyle = "rgba(60,36,18,0.6)";
-            for (let l = 0; l < 4; l++) ctx.fillRect(-30, -20 + l * 12, 60 - rnd() * 20, 2);
-            ctx.fillStyle = "#2b3a4a";
-            ctx.beginPath(); ctx.arc(0, -30, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-        }
+function wantedTexture(font) {
+    const [width, height] = WANTED_CANVAS;
+    const texture = canvasTexture(width, height, (ctx, w, h) => drawWanted(ctx, w, h, font, null), false);
+    texture.userData.redraw = posters => {
+        const canvas = texture.image;
+        drawWanted(canvas.getContext("2d"), canvas.width, canvas.height, font, posters);
+        texture.needsUpdate = true;
+    };
+    return texture;
+}
+
+// Tekst dopasowany do szerokości: mniejszy krój, a gdy i to za mało — skrót z "…".
+function fitText(ctx, text, maxWidth, size, minSize, style, family) {
+    let px = size;
+    ctx.font = `${style} ${px}px ${family}`;
+    while (px > minSize && ctx.measureText(text).width > maxWidth) {
+        px -= 2;
+        ctx.font = `${style} ${px}px ${family}`;
+    }
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let cut = text;
+    while (cut.length > 1 && ctx.measureText(cut + "…").width > maxWidth) cut = cut.slice(0, -1);
+    return cut.trimEnd() + "…";
+}
+
+// Zawijanie słów do maxLines linii; linia za długa (jedno długie słowo) albo ostatnia przy uciętym tekście — skrót z "…".
+function wrapText(ctx, text, maxWidth, maxLines) {
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let line = "", used = 0;
+    for (const word of words) {
+        const next = line ? `${line} ${word}` : word;
+        if (!line || ctx.measureText(next).width <= maxWidth) { line = next; used++; continue; }
+        lines.push(line);
+        line = "";
+        if (lines.length === maxLines) break;
+        line = word;
+        used++;
+    }
+    if (line) lines.push(line);
+    const clipped = used < words.length;
+    return lines.map((text, i) => {
+        if (ctx.measureText(text).width <= maxWidth && !(clipped && i === lines.length - 1)) return text;
+        while (text.length > 1 && ctx.measureText(text + "…").width > maxWidth) text = text.slice(0, -1);
+        return text.trimEnd() + "…";
+    });
+}
+
+function drawWanted(ctx, w, h, font, posters) {
+    const rnd = random(31);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.letterSpacing = "0px";
+    const board = ctx.createLinearGradient(0, 0, w, h);
+    board.addColorStop(0, "#4a2d19");
+    board.addColorStop(1, "#33200f");
+    ctx.fillStyle = board;
+    ctx.fillRect(0, 0, w, h);
+    for (let g = 0; g < 70; g++) {
+        ctx.strokeStyle = `rgba(0,0,0,${0.08 + rnd() * 0.12})`;
+        ctx.lineWidth = 1 + rnd() * 2;
+        const y = rnd() * h;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(w * 0.3, y + 4, w * 0.7, y - 4, w, y + (rnd() - 0.5) * 6); ctx.stroke();
+    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 76px ${font}`;
+    ctx.letterSpacing = "16px";
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillText("WANTED", w / 2 + 3, 62);
+    ctx.fillStyle = "#f0d08a";
+    ctx.fillText("WANTED", w / 2, 58);
+    ctx.letterSpacing = "0px";
+
+    const list = Array.isArray(posters) ? posters : null;
+    const ink = "rgba(60,36,18,0.92)";
+
+    // Kartka listu gończego: papier, cień, pinezka; rysunek treści w układzie środka kartki.
+    const paper = ({ x, y, w: pw, h: ph, angle }, faded, content) => {
         ctx.save();
-        ctx.translate(w * 0.64, h * 0.62);
-        ctx.rotate(-0.2);
-        ctx.strokeStyle = "rgba(176,30,24,0.9)";
-        ctx.lineWidth = 7;
-        ctx.strokeRect(-150, -42, 300, 84);
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.shadowColor = "rgba(0,0,0,0.45)";
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 6;
+        const tone = ctx.createRadialGradient(0, 0, pw * 0.2, 0, 0, Math.max(pw, ph) * 0.75);
+        tone.addColorStop(0, faded ? "#e4d4b2" : "#f3e4c2");
+        tone.addColorStop(0.75, faded ? "#d2bd8e" : "#e3cb97");
+        tone.addColorStop(1, faded ? "#a98458" : "#b98f58");
+        ctx.fillStyle = tone;
+        ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+        ctx.shadowColor = "transparent";
+        ctx.strokeStyle = "rgba(60,36,18,0.35)";
         ctx.lineWidth = 2;
-        ctx.strokeRect(-140, -32, 280, 64);
-        ctx.fillStyle = "rgba(176,30,24,0.9)";
-        ctx.font = `700 54px ${font}`;
-        ctx.letterSpacing = "8px";
-        ctx.fillText("WKRÓTCE", 0, 4);
+        ctx.strokeRect(-pw / 2 + 8, -ph / 2 + 8, pw - 16, ph - 16);
+        content(pw, ph);
+        ctx.fillStyle = "#a3342a";
+        ctx.beginPath(); ctx.arc(0, -ph / 2 + 9, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.beginPath(); ctx.arc(-2, -ph / 2 + 7, 2.4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-    }, false);
+    };
+
+    // Szkic poszukiwanego: kapelusz, głowa, ramiona (węgiel), w ramce.
+    const sketch = (cx, top, fw, fh, question) => {
+        const fx = cx - fw / 2;
+        ctx.strokeStyle = "rgba(60,36,18,0.6)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(fx, top, fw, fh);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(fx, top, fw, fh); ctx.clip();
+        const cy = top + fh * 0.6;
+        ctx.fillStyle = "rgba(40,24,12,0.7)";
+        ctx.beginPath(); ctx.ellipse(cx, cy + fh * 0.45, fw * 0.36, fh * 0.3, 0, Math.PI, 0); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx, cy, fh * 0.16, fh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx, cy - fh * 0.16, fh * 0.34, fh * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillRect(cx - fh * 0.15, cy - fh * 0.36, fh * 0.3, fh * 0.2);
+        if (question) {
+            ctx.fillStyle = "rgba(230,210,170,0.3)";
+            ctx.font = `700 ${Math.round(fh * 0.4)}px ${font}`;
+            ctx.fillText("?", cx, cy + fh * 0.04);
+        }
+        ctx.restore();
+    };
+
+    const rule = (y, half) => {
+        ctx.fillStyle = "rgba(60,36,18,0.5)";
+        ctx.fillRect(-half, y, half * 2, 2);
+    };
+
+    // Główny list gończy.
+    const main = list?.[0];
+    paper(WANTED_MAIN, !main, (pw, ph) => {
+        const top = -ph / 2, inner = pw - 60;
+        ctx.fillStyle = ink;
+        ctx.letterSpacing = "3px";
+        ctx.fillText(fitText(ctx, "MOST WANTED", inner, 44, 26, "700", font), 0, top + 52);
+        ctx.letterSpacing = "0px";
+        rule(top + 82, inner / 2);
+        sketch(0, top + 98, 150, 118, !main);
+        if (main) {
+            ctx.fillStyle = "#2c180b";
+            ctx.fillText(fitText(ctx, main.alias, inner, 52, 24, "700", font), 0, top + 262);
+            ctx.fillStyle = "rgba(60,36,18,0.85)";
+            ctx.fillText(fitText(ctx, "za rozmowę, która rozpaliła Saloon", inner, 22, 14, "italic 400", WANTED_SERIF), 0, top + 300);
+            rule(top + 322, inner / 2 - 40);
+            ctx.fillStyle = "#2c180b";
+            ctx.font = `700 27px ${WANTED_SERIF}`;
+            const lines = wrapText(ctx, `„${main.title}”`, inner, 4);
+            lines.forEach((text, i) => ctx.fillText(text, 0, top + 360 + i * 34));
+        } else {
+            ctx.fillStyle = "rgba(60,36,18,0.8)";
+            ctx.font = `italic 700 28px ${WANTED_SERIF}`;
+            const message = list ? "Tablica czeka na pierwszą rozmowę." : "";
+            wrapText(ctx, message, inner, 3).forEach((text, i) => ctx.fillText(text, 0, top + 280 + i * 36));
+        }
+    });
+
+    // Pozostali poszukiwani (#2–#5); wolne miejsca — anonimowe, wyblakłe listy.
+    WANTED_SMALL.forEach((slot, i) => {
+        const poster = list?.[i + 1];
+        paper(slot, !poster, (pw, ph) => {
+            const top = -ph / 2, inner = pw - 36;
+            ctx.fillStyle = ink;
+            ctx.letterSpacing = "2px";
+            ctx.fillText(fitText(ctx, "WANTED", pw - 96, 24, 16, "700", font), 0, top + 38);
+            ctx.letterSpacing = "0px";
+            sketch(0, top + 58, 98, 78, !poster);
+            ctx.fillStyle = "#8f2d20";
+            ctx.font = `700 19px ${font}`;
+            ctx.fillText(`#${i + 2}`, -pw / 2 + 28, top + 30);
+            if (poster) {
+                ctx.fillStyle = "#2c180b";
+                ctx.fillText(fitText(ctx, poster.alias, inner, 30, 16, "700", font), 0, top + 166);
+                ctx.font = `700 17px ${WANTED_SERIF}`;
+                wrapText(ctx, `„${poster.title}”`, inner, 2).forEach((text, l) => ctx.fillText(text, 0, top + 196 + l * 21));
+            } else {
+                ctx.fillStyle = "rgba(60,36,18,0.35)";
+                for (let l = 0; l < 3; l++) ctx.fillRect(-inner / 2 + 10, top + 162 + l * 18, inner - 20 - l * 24, 2);
+            }
+        });
+    });
+    ctx.restore();
 }
 
 // Rekwizyty stołu pojedynku (jedna tekstura, jedno wywołanie rysowania): pięć kart akcji, rewers, znacznik rundy,
@@ -982,7 +1077,8 @@ function buildWanted(root, b, M, font) {
     // Tablica na lewej ścianie (front w +x), widoczna z kadru głównego: rama z fazą, daszek na wspornikach, półka,
     // gwoździe w 3D przy listach gończych i neutralna, kierunkowa lampa pod daszkiem.
     const { center: [x, y, z], w, h } = ZONES.wanted.sign;
-    const board = plaque(wantedTexture(font), w, h);
+    const texture = wantedTexture(font);
+    const board = plaque(texture, w, h);
     board.position.set(x, y, z);
     board.rotation.y = Math.PI / 2;
     root.add(board);
@@ -993,10 +1089,11 @@ function buildWanted(root, b, M, font) {
     for (const s of [-1, 1]) b.box(M.trim, 0.42, 0.06, 0.06, -6.2, roofY - 0.14, z + s * (w / 2 + 0.2), 0, 0, 0.6);
     b.box(M.trim, 0.2, 0.07, w + 0.44, -6.26, y - h / 2 - 0.24, z);
 
-    // Gwoździe: nad każdym listem gończym (pozycje z tekstury 768×512) i w rogach tablicy.
+    // Gwoździe: przy pinezce każdego listu gończego (układ tekstury WANTED_CANVAS) i w rogach tablicy.
     const nails = [];
     const at = (u, v) => [x + 0.012, y + h / 2 - v * h, z - (u - 0.5) * w];
-    [[120, 128], [296, 146], [472, 128], [648, 146], [60, 410], [712, 422]].forEach(([px, py]) => nails.push(at(px / 768, py / 512)));
+    const [cw, ch] = WANTED_CANVAS;
+    for (const { x: px, y: py, h: ph } of [WANTED_MAIN, ...WANTED_SMALL]) nails.push(at(px / cw, (py - ph / 2 + 9) / ch));
     for (const [u, v] of [[0.02, 0.03], [0.98, 0.03], [0.02, 0.97], [0.98, 0.97]]) nails.push(at(u, v));
     for (const [nx, ny, nz] of nails) b.add(M.iron, cylinder(0.02, 0.02, 0.018, 10), nx, ny, nz, 0, 0, Math.PI / 2);   // w partii żelaza (bez osobnego draw calla)
 
@@ -1007,7 +1104,7 @@ function buildWanted(root, b, M, font) {
     light.position.set(-5.35, roofY - 0.1, z);
     light.target.position.set(-6.35, y - 0.1, z);
     root.add(light, light.target);
-    return { glows: [board.material], lights: [light], halos: [[-5.95, roofY - 0.3, z, 0.45]] };
+    return { glows: [board.material], lights: [light], halos: [[-5.95, roofY - 0.3, z, 0.45]], redraw: texture.userData.redraw };
 }
 
 function buildGame(root, b, M, font) {
@@ -1376,6 +1473,8 @@ function targetView(s) {
 // Scena podaje tylko rzut środków stref na ekran i kadr główny — diagnostyka i testy (klik w obiekt na canvas).
 function placeZoneButtons(s) {
     const w = s.host.clientWidth || 1, h = s.host.clientHeight || 1;
+    // Rzut z bieżącej pozycji kamery (koniec przejazdu jest liczony przed renderem, który dopiero odświeża macierze).
+    s.camera.updateMatrixWorld();
     const points = {};
     for (const [zone, { hit: [, center] }] of Object.entries(ZONES)) {
         const p = new THREE.Vector3(...center).project(s.camera);
@@ -1580,6 +1679,16 @@ export function focusArea(zone) {
     const done = moveTo(s, zoneView(zone, aspectOf(s)), 950);
     placeZoneButtons(s);
     return done;
+}
+
+// Tablica Wanted w scenie: przydomki i tytuły z rankingu (posters: [{ alias, title }], pierwszy = Most Wanted; pusta
+// lista — "Tablica czeka na pierwszą rozmowę."). Ta sama tekstura, przerysowana raz; jedna klatka renderu.
+export function setWanted(posters) {
+    const s = state;
+    if (!s || !Array.isArray(posters)) return;
+    s.zones.wanted.redraw(posters.slice(0, 1 + WANTED_SMALL.length).map(p => ({ alias: String(p.alias ?? ""), title: String(p.title ?? "") })));
+    s.debug.wanted = posters.map(p => p.alias);
+    s.dirty = true;
 }
 
 // Powrót do kadru głównego Main Hall.

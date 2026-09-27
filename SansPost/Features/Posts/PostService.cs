@@ -17,6 +17,9 @@ namespace SansPost.Features.Posts
 
         Task<IReadOnlyList<CategorySummaryResponse>> GetCategoriesAsync(CancellationToken cancellationToken = default);
 
+        // Tablica Wanted: do PostLimits.WantedSize najbardziej angażujących rozmów (ranking — patrz implementacja).
+        Task<IReadOnlyList<WantedPosterResponse>> GetWantedAsync(CancellationToken cancellationToken = default);
+
         Task<ServiceResult<PostDetailsResponse>> CreateAsync(int actorUserId, PostRequest request, CancellationToken cancellationToken = default);
 
         // expectedVersion = wersja, którą klient edytował (ETag / If-Match).
@@ -43,7 +46,12 @@ namespace SansPost.Features.Posts
 
         // Jedyne źródło publicznych odczytów postów — Hidden/Deleted nigdy tu nie trafiają.
         // Stała (nie parametr) w SQL: 'Published' pasuje do predykatu częściowych indeksów feedu.
-        private IQueryable<Post> PublishedPosts => _context.Posts.AsNoTracking().Where(p => p.Status == ContentStatus.Published);
+        private static readonly Expression<Func<Post, bool>> IsPublished = p => p.Status == ContentStatus.Published;
+
+        private IQueryable<Post> PublishedPosts => _context.Posts.AsNoTracking().Where(IsPublished);
+
+        // Autor, którego tablica Wanted może promować (konto aktywne) — jedna reguła dla plakatów i bramki uzupełnienia.
+        private static readonly Expression<Func<Post, bool>> HasPromotableAuthor = p => p.User.Status == AccountStatus.Active;
 
         // Posty wliczane do limitu: opublikowane i ukryte przez moderację (ukrycie nie zwalnia slotu),
         // bez usuniętych przez autora.
@@ -183,6 +191,131 @@ namespace SansPost.Features.Posts
             return ServiceResult<KeysetPage<PostSummaryResponse>>.Success(
                 new KeysetPage<PostSummaryResponse>(page.Select(r => r.Item).ToList(), nextCursor, hasMore));
         }
+
+        // Tablica Wanted — prosty, wyjaśnialny ranking na istniejących danych (bez nowej tabeli i bez wag):
+        //   engagementScore = reakcje + opublikowane komentarze (te same liczniki co feed),
+        //   remis: więcej reakcji → więcej komentarzy → nowsza rozmowa → wyższe PostId.
+        // Tablica pokazuje LUDZI przez ich najlepszą rozmowę: jeden autor = co najwyżej jeden plakat.
+        //   Okno: rozmowy z ostatnich WantedWindowDays dni; dla każdego autora jego najwyżej sklasyfikowana rozmowa
+        //   (w SQL: NOT EXISTS lepszej rozmowy tego samego autora w oknie), potem WantedSize najlepszych autorów tym
+        //   samym rankingiem.
+        //   Uzupełnienie (gdy w oknie jest mniej autorów niż WantedSize): autorzy BEZ rozmowy w oknie, każdy ze swoją
+        //   najnowszą wcześniejszą rozmową, najświeżsi pierwsi (InWindow = false) — zawsze pod autorami z okna,
+        //   między sobą tym samym rankingiem. Autor z oknem nigdy nie pojawia się drugi raz w uzupełnieniu.
+        // Widoczność: ten sam publiczny obieg co feed (PublishedPosts — ukryte i usunięte nie istnieją) i tylko konta
+        // aktywne: tablica promuje autora, więc konto zawieszone albo zbanowane nie trafia na plakat (jego rozmowy
+        // zostają tam, gdzie pokazuje je feed). Ukrycie najlepszej rozmowy autora promuje jego kolejną widoczną.
+        // Jedno zapytanie SQL: dwie gałęzie z LIMIT (UNION ALL), ranking i unikalność autorów w PostgreSQL.
+        public async Task<IReadOnlyList<WantedPosterResponse>> GetWantedAsync(CancellationToken cancellationToken = default)
+        {
+            var now = _time.GetUtcNow().UtcDateTime;
+            var windowStart = now.AddDays(-PostLimits.WantedWindowDays);
+            var candidates = PublishedPosts.Where(HasPromotableAuthor).Where(p => p.CreatedAt <= now);
+
+            // Rozmowy z okna z licznikami (skorelowane podzapytania po UX_likes_post_user / IX_comments_post_thread).
+            var scored = candidates
+                .Where(p => p.CreatedAt > windowStart)
+                .Select(p => new WantedCandidate
+                {
+                    Post = p,
+                    Reactions = _context.Likes.Count(l => l.PostId == p.Id),
+                    Comments = _context.Comments.Count(c => c.PostId == p.Id && c.Status == ContentStatus.Published)
+                });
+
+            // Najlepsza rozmowa autora = nie istnieje rozmowa tego samego autora w oknie, która stoi wyżej w rankingu
+            // (wynik → reakcje → komentarze → nowsza → wyższe Id; to ten sam porządek co między autorami).
+            var week = scored
+                .Where(x => !scored.Any(y => y.Post.UserId == x.Post.UserId && y.Post.Id != x.Post.Id
+                    && (y.Reactions + y.Comments > x.Reactions + x.Comments
+                        || (y.Reactions + y.Comments == x.Reactions + x.Comments
+                            && (y.Reactions > x.Reactions
+                                || (y.Reactions == x.Reactions
+                                    && (y.Comments > x.Comments
+                                        || (y.Comments == x.Comments
+                                            && (y.Post.CreatedAt > x.Post.CreatedAt
+                                                || (y.Post.CreatedAt == x.Post.CreatedAt && y.Post.Id > x.Post.Id))))))))))
+                .OrderByDescending(x => x.Reactions + x.Comments)
+                .ThenByDescending(x => x.Reactions)
+                .ThenByDescending(x => x.Comments)
+                .ThenByDescending(x => x.Post.CreatedAt)
+                .ThenByDescending(x => x.Post.Id)
+                .Select(x => x.Post)
+                .Select(ToWantedRow)
+                .Take(PostLimits.WantedSize);
+
+            // Najnowsza wcześniejsza rozmowa autora bez rozmowy w oknie: brak nowszej (albo tak samo starej o wyższym Id)
+            // rozmowy tego autora — anty-złączenie po IX_posts_author_feed, skan IX_posts_feed kończy się po LIMIT.
+            // Gałąź działa tylko wtedy, gdy w oknie jest mniej autorów niż plakatów: warunek bez odwołania do wiersza
+            // PostgreSQL liczy raz (One-Time Filter), więc przy pełnym oknie archiwum nie jest w ogóle skanowane.
+            // Podzapytanie zaczyna się od DbSet w samym wyrażeniu (te same reguły: IsPublished, HasPromotableAuthor) —
+            // zmienną IQueryable z .Count() EF wykonałby osobno, po stronie klienta, zamiast wysłać ją w tym samym SQL.
+            var older = candidates
+                .Where(p => _context.Posts.Where(IsPublished).Where(HasPromotableAuthor)
+                        .Where(w => w.CreatedAt > windowStart && w.CreatedAt <= now)
+                        .Select(w => w.UserId).Distinct().Count() < PostLimits.WantedSize
+                    && p.CreatedAt <= windowStart
+                    && !candidates.Any(n => n.UserId == p.UserId
+                        && (n.CreatedAt > p.CreatedAt || (n.CreatedAt == p.CreatedAt && n.Id > p.Id))))
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
+                .Select(ToWantedRow)
+                .Take(PostLimits.WantedSize);
+
+            var rows = await week.Concat(older).ToListAsync(cancellationToken);
+
+            // Kolejność końcowa (najwyżej 2 × WantedSize wierszy, już wybranych w SQL): autorzy z okna, potem uzupełnienie.
+            var inWindow = rows.Where(r => r.CreatedAt > windowStart).ToList();
+            var fill = rows.Where(r => r.CreatedAt <= windowStart)
+                .OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.PostId)
+                .Take(PostLimits.WantedSize - inWindow.Count);
+
+            return Ranked(inWindow).Concat(Ranked(fill))
+                .Select((r, index) => new WantedPosterResponse(r.PostId, index + 1, r.Alias, r.Title, r.Category, r.CreatedAt,
+                    r.Reactions, r.Comments, r.Preview, r.CreatedAt > windowStart))
+                .ToList();
+
+            static IEnumerable<WantedRow> Ranked(IEnumerable<WantedRow> rows) => rows
+                .OrderByDescending(r => r.Reactions + r.Comments)
+                .ThenByDescending(r => r.Reactions)
+                .ThenByDescending(r => r.Comments)
+                .ThenByDescending(r => r.CreatedAt)
+                .ThenByDescending(r => r.PostId);
+        }
+
+        // Rozmowa z okna z licznikami — do wyboru najlepszej rozmowy autora i rankingu autorów w SQL.
+        private sealed class WantedCandidate
+        {
+            public Post Post { get; init; } = null!;
+            public int Reactions { get; init; }
+            public int Comments { get; init; }
+        }
+
+        // Wiersz plakatu: liczniki jako skorelowane podzapytania (jak ToSummary), fragment liczony w SQL.
+        private sealed class WantedRow
+        {
+            public int PostId { get; init; }
+            public string Alias { get; init; } = "";
+            public string Title { get; init; } = "";
+            public PostCategory Category { get; init; }
+            public DateTime CreatedAt { get; init; }
+            public int Reactions { get; init; }
+            public int Comments { get; init; }
+            public string Preview { get; init; } = "";
+        }
+
+        private Expression<Func<Post, WantedRow>> ToWantedRow => p => new WantedRow
+        {
+            PostId = p.Id,
+            Alias = p.User.Username,
+            Title = p.Title,
+            Category = p.Category,
+            CreatedAt = p.CreatedAt,
+            Reactions = _context.Likes.Count(l => l.PostId == p.Id),
+            Comments = _context.Comments.Count(c => c.PostId == p.Id && c.Status == ContentStatus.Published),
+            Preview = p.Content.Length > PostLimits.WantedPreviewLength
+                ? p.Content.Substring(0, PostLimits.WantedPreviewLength).TrimEnd() + "…"
+                : p.Content
+        };
 
         public async Task<IReadOnlyList<CategorySummaryResponse>> GetCategoriesAsync(CancellationToken cancellationToken = default)
         {

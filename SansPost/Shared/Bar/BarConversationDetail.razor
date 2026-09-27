@@ -1,15 +1,15 @@
 @* Rozmowa przy barze: post, reakcje i dyskusja w oknie BAR (sala 3D widoczna obok). Treść i wszystkie akcje
    (komentarze, edycja, usuwanie, zgłoszenia, reakcje, uprawnienia) — wspólny PostConversation, ten sam co na
-   klasycznej stronie /post-view/{id}. Tu tylko powrót do listy, z której rozmowę otwarto. *@
+   klasycznej stronie /post-view/{id}. Tu tylko powrót do listy (albo tablicy Wanted), z której rozmowę otwarto. *@
 <div class="bar-conversation">
-    <button type="button" class="bar-back" aria-label="@($"Wróć do rozmów w barze: {OriginTitle}")" @onclick="OnBack">
-        <Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do rozmów w barze
+    <button type="button" class="bar-back" aria-label="@(OriginTitle == BackLabel ? null : $"{BackLabel}: {OriginTitle}")" @onclick="OnBack">
+        <Icon Name="@Icons.ArrowLeft" Size="16" /> @BackLabel
     </button>
 
     <PostConversation PostId="PostId" HeadingLevel="3" TitleId="bar-conversation-title" IdPrefix="bar-"
                       LoginReturnUrl="@ReturnUrl" SetPageTitle="false" CommentsLink="false" ScrollToFragment="false">
         <Unavailable>
-            <button type="button" class="btn" @onclick="OnBack">Wróć do rozmów w barze</button>
+            <button type="button" class="btn" @onclick="OnBack">@BackLabel</button>
         </Unavailable>
     </PostConversation>
 </div>
@@ -19,6 +19,9 @@
 
     // Nazwa listy, do której prowadzi powrót (np. "Popularne rozmowy", "Technologia", "Wyniki: „docker”").
     [Parameter] public string OriginTitle { get; set; } = "Karta rozmów";
+
+    // Powrót do poziomu, z którego otwarto rozmowę — lista w barze albo tablica Wanted (Sprint 17).
+    [Parameter] public string BackLabel { get; set; } = "Wróć do rozmów w barze";
 
     // Adres tej rozmowy w sali — powrót po zalogowaniu (formularz komentarza, reakcja gościa).
     [Parameter] public string? ReturnUrl { get; set; }

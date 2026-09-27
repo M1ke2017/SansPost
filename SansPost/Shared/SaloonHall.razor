@@ -1,10 +1,13 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject UiServices Ui
+@inject ILogger<SaloonHall> Logger
 
 @* Saloon Main Hall 3D (Sprint 15): sala Three.js (js/saloon3d.js) z czterema strefami. Canvas jest tylko obrazem sali —
    każda strefa ma prawdziwy przycisk HTML (Tab, Enter/Spacja, fokus widoczny), a treść zostaje HTML-em/Blazorem:
-   BAR otwiera istniejący feed w panelu (natywny <dialog>: Escape, "Zamknij", powrót fokusu), pozostałe strefy — "Wkrótce".
+   BAR otwiera istniejący feed w panelu (natywny <dialog>: Escape, "Zamknij", powrót fokusu), tablica Wanted (Sprint 17)
+   — najciekawsze rozmowy tygodnia w tym samym oknie, pozostałe strefy — "Wkrótce".
    Do decyzji renderera sala jest w stanie Pending (warstwa z logo, bez klasycznego feedu); OnDecided("3d" | "css")
    dostaje strona /saloon dopiero wtedy, gdy pierwsza klatka jest narysowana albo zapadła decyzja fallback. *@
 <section class="saloon-hall @(ready ? "is-ready" : "")" aria-labelledby="hall-title" aria-describedby="hall-description" @onkeydown="OnKeyDownAsync">
@@ -51,9 +54,9 @@
         @foreach (var zone in Zones)
         {
             <button type="button" class="hall-zone @(zone.Id == "bar" ? "is-primary" : "")" data-zone="@zone.Id"
-                    aria-haspopup="@(zone.Id == "bar" ? "dialog" : null)"
-                    aria-expanded="@(zone.Id == "bar" ? null : note == zone ? "true" : "false")"
-                    aria-controls="@(zone.Id == "bar" ? null : "hall-note")"
+                    aria-haspopup="@(zone.Note is null ? "dialog" : null)"
+                    aria-expanded="@(zone.Note is null ? null : note == zone ? "true" : "false")"
+                    aria-controls="@(zone.Note is null ? null : "hall-note")"
                     @onclick="() => SelectZoneAsync(zone.Id)">
                 <span class="hall-zone-name">@zone.Name</span>
                 <span class="hall-zone-hint">@zone.Hint</span>
@@ -91,13 +94,16 @@
                         OnRegisteredWithoutSignIn="() => loginCard!.ShowAsync(afterRegistration: true)" OnClosed="CornerCardClosedAsync" />
 }
 
-@* BAR: Karta rozmów i jej poziomy (stan w adresie /saloon?bar=…). Kamera podchodzi do baru, zanim okno się otworzy. *@
-<BarConversationPanel @ref="barPanel" State="Bar" Featured="Featured" Categories="Categories" OnClosed="OnBarClosedAsync" />
+@* BAR: Karta rozmów i jej poziomy (stan w adresie /saloon?bar=…) oraz tablica Wanted (/saloon?wanted=…) — to samo okno.
+   Kamera podchodzi do strefy, zanim okno się otworzy. *@
+<BarConversationPanel @ref="barPanel" State="Bar" Featured="Featured" Categories="Categories" OnClosed="OnBarClosedAsync"
+                      OnWantedLoaded="ShowWantedOnBoardAsync" />
 
 @code {
     [CascadingParameter] private ViewerContext? Viewer { get; set; }
 
-    // Stan BAR z adresu (null = bar zamknięty) i dane Karty rozmów, które strona /saloon ma już wczytane.
+    // Stan okna sali z adresu — BAR albo tablica Wanted (null = okno zamknięte) i dane Karty rozmów, które strona
+    // /saloon ma już wczytane.
     [Parameter] public BarState? Bar { get; set; }
     [Parameter] public PostCardModel? Featured { get; set; }
     [Parameter] public IReadOnlyList<CategorySummaryResponse>? Categories { get; set; }
@@ -117,7 +123,7 @@
     private static readonly Zone[] Zones =
     {
         new("bar", "Bar", "rozmowy", null),
-        new("wanted", "Tablica Wanted", "wkrótce", "Zawisną tu najciekawsze rozmowy tygodnia. Na razie tablica czeka na pierwsze listy gończe."),
+        new("wanted", "Tablica Wanted", "najlepsze rozmowy", null),
         new("game", "Stół gry", "wkrótce", "Szybkie pojedynki jeden na jeden. Karty są już rozdane — brakuje tylko graczy."),
         new("music", "Kącik muzyczny", "wkrótce", "Zagra tu radio country. Pianino jest nastrojone, gramofon czeka na płytę.")
     };
@@ -140,6 +146,10 @@
     private bool barDirty;
     private bool barSyncing;
     private int barOpenings;
+    // Strefa, przy której stoi otwarte okno ("bar" / "wanted") — kamera i fokus po zamknięciu.
+    private string openZone = "bar";
+    // Plakaty pokazane na tablicy 3D (PostId, przydomek, tytuł) — bez ponownego rysowania tekstury przy tym samym wyniku.
+    private string? boardKey;
 
     protected override void OnParametersSet() => barDirty = true;
 
@@ -160,10 +170,12 @@
             var arrived = await JS.InvokeAsync<bool>("sansPost.takeDoorArrival");
             // Wejście prosto do baru (link, "wstecz" z posta) — kamera od razu przy barze, okno po pierwszej klatce.
             restoreBar = Bar is not null;
+            if (restoreBar)
+                openZone = Bar!.Zone;
             helperCompact = await JS.InvokeAsync<bool>("sansPost.hallOnboarded", false);
             module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/saloon3d.js");
             decision = await module.InvokeAsync<RendererDecision>("init", host,
-                new { force = Force, known3d = Known3d, zones = zonesElement, dotnet = self, arrived, area = restoreBar ? "bar" : null });
+                new { force = Force, known3d = Known3d, zones = zonesElement, dotnet = self, arrived, area = restoreBar ? openZone : null });
         }
         catch (JSDisconnectedException)
         {
@@ -186,6 +198,47 @@
         StateHasChanged();
         if (restoreBar)
             await barPanel!.ShowAsync();
+
+        // Tablica 3D: aktualny Most Wanted na głównym plakacie (jedno zapytanie po narysowaniu sali; okno Wanted
+        // odświeża go przy każdym otwarciu). Gdy tablica jest otwarta od razu, wynik przyjdzie z okna.
+        if (Bar?.IsWanted != true)
+            await LoadBoardAsync();
+    }
+
+    private async Task LoadBoardAsync()
+    {
+        IReadOnlyList<WantedPosterResponse> posters;
+        try
+        {
+            posters = await Ui.Run((IPostService s) => s.GetWantedAsync());
+        }
+        catch (Exception ex)
+        {
+            // Tablica w scenie to dodatek — sala działa bez niego (zostają puste listy gończe).
+            Logger.LogWarning(ex, "Nie udało się wczytać plakatów tablicy Wanted do sceny.");
+            return;
+        }
+        await ShowWantedOnBoardAsync(posters);
+    }
+
+    // Plakaty na tablicy 3D: jedna tekstura (canvas) przerysowana tylko przy zmianie wyniku.
+    private async Task ShowWantedOnBoardAsync(IReadOnlyList<WantedPosterResponse> posters)
+    {
+        var shownPosters = posters.Take(5).Select(p => new { alias = p.Alias, title = p.Title }).ToList();
+        var key = string.Join("\u0001", posters.Take(5).Select(p => $"{p.PostId}:{p.Alias}:{p.Title}"));
+        if (module is null || key == boardKey)
+            return;
+        boardKey = key;
+        try
+        {
+            await module.InvokeVoidAsync("setWanted", shownPosters);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
     }
 
     // Okno BAR nadąża za adresem: otwarcie (kamera podchodzi, potem Karta rozmów) albo zamknięcie (kamera wraca).
@@ -205,8 +258,9 @@
                     barOpenings++;
                     note = null;
                     busy = true;
+                    openZone = Bar.Zone;
                     if (module is not null)
-                        await module.InvokeVoidAsync("focusArea", "bar");
+                        await module.InvokeVoidAsync("focusArea", openZone);
                     busy = false;
                     if (Bar is not null)
                         await barPanel.ShowAsync();
@@ -216,6 +270,13 @@
                 else if (Bar is null && barPanel!.IsOpen)
                 {
                     await barPanel.CloseAsync();
+                }
+                else if (Bar is not null && Bar.Zone != openZone)
+                {
+                    // Okno zostaje, zmienia się strefa (np. adres BAR ↔ Wanted wpisany ręcznie) — kamera do nowej strefy.
+                    openZone = Bar.Zone;
+                    if (module is not null)
+                        await module.InvokeVoidAsync("focusArea", openZone);
                 }
             }
         }
@@ -241,13 +302,14 @@
         if (!ready || busy || barPanel?.IsOpen == true || Bar is not null || Zones.All(z => z.Id != zoneId))
             return;
 
-        if (zoneId == "bar")
+        if (zoneId is "bar" or "wanted")
         {
-            // Bar to poziom w historii (/saloon?bar=menu): "wstecz" zamyka go jak Escape. Kamera i okno — SyncBarAsync.
+            // Bar i tablica Wanted to poziomy w historii (/saloon?bar=menu, /saloon?wanted=board): "wstecz" zamyka je
+            // jak Escape. Kamera i okno — SyncBarAsync. Przycisk paska, szyld i obiekt w scenie — ta sama ścieżka.
             openedFromCanvas = fromCanvas;
             note = null;
             await CompleteOnboardingAsync();
-            BarNavigation.Push(Navigation, BarState.Menu);
+            BarNavigation.Push(Navigation, zoneId == "bar" ? BarState.Menu : BarState.Wanted);
             return;
         }
 
@@ -321,7 +383,8 @@
             await JS.InvokeVoidAsync("sansPost.focusSelector", $".hall-zone[data-zone='{zone}']");
     }
 
-    // Okno BAR zamknięte: kamera wraca do kadru głównego, fokus na przycisk BAR (chyba że bar otwarto kliknięciem w scenę).
+    // Okno zamknięte: kamera wraca do kadru głównego, fokus na przycisk strefy, która je otworzyła — BAR albo tablica Wanted
+    // (chyba że okno otwarto kliknięciem w scenę).
     // Gdy okno zamknęła sama przeglądarka (adres wciąż z barem) — adres też wraca do sali.
     // Kolejność ma znaczenie: stan sprawdzony przed jakimkolwiek await (w trakcie powrotu kamery bar można otworzyć
     // ponownie — to nowe otwarcie nie może zostać zamknięte), fokus od razu, kamera na końcu.
@@ -334,7 +397,7 @@
         try
         {
             if (focusBar)
-                await JS.InvokeVoidAsync("sansPost.focusSelector", ".hall-zone[data-zone='bar']");
+                await JS.InvokeVoidAsync("sansPost.focusSelector", $".hall-zone[data-zone='{openZone}']");
             if (urlStillHasBar)
                 await BarNavigation.CloseAsync(Navigation, JS);
         }

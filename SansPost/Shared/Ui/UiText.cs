@@ -19,6 +19,7 @@ namespace SansPost.Shared.Ui
         public static string Posts(int count) => Plural(count, "post", "posty", "postów");
         public static string Comments(int count) => Plural(count, "komentarz", "komentarze", "komentarzy");
         public static string Likes(int count) => Plural(count, "polubienie", "polubienia", "polubień");
+        public static string Reactions(int count) => Plural(count, "reakcja", "reakcje", "reakcji");
 
         public static string Number(int value) => value.ToString("N0", Polish);
 

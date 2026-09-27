@@ -71,6 +71,26 @@ namespace SansPost.Features.Posts
         int CommentCount,
         bool LikedByCurrentUser);
 
+    // Plakat na tablicy Wanted — wyłącznie dane prezentacyjne: przydomek (publiczny), bez AuthorId, emaila i danych konta.
+    // Rank 1 = główny Most Wanted. InWindow = rozmowa z ostatnich PostLimits.WantedWindowDays dni; false — uzupełnienie
+    // tablicy najnowszą starszą rozmową, gdy w oknie jest za mało rozmów. Preview kończy się "…", gdy treść jest dłuższa.
+    public sealed record WantedPosterResponse(
+        int PostId,
+        int Rank,
+        string Alias,
+        string Title,
+        PostCategory Category,
+        DateTime CreatedAt,
+        int ReactionCount,
+        int CommentCount,
+        string Preview,
+        bool InWindow)
+    {
+        public bool IsFeatured => Rank == 1;
+
+        public int EngagementScore => ReactionCount + CommentCount;
+    }
+
     public sealed record PostQuotaResponse(int Limit, int Used, int Remaining);
 
     // Discovery kategorii: wszystkie wartości zamkniętego zestawu, także bez postów.

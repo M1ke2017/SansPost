@@ -9,6 +9,13 @@ namespace SansPost.Tests.Postgres
     {
         public List<(string Sql, NpgsqlParameter[] Parameters)> Commands { get; } = new();
 
+        // Także polecenia synchroniczne — np. podzapytanie, które EF wykonałby po cichu przy budowaniu zapytania.
+        public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+        {
+            Commands.Add((command.CommandText, command.Parameters.Cast<NpgsqlParameter>().Select(p => p.Clone()).ToArray()));
+            return base.ReaderExecuting(command, eventData, result);
+        }
+
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
             DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {

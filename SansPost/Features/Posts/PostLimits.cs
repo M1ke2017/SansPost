@@ -26,5 +26,11 @@ namespace SansPost.Features.Posts
 
         // Score w SQL mnożony i zaokrąglany do bigint → dokładny, deterministyczny klucz kursora.
         public const double ScoreScale = 1000.0;
+
+        // Tablica Wanted: ranking reakcje + komentarze z ostatnich WantedWindowDays dni, WantedSize plakatów
+        // (główny Most Wanted + pozostali poszukiwani), krótki fragment rozmowy na plakacie.
+        public const int WantedWindowDays = 7;
+        public const int WantedSize = 5;
+        public const int WantedPreviewLength = 180;
     }
 }

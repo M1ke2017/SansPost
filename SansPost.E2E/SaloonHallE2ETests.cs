@@ -310,8 +310,8 @@ namespace SansPost.E2E
 
         // Obiekt w sali (canvas) i przycisk paska prowadzą do tej samej ścieżki: kamera podchodzi, "Wkrótce", przycisk
         // strefy aria-expanded. Po kliknięciu w scenę fokus nie jest przerzucany na pasek (zostaje w sali).
+        // Tablica Wanted od Sprintu 17 otwiera okno tablicy — WantedBoardE2ETests.
         [Theory]
-        [InlineData("wanted", "Tablica Wanted")]
         [InlineData("game", "Stół gry")]
         [InlineData("music", "Kącik muzyczny")]
         public async Task PlaceholderZones_FromSceneObject_SameFlowAsHelperBar(string zone, string title)
@@ -404,10 +404,9 @@ namespace SansPost.E2E
             await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
         }
 
-        // ---- WANTED / GAME / MUSIC ---------------------------------------------------------------------------
+        // ---- GAME / MUSIC (Wanted — WantedBoardE2ETests) -------------------------------------------------------
 
         [Theory]
-        [InlineData("wanted", "Tablica Wanted")]
         [InlineData("game", "Stół gry")]
         [InlineData("music", "Kącik muzyczny")]
         public async Task PlaceholderZones_ShowComingSoon_ThenBackToHall(string zone, string title)
@@ -498,7 +497,7 @@ namespace SansPost.E2E
             await Expect(page.Locator(".hall-corner")).ToBeHiddenAsync();
             await Ui.AssertNoHorizontalOverflowAsync(page, $"sala {width}");
 
-            foreach (var zone in new[] { "wanted", "game", "music" })
+            foreach (var zone in new[] { "game", "music" })
             {
                 await Zone(page, zone).ClickAsync();
                 var note = page.Locator("#hall-note .hall-note");
