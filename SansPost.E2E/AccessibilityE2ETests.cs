@@ -71,18 +71,41 @@ namespace SansPost.E2E
                 await scene.WaitForTimeoutAsync(700);   // przenikanie CSS → WebGL
                 await AuditAsync(scene, $"Entrance 3D ({scheme})");
 
-                // Sprint 15: Main Hall 3D (wymuszona) z przyciskami stref, potem otwarty panel baru z feedem.
+                // Sprint 15/16: Main Hall 3D (wymuszona) z przyciskami stref, potem BAR: Karta rozmów, lista i wyniki wyszukiwania.
                 await Ui.GotoAsync(scene, "/saloon?scene=3d");
                 await Expect(scene.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = 20_000 });
                 await scene.WaitForTimeoutAsync(500);   // przenikanie Pending → sala
                 await AuditAsync(scene, $"Main Hall 3D ({scheme})");
                 await scene.Locator(".hall-zone[data-zone='bar']").ClickAsync();
+                await Expect(scene.Locator("dialog[open] [data-bar-item='newest']")).ToBeVisibleAsync();
+                await scene.Locator("dialog[open]").EvaluateAsync("d => Promise.allSettled(d.getAnimations({ subtree: true }).map(a => a.finished))");
+                await AuditAsync(scene, $"BAR — Karta rozmów ({scheme})");
+                await scene.Locator("dialog[open] [data-bar-item='topic-technology']").ClickAsync();
                 await Expect(scene.Locator("dialog[open] .post-card").First).ToBeVisibleAsync();
-                await scene.Locator("dialog[open]").EvaluateAsync("d => Promise.all(d.getAnimations({ subtree: true }).map(a => a.finished))");
-                await AuditAsync(scene, $"Main Hall bar panel ({scheme})");
+                await AuditAsync(scene, $"BAR — temat ({scheme})");
+                // Sprint 16B: rozmowa w oknie BAR (post, reakcje, komentarze) — z listy tematu, potem Escape do listy.
+                await scene.Locator("dialog[open] .post-card-title a").First.ClickAsync();
+                await Expect(scene.Locator("#bar-conversation-title")).ToBeFocusedAsync();
+                await AuditAsync(scene, $"BAR — rozmowa ({scheme})");
+                await scene.Keyboard.PressAsync("Escape");
+                await Expect(scene.Locator("#bar-level-title")).ToHaveTextAsync("Technologia");
+                // Sprint 16B-FIX: karty logowania i rejestracji w BAR (gość), potem Escape do tematu.
+                await scene.Locator("dialog[open] .bar-list a[href^='/login']").First.ClickAsync();
+                await Expect(scene.Locator("#bar-login-email")).ToBeFocusedAsync();
+                await AuditAsync(scene, $"BAR — logowanie ({scheme})");
+                await scene.Locator("dialog[open] .bar-auth .card-link").ClickAsync();
+                await Expect(scene.Locator("#bar-register-email")).ToBeVisibleAsync();
+                await AuditAsync(scene, $"BAR — rejestracja ({scheme})");
+                await scene.Locator("#bar-register-email").FocusAsync();
+                await scene.Keyboard.PressAsync("Escape");
+                await Expect(scene.Locator("#bar-level-title")).ToHaveTextAsync("Technologia");
+                await scene.Locator("#bar-search-input").FillAsync("rozmowa");
+                await scene.Locator("#bar-search-input").PressAsync("Enter");
+                await scene.WaitForFunctionAsync("() => document.querySelector('dialog[open] .search-results') && !document.querySelector('#bar-search-hint .spinner')");
+                await AuditAsync(scene, $"BAR — wyniki wyszukiwania ({scheme})");
 
                 // Sprint 15C: zapowiedź strefy "Wkrótce" i pasek stref po onboardingu (kompaktowy).
-                await scene.Keyboard.PressAsync("Escape");
+                await scene.Locator("dialog[open]").GetByRole(AriaRole.Button, new() { Name = "Zamknij okno" }).ClickAsync();
                 await Expect(scene.Locator("dialog[open]")).ToHaveCountAsync(0);
                 await scene.Locator(".hall-zone[data-zone='wanted']").ClickAsync();
                 await Expect(scene.Locator("#hall-note .hall-note")).ToBeVisibleAsync();

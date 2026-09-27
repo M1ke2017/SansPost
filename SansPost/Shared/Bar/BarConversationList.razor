@@ -1,0 +1,55 @@
+@* Lista rozmów w BAR: Najnowsze / Popularne / Wszystkie / temat — istniejący feed (FeedList: paginacja keyset,
+   sortowanie, limity po stronie serwisu) w kompaktowych kartach. "Wszystkie" to discovery feed z przypiętym postem;
+   w temacie i we "Wszystkich" sortowanie zmienia tylko parametr adresu (ten sam poziom, bez nowego wpisu historii). *@
+<div class="bar-list stack">
+    <p class="bar-level-intro">@Intro</p>
+
+    @if (State.View is BarView.All or BarView.Topic)
+    {
+        <div class="segmented" role="group" aria-label="Sortowanie rozmów">
+            <button type="button" aria-pressed="@(State.Sort == PostSort.Newest ? "true" : "false")" @onclick="() => SetSort(PostSort.Newest)">
+                <Icon Name="@Icons.Clock" Size="16" /> Najnowsze
+            </button>
+            <button type="button" aria-pressed="@(State.Sort == PostSort.Popular ? "true" : "false")" @onclick="() => SetSort(PostSort.Popular)">
+                <Icon Name="@Icons.Trending" Size="16" /> Popularne
+            </button>
+        </div>
+    }
+
+    @if (State.View == BarView.Topic)
+    {
+        <BarStartConversation Category="State.Category" />
+    }
+
+    @if (State.View == BarView.All && Featured is not null)
+    {
+        <PostCard Post="Featured" Featured="true" Compact="true" HeadingLevel="4" />
+    }
+
+    <FeedList Category="State.Category" Sort="State.Sort" Compact="true" HeadingLevel="4"
+              ExcludePostId="@(State.View == BarView.All ? Featured?.Id : null)" Label="@State.Title">
+        <Empty>
+            <EmptyState Title="@(State.Category is PostCategory c ? $"Nikt jeszcze nie pisał o temacie {c.DisplayName()}" : "Bar jeszcze czeka na pierwszą rozmowę")"
+                        Text="Zacznij pierwszą rozmowę — pojawi się tutaj.">
+                <BarStartConversation Category="State.Category" />
+            </EmptyState>
+        </Empty>
+    </FeedList>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BarState State { get; set; } = default!;
+    [Parameter] public PostCardModel? Featured { get; set; }
+    [Parameter] public EventCallback<BarState> OnChange { get; set; }
+
+    private string Intro => State.View switch
+    {
+        BarView.Newest => "Świeże wpisy ze wszystkich tematów, od najnowszych.",
+        BarView.Popular => "Rozmowy z największą liczbą reakcji.",
+        BarView.All => "Cały bar: przypięta rozmowa i wszystko, o czym się tu mówi.",
+        BarView.Topic => CategoryMeta.Description(State.Category!.Value),
+        _ => ""
+    };
+
+    private Task SetSort(PostSort sort) => OnChange.InvokeAsync(State with { Sort = sort });
+}

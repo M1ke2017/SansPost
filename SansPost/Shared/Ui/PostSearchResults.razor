@@ -1,0 +1,274 @@
+@using SansPost.Features.Search
+@inject UiServices Ui
+@inject IJSRuntime JS
+@inject ILogger<PostSearchResults> Logger
+@inject SearchRateLimiter SearchLimiter
+
+@* Wyniki wyszukiwania (PostgreSQL FTS przez SearchService) — wspólne dla strony /search i BAR w Main Hall.
+   Frazę i kategorię podaje właściciel (z adresu); tu: wspólny limit wyszukiwań, anulowanie starszych odpowiedzi
+   (numer zapytania), stany ładowania / za krótkiej frazy / pusty / błędu i "Więcej wyników" (kursor z serwera).
+   Wyszukiwanie tylko w circuicie: prerender pokazuje "Szukanie…", więc jedno wejście = jedno zapytanie i jedno użycie limitu. *@
+<p id="@HintId" class="text-sm subtle search-hint" role="status" aria-live="polite">
+    @if (isSearching)
+    {
+        <span class="cluster"><span class="spinner" aria-hidden="true" style="width: 14px; height: 14px"></span> Szukanie…</span>
+    }
+    else if (tooShort)
+    {
+        <span>Wpisz co najmniej @SearchLimits.QueryMinLength znaki.</span>
+    }
+    else if (hasSearched && error is null)
+    {
+        <span>@ResultSummary</span>
+    }
+</p>
+
+@if (error is not null)
+{
+    <Alert Variant="@errorVariant">@error</Alert>
+}
+else if (hasSearched)
+{
+    <div class="stack-lg search-results">
+        @if (authors.Count > 0)
+        {
+            <section aria-labelledby="@($"{HintId}-authors")" class="stack-sm">
+                <h2 id="@($"{HintId}-authors")" class="section-title">Autorzy</h2>
+                <ul class="author-chips list-plain">
+                    @foreach (var author in authors)
+                    {
+                        <li @key="author.UserId">
+                            <a class="author-chip" href="@UiText.ProfileUrl(author.Username)">
+                                <Avatar Username="@author.Username" Size="sm" />
+                                <span class="truncate">@author.Username</span>
+                                <span class="subtle text-xs nowrap">@UiText.Posts(author.PostCount)</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+
+        <section aria-labelledby="@($"{HintId}-posts")" class="stack-sm">
+            <h2 id="@($"{HintId}-posts")" class="@(ShowSectionHeadings ? "section-title" : "visually-hidden")">@PostsHeading</h2>
+            @if (results.Count == 0)
+            {
+                <EmptyState Title="@($"Brak {EmptyNoun} dla „{Trimmed}”")" IconName="@Icons.Search"
+                            Text="@(Category is PostCategory c ? $"W kategorii {c.DisplayName()} nic nie pasuje. Spróbuj bez filtra kategorii albo innych słów." : "Spróbuj innych lub krótszych słów.")">
+                    @if (Category is not null && OnClearCategory.HasDelegate)
+                    {
+                        <button type="button" class="btn" @onclick="OnClearCategory">Szukaj we wszystkich kategoriach</button>
+                    }
+                    @if (OnClear.HasDelegate)
+                    {
+                        <button type="button" class="btn btn-ghost" @onclick="OnClear">Wyczyść wyszukiwanie</button>
+                    }
+                </EmptyState>
+            }
+            else
+            {
+                <ul class="post-list @(Compact ? "is-compact" : "")" aria-label="Wyniki wyszukiwania">
+                    @foreach (var item in results)
+                    {
+                        <li @key="item.Id" id="@($"{HintId}-result-{item.Id}")"><PostCard Post="item" HeadingLevel="ItemHeadingLevel" Compact="Compact" /></li>
+                    }
+                </ul>
+                <LoadMore HasMore="nextCursor is not null" IsLoading="isLoadingMore" OnClick="LoadMoreAsync" Label="Więcej wyników" Status="@moreStatus" />
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+    [CascadingParameter(Name = "ClientAddress")] private string? ClientAddress { get; set; }
+
+    [Parameter] public string? Query { get; set; }
+    [Parameter] public PostCategory? Category { get; set; }
+
+    // Id elementu statusu (aria-describedby pola wyszukiwania) — także prefiks id sekcji i wyników.
+    [Parameter, EditorRequired] public string HintId { get; set; } = "";
+
+    // Strona /search: autorzy i nagłówki sekcji; BAR: same rozmowy w kompaktowej liście.
+    [Parameter] public bool ShowAuthors { get; set; } = true;
+    [Parameter] public bool ShowSectionHeadings { get; set; } = true;
+    [Parameter] public string PostsHeading { get; set; } = "Posty";
+    [Parameter] public string EmptyNoun { get; set; } = "postów";
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public int ItemHeadingLevel { get; set; } = 3;
+
+    [Parameter] public EventCallback OnClearCategory { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+
+    private (string, PostCategory?) searchedFor = ("\0", null);
+    private int searchSequence;
+    private bool interactive;
+
+    private readonly List<PostCardModel> results = new();
+    private readonly List<UserSearchResult> authors = new();
+    private string? nextCursor;
+    private bool isSearching;
+    private bool isLoadingMore;
+    private bool hasSearched;
+    private bool tooShort;
+    private string? error;
+    private AlertVariant errorVariant = AlertVariant.Warning;
+    private string? moreStatus;
+
+    private string Trimmed => Query?.Trim() ?? "";
+
+    private string ResultSummary => results.Count == 0 && authors.Count == 0
+        ? "Brak wyników."
+        : $"{(nextCursor is null ? "" : "Co najmniej ")}{UiText.Plural(results.Count, "wynik", "wyniki", "wyników")} wśród {EmptyNoun}"
+          + (authors.Count > 0 ? $" i {UiText.Plural(authors.Count, "autor", "autorów", "autorów")}." : ".");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = (Trimmed, Category);
+        if (key == searchedFor)
+            return;
+
+        searchedFor = key;
+        if (!interactive)
+        {
+            isSearching = Trimmed.Length >= SearchLimits.QueryMinLength;
+            return;
+        }
+
+        await RunSearchAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        interactive = true;
+        await RunSearchAsync();
+        StateHasChanged();
+    }
+
+    // Wspólny limit wyszukiwania (REST i UI). Zalogowany → UserId, gość → adres klienta z żądania strony.
+    private bool TryAcquireSearch(int? viewerId)
+    {
+        var (acquired, retryAfter) = SearchLimiter.TryAcquire(SearchRateLimiter.ClientKey(viewerId, ClientAddress));
+        if (acquired)
+            return true;
+
+        SansPost.Infrastructure.Hosting.SansPostTelemetry.RateLimitRejections.Add(1, new KeyValuePair<string, object?>("policy", "Search"));
+        Logger.LogWarning("Rate limit {Policy} rejected Blazor search from {ClientIp}.", "Search", ClientAddress);
+        error = UiErrors.SearchRateLimited(retryAfter);
+        errorVariant = AlertVariant.Warning;
+        return false;
+    }
+
+    private async Task RunSearchAsync()
+    {
+        var sequence = ++searchSequence;
+        var query = Trimmed;
+        var category = Category;
+
+        results.Clear();
+        authors.Clear();
+        nextCursor = null;
+        error = null;
+        moreStatus = null;
+        hasSearched = false;
+        tooShort = query.Length is > 0 and < SearchLimits.QueryMinLength;
+
+        if (query.Length < SearchLimits.QueryMinLength)
+        {
+            isSearching = false;
+            return;
+        }
+
+        isSearching = true;
+        try
+        {
+            var viewerId = (await AuthState).User.GetUserId();
+            if (!TryAcquireSearch(viewerId))
+                return;
+
+            var posts = await Ui.Run((SearchService s) => s.SearchPostsAsync(new PostSearchQuery { Q = query, Category = category }, viewerId));
+            var users = ShowAuthors && category is null
+                ? await Ui.Run((SearchService s) => s.SearchUsersAsync(query, 6))
+                : null;
+
+            // Wynik starszego zapytania nie nadpisuje nowszego (szybkie pisanie).
+            if (sequence != searchSequence)
+                return;
+
+            if (!posts.Succeeded)
+            {
+                error = UiErrors.Describe(posts);
+                errorVariant = UiErrors.Variant(posts) == AlertVariant.Danger ? AlertVariant.Warning : UiErrors.Variant(posts);
+                return;
+            }
+
+            results.AddRange(posts.Value!.Items.Select(PostCardModel.From));
+            nextCursor = posts.Value.NextCursor;
+            if (users is { Succeeded: true })
+                authors.AddRange(users.Value!);
+            hasSearched = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wyszukiwania.");
+            if (sequence == searchSequence)
+            {
+                error = UiErrors.Generic;
+                errorVariant = AlertVariant.Danger;
+            }
+        }
+        finally
+        {
+            if (sequence == searchSequence)
+                isSearching = false;
+        }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (nextCursor is null)
+            return;
+
+        var sequence = searchSequence;
+        isLoadingMore = true;
+        try
+        {
+            var before = results.Count;
+            var viewerId = (await AuthState).User.GetUserId();
+            if (!TryAcquireSearch(viewerId))
+                return;
+
+            var page = await Ui.Run((SearchService s) => s.SearchPostsAsync(
+                new PostSearchQuery { Q = Trimmed, Category = Category, Cursor = nextCursor }, viewerId));
+
+            // W międzyczasie zmieniła się fraza — doładowanie starego zapytania nie trafia do nowych wyników.
+            if (sequence != searchSequence)
+                return;
+
+            if (!page.Succeeded)
+            {
+                error = UiErrors.Describe(page);
+                return;
+            }
+
+            results.AddRange(page.Value!.Items.Where(r => results.All(e => e.Id != r.Id)).Select(PostCardModel.From).ToList());
+            nextCursor = page.Value.NextCursor;
+            moreStatus = $"Wczytano {UiText.Plural(results.Count - before, "kolejny wynik", "kolejne wyniki", "kolejnych wyników")}.";
+
+            if (nextCursor is null && results.Count > before)
+                await JS.InvokeVoidAsync("sansPost.focusSelector", $"#{HintId}-result-{results[before].Id} .post-card-title a");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd doładowania wyników wyszukiwania.");
+            error = UiErrors.Generic;
+        }
+        finally
+        {
+            isLoadingMore = false;
+        }
+    }
+}

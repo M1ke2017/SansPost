@@ -1,7 +1,8 @@
 @* Karta posta — charakterystyczny element produktu: autor, czas, kategoria, tytuł, podgląd (nigdy pełna treść),
    liczniki i stan polubienia. Cała karta klikalna przez tytuł (stretched link); autor, kategoria i reakcja
-   pozostają osobnymi celami dla myszy i klawiatury. *@
-<article class="post-card @(Featured ? "is-featured" : "")" aria-labelledby="@TitleId">
+   pozostają osobnymi celami dla myszy i klawiatury. Wariant Compact (lista rozmów w BAR): te same informacje
+   w mniejszej formie — przydomek, czas, temat, tytuł, krótki fragment i liczniki (bez przycisku reakcji). *@
+<article class="post-card @(Featured ? "is-featured" : "") @(Compact ? "is-compact" : "")" aria-labelledby="@TitleId">
     @if (Featured)
     {
         <span class="featured-label"><Icon Name="@Icons.Pin" Size="14" StrokeWidth="2" /> Przypięte</span>
@@ -11,7 +12,10 @@
         @if (ShowAuthor)
         {
             <a class="post-card-author" href="@UiText.ProfileUrl(Post.AuthorUsername)">
-                <Avatar Username="@Post.AuthorUsername" Size="sm" />
+                @if (!Compact)
+                {
+                    <Avatar Username="@Post.AuthorUsername" Size="sm" />
+                }
                 <span class="name">@Post.AuthorUsername</span>
             </a>
             <span class="dot" aria-hidden="true">·</span>
@@ -23,6 +27,7 @@
     @switch (HeadingLevel)
     {
         case 3: <h3 class="post-card-title" id="@TitleId"><a href="@UiText.PostUrl(Post.Id)">@Post.Title</a></h3> break;
+        case 4: <h4 class="post-card-title" id="@TitleId"><a href="@UiText.PostUrl(Post.Id)">@Post.Title</a></h4> break;
         default: <h2 class="post-card-title" id="@TitleId"><a href="@UiText.PostUrl(Post.Id)">@Post.Title</a></h2> break;
     }
 
@@ -31,13 +36,23 @@
         <p class="post-card-preview">@Post.Preview@(Post.IsTruncated ? "…" : "")</p>
     }
 
-    <div class="post-card-footer">
-        <LikeButton PostId="Post.Id" Liked="Post.LikedByCurrentUser" Count="Post.LikeCount" />
-        <a class="stat" href="@($"{UiText.PostUrl(Post.Id)}#comments")" aria-label="@UiText.Comments(Post.CommentCount) — przejdź do dyskusji">
-            <Icon Name="@Icons.Comment" />
-            <span aria-hidden="true">@UiText.Number(Post.CommentCount)</span>
-        </a>
-    </div>
+    @if (Compact)
+    {
+        <p class="post-card-stats">
+            <span class="stat"><Icon Name="@Icons.Comment" Size="15" /><span aria-hidden="true">@UiText.Number(Post.CommentCount)</span><span class="visually-hidden">@UiText.Comments(Post.CommentCount)</span></span>
+            <span class="stat"><Icon Name="@Icons.Heart" Size="15" /><span aria-hidden="true">@UiText.Number(Post.LikeCount)</span><span class="visually-hidden">@UiText.Plural(Post.LikeCount, "reakcja", "reakcje", "reakcji")</span></span>
+        </p>
+    }
+    else
+    {
+        <div class="post-card-footer">
+            <LikeButton PostId="Post.Id" Liked="Post.LikedByCurrentUser" Count="Post.LikeCount" />
+            <a class="stat" href="@($"{UiText.PostUrl(Post.Id)}#comments")" aria-label="@UiText.Comments(Post.CommentCount) — przejdź do dyskusji">
+                <Icon Name="@Icons.Comment" />
+                <span aria-hidden="true">@UiText.Number(Post.CommentCount)</span>
+            </a>
+        </div>
+    }
 </article>
 
 @code {
@@ -45,6 +60,7 @@
     [Parameter] public bool ShowAuthor { get; set; } = true;
     [Parameter] public bool Featured { get; set; }
     [Parameter] public int HeadingLevel { get; set; } = 2;
+    [Parameter] public bool Compact { get; set; }
 
     private string TitleId => $"post-{Post.Id}-title{(Featured ? "-featured" : "")}";
 }

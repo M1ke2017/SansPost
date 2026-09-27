@@ -200,10 +200,10 @@ namespace SansPost.E2E
 
         // ---- BAR ---------------------------------------------------------------------------------------------
 
-        // Klik w bar na canvas (raycasting) — kamera podchodzi do baru, otwiera się istniejący feed w panelu HTML.
-        // Escape: panel znika, kamera wraca do kadru głównego.
+        // Klik w bar na canvas (raycasting) — kamera podchodzi do baru, otwiera się Karta rozmów (Sprint 16, HTML).
+        // Escape na Karcie: okno znika, kamera wraca do kadru głównego.
         [Fact]
-        public async Task BarCanvasClick_OpensFeedPanel_EscapeClosesAndResetsCamera()
+        public async Task BarCanvasClick_OpensConversationMenu_EscapeClosesAndResetsCamera()
         {
             await using var context = await _env.NewContextAsync(width: 1280, height: 800);
             var page = await context.NewPageAsync();
@@ -212,8 +212,9 @@ namespace SansPost.E2E
 
             await ClickZoneInSceneAsync(page, "bar");
 
-            await Expect(Panel(page).GetByRole(AriaRole.Heading, new() { Name = "Bar — rozmowy" })).ToBeVisibleAsync();
-            await Expect(Panel(page).Locator(".post-card").First).ToBeVisibleAsync();
+            await Expect(Panel(page).GetByRole(AriaRole.Heading, new() { Name = "Karta rozmów" })).ToBeVisibleAsync();
+            await Expect(Panel(page).Locator("[data-bar-item='newest']")).ToBeVisibleAsync();
+            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon?bar=menu"));
             Assert.Equal("bar", await page.EvaluateAsync<string>("() => window.__sansPostHall.area"));
             Assert.True(await Debug(page, "cameraZ") < -4, "Kamera podeszła do baru.");
 
@@ -244,8 +245,9 @@ namespace SansPost.E2E
             var corner = page.GetByRole(AriaRole.Navigation, new() { Name = "SansPost" });
             await Expect(corner.GetByRole(AriaRole.Link, new() { Name = "SansPost" })).ToHaveAttributeAsync("href", "/");
             await Expect(corner.GetByRole(AriaRole.Button, new() { Name = "Przełącz jasny lub ciemny motyw" })).ToBeVisibleAsync();
-            await Expect(corner.GetByRole(AriaRole.Link, new() { Name = "Zaloguj się" })).ToHaveAttributeAsync("href", "/login?returnUrl=%2Fsaloon");
-            await Expect(corner.GetByRole(AriaRole.Link)).ToHaveCountAsync(2);   // tylko wyjście i logowanie
+            // Sprint 16 final: "Zaloguj się" otwiera kartę Saloonu nad salą (nie klasyczną stronę) — BarAuth / HallAuth testy.
+            await Expect(corner.GetByRole(AriaRole.Button, new() { Name = "Zaloguj się" })).ToHaveAttributeAsync("aria-haspopup", "dialog");
+            await Expect(corner.GetByRole(AriaRole.Link)).ToHaveCountAsync(1);   // tylko wyjście; logowanie to przycisk karty
             await Expect(page.Locator(".saloon-hall a[href^='/search'], .saloon-hall a[href='/categories']")).ToHaveCountAsync(0);
 
             // Dok: jedna linia, lekki (półprzezroczysty), przyciski nadal wygodne do kliknięcia.
@@ -370,8 +372,8 @@ namespace SansPost.E2E
             await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
         }
 
-        // Tylko klawiatura: Tab do strefy BAR, Enter → panel z feedem (fokus w panelu), Shift+Tab w panelu zostaje
-        // w oknie, "Zamknij" → fokus wraca na BAR. Sortowanie w panelu działa (istniejący feed).
+        // Tylko klawiatura: Tab do strefy BAR, Enter → Karta rozmów (fokus w oknie), Shift+Tab nie trafia do sali,
+        // "Wszystkie rozmowy" z sortowaniem (istniejący feed), "Zamknij" → fokus wraca na BAR.
         [Fact]
         public async Task BarKeyboard_OpenSortClose_FocusReturns()
         {
@@ -385,14 +387,16 @@ namespace SansPost.E2E
             Assert.Equal("bar", await page.EvaluateAsync<string>("() => window.__sansPostHall.hover"));   // fokus podświetla strefę w sali
             await page.Keyboard.PressAsync("Enter");
 
-            await Expect(Panel(page).Locator(".post-card").First).ToBeVisibleAsync();
-            Assert.True(await page.EvaluateAsync<bool>("() => !!document.activeElement.closest('dialog[open]')"), "Fokus w panelu.");
+            await Expect(Panel(page).Locator("[data-bar-item='newest']")).ToBeFocusedAsync();
             await page.Keyboard.PressAsync("Shift+Tab");
             Assert.True(await page.EvaluateAsync<bool>("() => !!document.activeElement.closest('dialog[open]')"), "Shift+Tab nie wychodzi z panelu.");
 
-            await Panel(page).GetByRole(AriaRole.Button, new() { Name = "Popularne" }).ClickAsync();
-            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon?sort=popular"));
-            await Expect(Panel(page).GetByRole(AriaRole.Button, new() { Name = "Popularne" })).ToHaveAttributeAsync("aria-pressed", "true");
+            await Panel(page).Locator("[data-bar-item='all']").FocusAsync();
+            await page.Keyboard.PressAsync("Enter");
+            await Expect(Panel(page).Locator(".post-card").First).ToBeVisibleAsync();
+            await Panel(page).GetByRole(AriaRole.Button, new() { Name = "Popularne", Exact = true }).ClickAsync();
+            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon?bar=all&sort=popular"));
+            await Expect(Panel(page).GetByRole(AriaRole.Button, new() { Name = "Popularne", Exact = true })).ToHaveAttributeAsync("aria-pressed", "true");
 
             await Panel(page).GetByRole(AriaRole.Button, new() { Name = "Zamknij okno" }).ClickAsync();
             await Expect(Panel(page)).ToHaveCountAsync(0);
@@ -460,7 +464,7 @@ namespace SansPost.E2E
             await OpenHallAsync(hall);
             await hall.EmulateMediaAsync(new() { ReducedMotion = ReducedMotion.Reduce });
             await Zone(hall, "bar").ClickAsync();
-            await Expect(Panel(hall).Locator(".post-card").First).ToBeVisibleAsync();
+            await Expect(Panel(hall).Locator("[data-bar-item='newest']")).ToBeVisibleAsync();
             var z = await Debug(hall, "cameraZ");
             await hall.WaitForTimeoutAsync(300);
             Assert.Equal(z, await Debug(hall, "cameraZ"));   // bez animacji: kamera już na miejscu
@@ -512,8 +516,8 @@ namespace SansPost.E2E
             }
 
             await ClickZoneInSceneAsync(page, "bar", dx: 30, dy: 40);
-            await Expect(Panel(page).Locator(".post-card").First).ToBeVisibleAsync();
-            await Panel(page).EvaluateAsync("d => Promise.all(d.getAnimations({ subtree: true }).map(a => a.finished))");
+            await Expect(Panel(page).Locator("[data-bar-item='newest']")).ToBeVisibleAsync();
+            await Panel(page).EvaluateAsync("d => Promise.allSettled(d.getAnimations({ subtree: true }).map(a => a.finished))");
             var panel = await Panel(page).BoundingBoxAsync();
             Assert.True(panel!.X >= 0 && panel.X + panel.Width <= width + 0.5, $"Panel szerszy niż ekran: {panel.X} + {panel.Width}.");
             await Ui.AssertNoHorizontalOverflowAsync(page, $"panel baru {width}");

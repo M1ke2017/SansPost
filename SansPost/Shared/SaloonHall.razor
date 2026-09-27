@@ -1,5 +1,6 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 @* Saloon Main Hall 3D (Sprint 15): sala Three.js (js/saloon3d.js) z czterema strefami. Canvas jest tylko obrazem sali —
    każda strefa ma prawdziwy przycisk HTML (Tab, Enter/Spacja, fokus widoczny), a treść zostaje HTML-em/Blazorem:
@@ -28,7 +29,9 @@
             <ThemeToggle />
             @if (Viewer is null)
             {
-                <a class="hall-corner-link hall-corner-text" href="@UiText.LoginUrl("/saloon")">Zaloguj się</a>
+                @* Karta logowania nad salą (te same formularze co Entrance i BAR) — bez klasycznej strony i bez otwierania baru. *@
+                <button type="button" id="hall-corner-login" class="hall-corner-link hall-corner-text" aria-haspopup="dialog"
+                        @onclick="() => loginCard!.ShowAsync()">Zaloguj się</button>
             }
             else
             {
@@ -78,19 +81,26 @@
     </div>
 </section>
 
-<Modal @ref="barPanel" Title="Bar — rozmowy" Kicker="SansPost Saloon" Class="dialog-panel" OnClosed="OnBarClosedAsync">
-    @if (Viewer is null)
-    {
-        <p class="text-sm muted">Czytać można bez konta. <a href="/register">Załóż konto</a>, żeby dołączyć do rozmowy.</p>
-    }
-    <SaloonFeed Sort="Sort" Featured="Featured" HeadingId="bar-feed-title" Heading="Posty" HeadingHidden="true" />
-</Modal>
+@* Logowanie i rejestracja rozpoczęte w sali (narożnik): karty z Entrance nad sceną. Po sukcesie sala ładuje się od nowa
+   z nowym cookie — nadal Main Hall, bar zamknięty. Zamknięcie karty: fokus wraca na "Zaloguj się". *@
+@if (Viewer is null)
+{
+    <SaloonLoginCard @ref="loginCard" OnSignedIn="SignedInFromCornerAsync" OnSwitchToRegister="() => registerCard!.ShowAsync()"
+                     OnClosed="CornerCardClosedAsync" />
+    <SaloonRegisterCard @ref="registerCard" OnSignedIn="SignedInFromCornerAsync" OnSwitchToLogin="() => loginCard!.ShowAsync()"
+                        OnRegisteredWithoutSignIn="() => loginCard!.ShowAsync(afterRegistration: true)" OnClosed="CornerCardClosedAsync" />
+}
+
+@* BAR: Karta rozmów i jej poziomy (stan w adresie /saloon?bar=…). Kamera podchodzi do baru, zanim okno się otworzy. *@
+<BarConversationPanel @ref="barPanel" State="Bar" Featured="Featured" Categories="Categories" OnClosed="OnBarClosedAsync" />
 
 @code {
     [CascadingParameter] private ViewerContext? Viewer { get; set; }
 
-    [Parameter] public PostSort Sort { get; set; }
+    // Stan BAR z adresu (null = bar zamknięty) i dane Karty rozmów, które strona /saloon ma już wczytane.
+    [Parameter] public BarState? Bar { get; set; }
     [Parameter] public PostCardModel? Featured { get; set; }
+    [Parameter] public IReadOnlyList<CategorySummaryResponse>? Categories { get; set; }
 
     // "/saloon?scene=3d" — sala bez kryteriów wydajności (diagnostyka, testy).
     [Parameter] public bool Force { get; set; }
@@ -116,7 +126,9 @@
     private ElementReference zonesElement;
     private IJSObjectReference? module;
     private DotNetObjectReference<SaloonHall>? self;
-    private Modal? barPanel;
+    private BarConversationPanel? barPanel;
+    private SaloonLoginCard? loginCard;
+    private SaloonRegisterCard? registerCard;
     private Zone? note;
     private bool ready;
     private bool busy;
@@ -124,11 +136,21 @@
     private bool helperCompact;
     // Strefa otwarta kliknięciem w scenę — po powrocie fokus nie jest przerzucany na przycisk paska.
     private bool openedFromCanvas;
+    // Adres zmienił stan BAR (otwarcie, zamknięcie, "wstecz") — okno i kamera dostosowują się po renderze.
+    private bool barDirty;
+    private bool barSyncing;
+    private int barOpenings;
+
+    protected override void OnParametersSet() => barDirty = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
+        {
+            if (ready && barDirty)
+                await SyncBarAsync();
             return;
+        }
 
         RendererDecision decision;
         bool restoreBar = false;
@@ -136,7 +158,8 @@
         {
             self = DotNetObjectReference.Create(this);
             var arrived = await JS.InvokeAsync<bool>("sansPost.takeDoorArrival");
-            restoreBar = await JS.InvokeAsync<string?>("sansPost.hallArea") == "bar";
+            // Wejście prosto do baru (link, "wstecz" z posta) — kamera od razu przy barze, okno po pierwszej klatce.
+            restoreBar = Bar is not null;
             helperCompact = await JS.InvokeAsync<bool>("sansPost.hallOnboarded", false);
             module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/saloon3d.js");
             decision = await module.InvokeAsync<RendererDecision>("init", host,
@@ -159,10 +182,54 @@
         if (!ready)
             return;
 
+        barDirty = false;
         StateHasChanged();
-        // Powrót "wstecz" z posta otwartego z baru — panel z feedem od razu, kamera już przy barze.
         if (restoreBar)
             await barPanel!.ShowAsync();
+    }
+
+    // Okno BAR nadąża za adresem: otwarcie (kamera podchodzi, potem Karta rozmów) albo zamknięcie (kamera wraca).
+    private async Task SyncBarAsync()
+    {
+        if (barSyncing)
+            return;
+
+        barSyncing = true;
+        try
+        {
+            while (barDirty)
+            {
+                barDirty = false;
+                if (Bar is not null && !barPanel!.IsOpen)
+                {
+                    barOpenings++;
+                    note = null;
+                    busy = true;
+                    if (module is not null)
+                        await module.InvokeVoidAsync("focusArea", "bar");
+                    busy = false;
+                    if (Bar is not null)
+                        await barPanel.ShowAsync();
+                    else
+                        await ResetViewAsync();   // "wstecz" w trakcie podejścia kamery — sala wraca do kadru głównego
+                }
+                else if (Bar is null && barPanel!.IsOpen)
+                {
+                    await barPanel.CloseAsync();
+                }
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+        finally
+        {
+            busy = false;
+            barSyncing = false;
+        }
     }
 
     // Kliknięcie w strefę na canvas (raycasting w saloon3d.js) — ta sama ścieżka co przycisk HTML.
@@ -171,8 +238,18 @@
 
     private async Task SelectZoneAsync(string zoneId, bool fromCanvas = false)
     {
-        if (!ready || busy || barPanel?.IsOpen == true || Zones.All(z => z.Id != zoneId))
+        if (!ready || busy || barPanel?.IsOpen == true || Bar is not null || Zones.All(z => z.Id != zoneId))
             return;
+
+        if (zoneId == "bar")
+        {
+            // Bar to poziom w historii (/saloon?bar=menu): "wstecz" zamyka go jak Escape. Kamera i okno — SyncBarAsync.
+            openedFromCanvas = fromCanvas;
+            note = null;
+            await CompleteOnboardingAsync();
+            BarNavigation.Push(Navigation, BarState.Menu);
+            return;
+        }
 
         busy = true;
         note = null;
@@ -180,25 +257,13 @@
         StateHasChanged();
         try
         {
-            if (!helperCompact)
-            {
-                helperCompact = true;
-                await JS.InvokeAsync<bool>("sansPost.hallOnboarded", true);
-            }
+            await CompleteOnboardingAsync();
 
             // Kamera do strefy (przy reduced motion — od razu), potem treść.
             if (module is not null)
                 await module.InvokeVoidAsync("focusArea", zoneId);
 
-            if (zoneId == "bar")
-            {
-                await JS.InvokeVoidAsync("sansPost.rememberHallArea", "bar");
-                await barPanel!.ShowAsync();
-            }
-            else
-            {
-                note = Zones.First(z => z.Id == zoneId);
-            }
+            note = Zones.First(z => z.Id == zoneId);
         }
         catch (JSDisconnectedException)
         {
@@ -213,6 +278,39 @@
         }
     }
 
+    // Nowe cookie wymaga nowego circuitu: /saloon od nowa (sala bez otwartego baru, już z kontem).
+    private void SignedInFromCornerAsync() => Navigation.NavigateTo(SaloonRoutes.Hub, forceLoad: true, replace: true);
+
+    // Karta zamknięta (Escape, "Zamknij", przełączenie na drugą kartę): gdy żadna nie jest otwarta — fokus na "Zaloguj się".
+    private async Task CornerCardClosedAsync()
+    {
+        await Task.Yield();   // przełączenie login ↔ rejestracja: druga karta otwiera się w tym samym kroku
+        if (loginCard?.IsOpen == true || registerCard?.IsOpen == true)
+            return;
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.focusSelector", "#hall-corner-login");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private async Task CompleteOnboardingAsync()
+    {
+        if (helperCompact)
+            return;
+
+        helperCompact = true;
+        try
+        {
+            await JS.InvokeAsync<bool>("sansPost.hallOnboarded", true);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
     private async Task BackToHallAsync()
     {
         var zone = note?.Id;
@@ -223,16 +321,29 @@
             await JS.InvokeVoidAsync("sansPost.focusSelector", $".hall-zone[data-zone='{zone}']");
     }
 
+    // Okno BAR zamknięte: kamera wraca do kadru głównego, fokus na przycisk BAR (chyba że bar otwarto kliknięciem w scenę).
+    // Gdy okno zamknęła sama przeglądarka (adres wciąż z barem) — adres też wraca do sali.
+    // Kolejność ma znaczenie: stan sprawdzony przed jakimkolwiek await (w trakcie powrotu kamery bar można otworzyć
+    // ponownie — to nowe otwarcie nie może zostać zamknięte), fokus od razu, kamera na końcu.
     private async Task OnBarClosedAsync()
     {
+        var urlStillHasBar = Bar is not null;
+        var generation = barOpenings;
+        var focusBar = !openedFromCanvas;
+        openedFromCanvas = false;
         try
         {
-            await JS.InvokeVoidAsync("sansPost.rememberHallArea", (string?)null);
+            if (focusBar)
+                await JS.InvokeVoidAsync("sansPost.focusSelector", ".hall-zone[data-zone='bar']");
+            if (urlStillHasBar)
+                await BarNavigation.CloseAsync(Navigation, JS);
         }
         catch (JSDisconnectedException)
         {
         }
-        await ResetViewAsync();
+
+        if (generation == barOpenings)
+            await ResetViewAsync();
     }
 
     private async Task ResetViewAsync()

@@ -1,0 +1,81 @@
+@using SansPost.Features.Search
+@implements IDisposable
+
+@* Pole "Szukaj rozmowy" w BAR — to samo pole w Karcie rozmów, w temacie i w wynikach (fokus i pisanie trwają
+   przy przejściu Karta → wyniki). Debounce: fraza idzie dalej po chwili bez pisania; Enter — od razu. *@
+<form class="bar-search" role="search" @onsubmit="SubmitAsync">
+    <label class="bar-search-label" for="bar-search-input">@Label</label>
+    <div class="input-with-action search-input">
+        <Icon Name="@Icons.Search" Size="18" Class="search-input-icon" />
+        <input id="bar-search-input" class="input" type="search" placeholder="Szukaj rozmowy…" autocomplete="off"
+               maxlength="@SearchLimits.QueryMaxLength" value="@text" @oninput="OnInput" aria-describedby="@DescribedBy" />
+        @if (!string.IsNullOrEmpty(text))
+        {
+            <button type="button" class="btn btn-ghost btn-icon btn-sm input-action" aria-label="Wyczyść wyszukiwanie" @onclick="ClearAsync">
+                <Icon Name="@Icons.X" Size="16" />
+            </button>
+        }
+    </div>
+</form>
+
+@code {
+    private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(350);
+
+    [Parameter] public string Query { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "Szukaj rozmowy";
+    [Parameter] public string? DescribedBy { get; set; }
+    [Parameter] public EventCallback<(string Text, bool Submitted)> OnSearch { get; set; }
+
+    private string text = "";
+    private string? textFor;
+    private CancellationTokenSource? debounce;
+
+    protected override void OnParametersSet()
+    {
+        // Pole odzwierciedla adres (link, "wstecz"); własne pisanie nie jest nadpisywane tą samą frazą.
+        if (Query != textFor)
+        {
+            textFor = Query;
+            if (text.Trim() != Query)
+                text = Query;
+        }
+    }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        text = e.Value?.ToString() ?? "";
+        debounce?.Cancel();
+        debounce = new CancellationTokenSource();
+        var token = debounce.Token;
+
+        try
+        {
+            await Task.Delay(Debounce, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await OnSearch.InvokeAsync((text, false));
+    }
+
+    private Task SubmitAsync()
+    {
+        debounce?.Cancel();
+        return OnSearch.InvokeAsync((text, true));
+    }
+
+    private async Task ClearAsync()
+    {
+        debounce?.Cancel();
+        text = "";
+        await OnSearch.InvokeAsync(("", false));
+    }
+
+    public void Dispose()
+    {
+        debounce?.Cancel();
+        debounce?.Dispose();
+    }
+}

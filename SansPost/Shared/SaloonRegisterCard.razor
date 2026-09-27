@@ -1,166 +1,36 @@
-@using Microsoft.Extensions.Options
-@inject IJSRuntime JS
-@inject UiServices Ui
-@inject IOptions<PublicDemoOptions> DemoOptions
-
-@* "Karta nowego przybysza" — prezentacja istniejącej rejestracji (POST /auth/register) w oknie na Entrance.
-   Przydomek z generatora (AliasPicker, "Losuj inny"), bez pola na własną nazwę. Po sukcesie te same dane logują
-   (POST /auth/login) — Entrance otwiera drzwi i przeładowuje /saloon. Zasady (limit kont, wyłączona rejestracja,
-   unikalność przydomka i emaila) rozstrzyga serwer, jak na stronie /register. *@
-<Modal @ref="modal" Title="Karta nowego przybysza" Kicker="SansPost Saloon" Class="dialog-card">
-    @if (availability == Availability.Checking)
-    {
-        <p class="muted" role="status">Sprawdzanie wolnych miejsc w Saloonie…</p>
-    }
-    else if (availability != Availability.Open)
-    {
-        <Alert Variant="AlertVariant.Warning" Title="@(availability == Availability.Disabled ? "Rejestracja jest obecnie wyłączona" : "Limit kont został osiągnięty")">
-            Wszystkie treści możesz czytać bez konta.
-        </Alert>
-        <button type="button" class="btn btn-primary btn-lg btn-block card-submit" @onclick="EnterAsGuestAsync">Wejdź jako gość</button>
-    }
-    else
-    {
-        @if (error is not null)
-        {
-            <Alert Variant="@errorVariant">@error</Alert>
-        }
-
-        <form class="card-form stack" method="post" action="auth/register" @ref="form" @onsubmit="SubmitAsync">
-            <AntiforgeryField />
-            <AliasPicker @ref="picker" @bind-Alias="alias" />
-
-            <div class="field">
-                <label class="field-label" for="card-email">Email</label>
-                <input class="input" type="email" id="card-email" name="Email" maxlength="254" autocomplete="email" required autofocus
-                       aria-describedby="card-email-hint" aria-invalid="@(identityTaken ? "true" : null)" />
-                <span class="field-hint" id="card-email-hint">Nie jest nigdzie wyświetlany.</span>
-            </div>
-
-            <div class="field">
-                <label class="field-label" for="card-password">Hasło</label>
-                <PasswordInput Id="card-password" Name="Password" Autocomplete="new-password" DescribedBy="card-password-hint"
-                               MinLength="PasswordPolicy.MinLength" MaxLength="PasswordPolicy.MaxLength" />
-                <span class="field-hint" id="card-password-hint">@PasswordPolicy.MinLength–@PasswordPolicy.MaxLength znaków.</span>
-            </div>
-
-            <div class="field">
-                <label class="field-label" for="card-confirm">Powtórz hasło</label>
-                <PasswordInput Id="card-confirm" Name="ConfirmPassword" Autocomplete="new-password"
-                               MaxLength="PasswordPolicy.MaxLength" Invalid="passwordMismatch" />
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg btn-block card-submit" aria-busy="@(busy ? "true" : "false")">
-                @(busy ? "Otwieranie drzwi…" : "Dołącz do Saloonu")
-            </button>
-        </form>
-    }
-
-    <p class="card-switch">Masz już konto? <button type="button" class="card-link" @onclick="SwitchAsync">Zaloguj się</button></p>
+@* "Karta nowego przybysza" — okno z formularzem SaloonRegisterForm (ten sam formularz co karta w BAR): na Entrance
+   (po sukcesie drzwi i /saloon; przy zamkniętej rejestracji "Wejdź jako gość") i w Main Hall 3D (po sukcesie sala od nowa). *@
+<Modal @ref="modal" Title="Karta nowego przybysza" Kicker="SansPost Saloon" Class="dialog-card" OnClosed="OnClosed">
+    <SaloonRegisterForm OnSignedIn="SignedInAsync" OnRegisteredWithoutSignIn="RegisteredWithoutSignInAsync"
+                        OnSwitchToLogin="SwitchAsync" OnGuest="EnterAsGuestAsync" />
 </Modal>
 
 @code {
-    private enum Availability { Checking, Open, Disabled, CapacityReached }
-
     [Parameter] public EventCallback OnSignedIn { get; set; }
     [Parameter] public EventCallback OnRegisteredWithoutSignIn { get; set; }
     [Parameter] public EventCallback OnSwitchToLogin { get; set; }
     [Parameter] public EventCallback OnGuest { get; set; }
 
+    // Każde zamknięcie okna — np. fokus z powrotem na przycisk w sali.
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    public bool IsOpen => modal?.IsOpen == true;
+
     private Modal? modal;
-    private AliasPicker? picker;
-    private ElementReference form;
-    private Availability availability = Availability.Checking;
-    private string? alias;
-    private string? error;
-    private AlertVariant errorVariant = AlertVariant.Danger;
-    private bool passwordMismatch;
-    private bool identityTaken;
-    private bool busy;
 
-    public async Task ShowAsync()
+    // Treść okna (i sprawdzenie wolnych miejsc) powstaje przy każdym otwarciu od nowa.
+    public Task ShowAsync() => modal!.ShowAsync();
+
+    private async Task SignedInAsync(AuthPostResult result)
     {
-        availability = Availability.Checking;
-        error = null;
-        passwordMismatch = identityTaken = busy = false;
-        await modal!.ShowAsync();
-
-        // Tylko informacja tak/nie (bez liczby kont). Serwer i tak rozstrzyga limit atomowo przy zapisie.
-        alias = await Ui.Run((IAliasGenerator s) => s.SuggestAsync());
-        availability = !DemoOptions.Value.RegistrationEnabled ? Availability.Disabled
-            : alias is null || !await Ui.Run((IAuthService s) => s.IsRegistrationAvailableAsync()) ? Availability.CapacityReached
-            : Availability.Open;
-        StateHasChanged();
+        await modal!.CloseAsync();
+        await OnSignedIn.InvokeAsync();
     }
 
-    private async Task SubmitAsync()
+    private async Task RegisteredWithoutSignInAsync()
     {
-        if (busy)
-            return;
-
-        busy = true;
-        error = null;
-        AuthPostResult result;
-        try
-        {
-            result = await JS.InvokeAsync<AuthPostResult>("sansPost.registerAndSignIn", form);
-        }
-        catch (JSException)
-        {
-            result = new AuthPostResult("register", 0, "", "");
-        }
-
-        if (result.SignedIn)
-        {
-            await modal!.CloseAsync();
-            await OnSignedIn.InvokeAsync();
-            return;
-        }
-
-        busy = false;
-        if (result.Stage == "login")
-        {
-            // Konto powstało, logowanie nie (np. limit prób) — karta powrotu z informacją "Konto utworzone".
-            await modal!.CloseAsync();
-            await OnRegisteredWithoutSignIn.InvokeAsync();
-            return;
-        }
-
-        passwordMismatch = result.Error == "mismatch";
-        identityTaken = result.Error == "conflict";
-        errorVariant = AlertVariant.Danger;
-        switch (result.Error)
-        {
-            case "capacity":
-                availability = Availability.CapacityReached;
-                break;
-            case "disabled":
-                availability = Availability.Disabled;
-                break;
-            case "mismatch":
-                error = AuthText.PasswordMismatch;
-                break;
-            case "conflict":
-                error = AuthText.IdentityTaken;
-                break;
-            case "alias-taken":
-                errorVariant = AlertVariant.Warning;
-                error = AuthText.AliasTaken;
-                if (picker is not null)
-                    await picker.RerollAsync();
-                break;
-            case "rate-limited":
-                errorVariant = AlertVariant.Warning;
-                error = AuthText.RegisterRateLimited;
-                break;
-            case "network":
-                errorVariant = AlertVariant.Warning;
-                error = AuthText.Unavailable;
-                break;
-            default:
-                error = AuthText.InvalidRegistration;
-                break;
-        }
+        await modal!.CloseAsync();
+        await OnRegisteredWithoutSignIn.InvokeAsync();
     }
 
     private async Task SwitchAsync()
@@ -169,6 +39,7 @@
         await OnSwitchToLogin.InvokeAsync();
     }
 
+    // Przy zamkniętej rejestracji: Entrance — wejście jako gość; w sali (gość już jest) — tylko zamknięcie karty.
     private async Task EnterAsGuestAsync()
     {
         await modal!.CloseAsync();

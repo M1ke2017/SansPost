@@ -14,7 +14,7 @@
    "?scene=3d" / "?scene=css" wymuszają tryb (diagnostyka, testy). *@
 @if (renderer != SaloonRenderer.CssFallback)
 {
-    <SaloonHall Sort="SortValue" Featured="featured" Force="@(Scene == "3d")" Known3d="known3d" OnDecided="OnHallDecided" />
+    <SaloonHall Bar="BarValue" Featured="featured" Categories="categories" Force="@(Scene == "3d")" Known3d="known3d" OnDecided="OnHallDecided" />
 }
 
 @if (renderer == SaloonRenderer.CssFallback || (renderer == SaloonRenderer.Pending && !known3d))
@@ -103,6 +103,15 @@ else
     // "?scene=3d" — sala 3D bez kryteriów wydajności; "?scene=css" — zawsze widok klasyczny.
     [SupplyParameterFromQuery(Name = "scene")] public string? Scene { get; set; }
 
+    // Stan BAR w sali 3D (Karta rozmów i jej poziomy) — patrz BarState. Widok klasyczny go ignoruje.
+    [SupplyParameterFromQuery(Name = "bar")] public string? BarParam { get; set; }
+    [SupplyParameterFromQuery(Name = "category")] public string? CategoryParam { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? QueryParam { get; set; }
+    [SupplyParameterFromQuery(Name = "id")] public string? PostIdParam { get; set; }
+    [SupplyParameterFromQuery(Name = "from")] public string? FromParam { get; set; }
+    [SupplyParameterFromQuery(Name = "next")] public string? NextParam { get; set; }
+    [SupplyParameterFromQuery(Name = "back")] public string? BackParam { get; set; }
+
     private enum SaloonRenderer { Pending, ThreeD, CssFallback }
 
     private SaloonRenderer renderer;
@@ -112,6 +121,8 @@ else
     private IReadOnlyList<CategorySummaryResponse>? categories;
 
     private PostSort SortValue => string.Equals(Sort, "popular", StringComparison.OrdinalIgnoreCase) ? PostSort.Popular : PostSort.Newest;
+
+    private BarState? BarValue => BarState.Parse(BarParam, CategoryParam, Sort, QueryParam, PostIdParam, FromParam, NextParam, BackParam);
 
     protected override async Task OnInitializedAsync()
     {

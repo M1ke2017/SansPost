@@ -1,0 +1,294 @@
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@* BAR w Main Hall 3D: Karta rozmów i jej poziomy w jednym oknie (natywny <dialog> nad sceną — sala widoczna obok).
+   Stan przychodzi z adresu (BarState) — ten komponent tylko go pokazuje i zmienia przez historię (BarNavigation):
+   Karta rozmów → lista (Najnowsze / Popularne / Wszystkie / temat) albo wyniki wyszukiwania → rozmowa.
+   Rozmowa otwiera się w tym samym oknie: lista pod nią zostaje (ukryta), więc powrót trafia dokładnie w to samo
+   miejsce — te same wczytane strony, przewinięcie i fokus na karcie, która otworzyła rozmowę.
+   Escape cofa o jeden poziom, na Karcie rozmów zamyka bar; "Zamknij" i klik w scenę zamykają bar od razu.
+   Otwarcie i zamknięcie (z kamerą) prowadzi SaloonHall. *@
+<Modal @ref="modal" Title="Karta rozmów" Kicker="Bar · SansPost Saloon" Class="dialog-panel bar-panel"
+       OnDismiss="OnDismissAsync" OnClosed="OnClosed">
+    @if (State is { } state)
+    {
+        // Karta logowania leży nad poziomem, z którego przyszła (lista albo rozmowa) — ten zostaje w DOM (ukryty),
+        // więc powrót (Escape / "Wróć") trafia w to samo miejsce, z fokusem na przycisku, który otworzył kartę.
+        var auth = state.IsAuth;
+        var under = auth ? state.Origin ?? BarState.Menu : state;
+        var conversation = under.View == BarView.Conversation ? under : null;
+        var level = conversation is not null ? conversation.Origin ?? BarState.Menu : under;
+        <div class="bar-view" data-bar-view="@state.View.ToString().ToLowerInvariant()">
+            @* Poziom listy — widoczny albo ukryty pod rozmową (ta sama instancja: bez ponownego wczytywania). *@
+            <div class="bar-level" hidden="@(auth || conversation is not null)">
+                @if (level.View != BarView.Menu)
+                {
+                    <button type="button" class="bar-back" @onclick="UpAsync">
+                        <Icon Name="@Icons.ArrowLeft" Size="16" /> @(level.Parent?.Title ?? "Karta rozmów")
+                    </button>
+                    <h3 id="bar-level-title" class="bar-level-title" tabindex="-1">@level.Title</h3>
+                }
+
+                @if (level.View is BarView.Menu or BarView.Topic or BarView.Search)
+                {
+                    <BarSearchBox Query="@(level.View == BarView.Search ? level.Query : "")"
+                                  Label="@(level.View == BarView.Topic ? $"Szukaj w temacie {level.Category!.Value.DisplayName()}" : "Szukaj rozmowy")"
+                                  DescribedBy="@(level.View == BarView.Search ? "bar-search-hint" : null)"
+                                  OnSearch="SearchAsync" />
+                }
+
+                @switch (level.View)
+                {
+                    case BarView.Menu:
+                        <BarMenu Categories="Categories" OnSelect="Open" />
+                        break;
+                    case BarView.Search:
+                        <BarSearchView State="level" OnChange="Replace" />
+                        break;
+                    default:
+                        <BarConversationList @key="@($"{level.View}-{level.Category}")" State="level" Featured="Featured" OnChange="Replace" />
+                        break;
+                }
+            </div>
+
+            @if (conversation is not null)
+            {
+                <div class="bar-conversation-slot" hidden="@auth">
+                    <BarConversationDetail @key="conversation.PostId" PostId="conversation.PostId" OriginTitle="@level.Title"
+                                           ReturnUrl="@conversation.Url" OnBack="UpAsync" />
+                </div>
+            }
+
+            @if (auth)
+            {
+                <BarAuthCard State="state" AfterRegistration="authAfterRegistration" OnBack="UpAsync"
+                             OnSwitch="SwitchAuth" OnRegisteredWithoutSignIn="LoginAfterRegistration" />
+            }
+        </div>
+    }
+</Modal>
+
+@code {
+    [Parameter] public BarState? State { get; set; }
+    [Parameter] public PostCardModel? Featured { get; set; }
+    [Parameter] public IReadOnlyList<CategorySummaryResponse>? Categories { get; set; }
+
+    // Okno zamknięte (także gdy przeglądarka zamknęła je sama) — SaloonHall cofa kamerę i ewentualnie adres.
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private Modal? modal;
+    private DotNetObjectReference<BarConversationPanel>? self;
+    private IJSObjectReference? linkBinding;
+    private BarState? shown;
+    private (string Selector, string? Fallback, bool Top)? focusTarget;
+    private bool keepFocus;
+    private bool authAfterRegistration;
+
+    public bool IsOpen => modal?.IsOpen == true;
+
+    public Task ShowAsync() => modal!.ShowAsync();
+
+    public Task CloseAsync() => modal!.CloseAsync();
+
+    protected override void OnParametersSet()
+    {
+        if (State is not { IsAuth: true })
+            authAfterRegistration = false;
+
+        if (State is null)
+        {
+            shown = null;   // bar zamknięty — kolejne otwarcie zaczyna od domyślnego fokusu okna
+            keepFocus = false;
+            focusTarget = null;
+            return;
+        }
+
+        if (State == shown)
+            return;
+
+        // Nowy poziom: fokus na jego nagłówek; po powrocie — na element, z którego wyszliśmy (pozycja Karty rozmów
+        // albo karta rozmowy na liście). Pisanie w wyszukiwarce zmienia poziom bez przenoszenia fokusu.
+        var previous = shown;
+        shown = State;
+        if (keepFocus || previous is null)
+        {
+            keepFocus = false;
+            // Wejście prosto w rozmowę (link, odświeżenie) — też od jej tytułu.
+            if (previous is null && State.View == BarView.Conversation)
+                focusTarget = ConversationFocus;
+            else if (previous is null && State.IsAuth)
+                focusTarget = FocusFor(BarState.Menu, State);
+            return;
+        }
+
+        focusTarget = FocusFor(previous, State);
+    }
+
+    private static (string, string?, bool) ConversationFocus => ("#bar-conversation-title", ".bar-conversation .bar-back", true);
+
+    private static (string Selector, string? Fallback, bool Top)? FocusFor(BarState previous, BarState current)
+    {
+        // Karta logowania: pierwsze pole (formularz rejestracji pojawia się po sprawdzeniu wolnych miejsc — JS czeka).
+        if (current.IsAuth)
+            return previous.IsAuth && previous.View == current.View ? null
+                : (current.View == BarView.Login ? "#bar-login-email" : "#bar-register-email", "#bar-auth-title", false);
+
+        // Z karty logowania z powrotem: przycisk, który ją otworzył (poziom pod kartą czekał w DOM).
+        if (previous.IsAuth && current == previous.Origin)
+            return ("[data-auth-return]", current.View == BarView.Conversation ? "#bar-conversation-title" : "#bar-level-title", false);
+
+        if (current.View == BarView.Conversation)
+            return previous.View == BarView.Conversation && previous.PostId == current.PostId ? null : ConversationFocus;
+
+        // Z rozmowy z powrotem na listę: karta, która ją otworzyła (lista czekała pod rozmową).
+        if (previous.View == BarView.Conversation && current == previous.Origin)
+            return ($"#post-{previous.PostId}-title a, #post-{previous.PostId}-title-featured a", "#bar-level-title", false);
+
+        if (current.View == BarView.Menu)
+            return (MenuSelector(MenuItemOf(previous.View == BarView.Conversation ? previous.Origin ?? previous : previous)), null, false);
+
+        if (previous.View == current.View && previous.Category == current.Category)
+            return null;   // tylko sortowanie / fraza / filtr — ten sam poziom
+
+        return ("#bar-level-title", null, true);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            self = DotNetObjectReference.Create(this);
+            linkBinding = await JS.InvokeAsync<IJSObjectReference>("sansPost.bindBarLinks", self);
+        }
+
+        if (focusTarget is { } target && IsOpen)
+        {
+            focusTarget = null;
+            // Tytuł rozmowy pojawia się po wczytaniu posta — JS czeka na element (bez wyścigu z renderem).
+            await JS.InvokeVoidAsync("sansPost.focusInDialogWhenReady", target.Selector, target.Fallback, target.Top);
+        }
+    }
+
+    private static string? MenuItemOf(BarState state) => state.View switch
+    {
+        BarView.Topic => $"topic-{CategoryMeta.Slug(state.Category!.Value)}",
+        BarView.Search => "search",
+        _ => state.View.ToString().ToLowerInvariant()
+    };
+
+    private static string MenuSelector(string? item) => item switch
+    {
+        null => ".bar-menu [data-bar-item]",
+        "search" => "#bar-search-input",
+        _ => $".bar-menu [data-bar-item='{item}']"
+    };
+
+    private void Open(BarState state) => BarNavigation.Push(Navigation, state);
+
+    private void Replace(BarState state)
+    {
+        if (state != State)
+            BarNavigation.Replace(Navigation, state);
+    }
+
+    private Task UpAsync() => BarNavigation.UpAsync(Navigation, JS, State!);
+
+    // Pisanie w Karcie rozmów albo w temacie przechodzi do wyników (nowy poziom); w wynikach — ta sama lista, nowa fraza.
+    private void SearchAsync((string Text, bool Submitted) search)
+    {
+        if (State is not { } state || state.View == BarView.Conversation)
+            return;
+
+        var text = search.Text.Trim();
+        if (state.View == BarView.Search)
+        {
+            if (state.Query == text)
+                return;
+            keepFocus = true;
+            Replace(state with { Query = text });
+            return;
+        }
+
+        if (text.Length == 0 || (!search.Submitted && text.Length < SansPost.Features.Search.SearchLimits.QueryMinLength))
+            return;
+
+        keepFocus = true;
+        Open(new BarState(BarView.Search, state.View == BarView.Topic ? state.Category : null, Query: text));
+    }
+
+    private async Task OnDismissAsync(string reason)
+    {
+        if (State is not { } state)
+            return;
+
+        if (reason == "escape" && state.View != BarView.Menu)
+            await UpAsync();
+        else
+            await BarNavigation.CloseAsync(Navigation, JS);
+    }
+
+    // Link do rozmowy kliknięty w BAR (karta na liście, wynik wyszukiwania) nie opuszcza sali: zamiast klasycznego
+    // /post-view/{id} — poziom "rozmowa" w tym samym oknie, z listą jako poziomem nadrzędnym (sansPost.bindBarLinks).
+    // Otwarcie w nowej karcie (Ctrl/środkowy przycisk) zostaje natywne i daje zwykły, udostępnialny /post-view/{id}.
+    // Logowanie / rejestracja rozpoczęte w BAR (link "Zaloguj się" w rozmowie, reakcja gościa, "Rozpocznij rozmowę",
+    // "Załóż konto"): karta w tym samym oknie zamiast klasycznej strony. returnUrl z linku — tylko adres lokalny;
+    // bez niego powrót do bieżącego poziomu. Bezpośrednie /login i /register zostają klasycznymi stronami.
+    [JSInvokable]
+    public Task OpenAuth(string mode, string? returnUrl)
+    {
+        if (!IsOpen || State is not { } state || state.IsAuth)
+            return Task.CompletedTask;
+
+        var view = mode == "register" ? BarView.Register : BarView.Login;
+        Open(BarState.Auth(view, BarState.SafeReturn(returnUrl) ?? state.Url, state));
+        return Task.CompletedTask;
+    }
+
+    // "Nie masz konta? Załóż konto" / "Masz już konto? Zaloguj się" — ten sam poziom, bez nowego wpisu historii.
+    private void SwitchAuth(BarView view)
+    {
+        if (State is { IsAuth: true } state && state.View != view)
+        {
+            authAfterRegistration = false;
+            Replace(state with { View = view });
+        }
+    }
+
+    // Konto powstało, logowanie nie (np. limit prób) — karta logowania z informacją "Konto utworzone".
+    private void LoginAfterRegistration()
+    {
+        if (State is { IsAuth: true } state)
+        {
+            authAfterRegistration = true;
+            Replace(state with { View = BarView.Login });
+        }
+    }
+
+    [JSInvokable]
+    public Task OpenConversation(int postId)
+    {
+        if (!IsOpen || State is not { } state || postId <= 0 || (state.View == BarView.Conversation && state.PostId == postId))
+            return Task.CompletedTask;
+
+        var origin = state.View == BarView.Conversation ? state.Origin ?? BarState.Menu : state.IsList ? state : BarState.Menu;
+        Open(BarState.Conversation(postId, origin));
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (linkBinding is not null)
+            {
+                await linkBinding.InvokeVoidAsync("dispose");
+                await linkBinding.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        self?.Dispose();
+    }
+}

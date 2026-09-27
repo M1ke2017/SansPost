@@ -1,0 +1,37 @@
+@* Wyniki wyszukiwania w BAR — istniejące PostgreSQL FTS (PostSearchResults → SearchService), opcjonalnie w temacie.
+   Fraza i temat są w adresie; zmiana tematu to ten sam poziom (bez nowego wpisu historii). *@
+<div class="bar-search-view stack">
+    <div class="bar-search-filter">
+        <label for="bar-search-topic">Temat</label>
+        <select id="bar-search-topic" class="select" value="@(State.Category is PostCategory c ? CategoryMeta.Slug(c) : "")" @onchange="OnTopicChanged">
+            <option value="">Wszystkie tematy</option>
+            @foreach (var topic in CategoryMeta.All)
+            {
+                <option value="@CategoryMeta.Slug(topic)">@topic.DisplayName()</option>
+            }
+        </select>
+    </div>
+
+    @if (State.Query.Length == 0)
+    {
+        <p id="bar-search-hint" class="text-sm subtle search-hint" role="status">Wpisz, czego szukasz — tytuły, treść rozmów i przydomki autorów.</p>
+    }
+    else
+    {
+        <PostSearchResults Query="@State.Query" Category="State.Category" HintId="bar-search-hint" ShowAuthors="false"
+                           ShowSectionHeadings="false" PostsHeading="Znalezione rozmowy" EmptyNoun="rozmów" Compact="true" ItemHeadingLevel="4"
+                           OnClearCategory="() => OnChange.InvokeAsync(State with { Category = null })"
+                           OnClear="() => OnChange.InvokeAsync(State with { Query = string.Empty })" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BarState State { get; set; } = default!;
+    [Parameter] public EventCallback<BarState> OnChange { get; set; }
+
+    private Task OnTopicChanged(ChangeEventArgs e)
+    {
+        var category = CategoryMeta.TryParseSlug(e.Value?.ToString(), out var parsed) ? parsed : (PostCategory?)null;
+        return OnChange.InvokeAsync(State with { Category = category });
+    }
+}

@@ -1,0 +1,88 @@
+@inject IJSRuntime JS
+
+@* Formularz "Powrót do Saloonu" — prezentacja istniejącego logowania (POST /auth/login), wspólna dla karty na Entrance
+   i karty w BAR (Main Hall 3D). Zwykły HTML (etykiety, autocomplete, walidacja przeglądarki) wysyłany przez
+   sansPost.submitAuthForm: błąd zostaje w formularzu, a po sukcesie właściciel dostaje wynik z adresem końcowym.
+   ReturnUrl sprawdza serwer (AccountController: tylko adres lokalny) — adres końcowy wyniku to już zweryfikowany cel. *@
+@if (AfterRegistration)
+{
+    <Alert Variant="AlertVariant.Success" Title="Konto utworzone">Zaloguj się, aby wejść do Saloonu.</Alert>
+}
+@if (error is not null)
+{
+    <Alert Variant="@errorVariant">@error</Alert>
+}
+
+<form class="card-form stack" method="post" action="auth/login" @ref="form" @onsubmit="SubmitAsync">
+    <AntiforgeryField />
+    <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+
+    <div class="field">
+        <label class="field-label" for="@($"{IdPrefix}-email")">Email</label>
+        <input class="input" type="email" id="@($"{IdPrefix}-email")" name="Email" autocomplete="username" required autofocus
+               aria-invalid="@(invalidCredentials ? "true" : null)" />
+    </div>
+
+    <div class="field">
+        <label class="field-label" for="@($"{IdPrefix}-password")">Hasło</label>
+        <PasswordInput Id="@($"{IdPrefix}-password")" Name="Password" Autocomplete="current-password" Invalid="invalidCredentials" />
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-block card-submit" aria-busy="@(busy ? "true" : "false")">
+        @(busy ? "Otwieranie drzwi…" : SubmitLabel)
+    </button>
+</form>
+
+<p class="card-switch">Nie masz jeszcze karty? <button type="button" class="card-link" @onclick="OnSwitchToRegister">Załóż konto</button></p>
+
+@code {
+    // Dokąd po zalogowaniu (weryfikuje serwer). Entrance: /saloon; BAR: miejsce w Saloonie, z którego przyszło logowanie.
+    [Parameter] public string ReturnUrl { get; set; } = SaloonRoutes.Hub;
+
+    // Prefiks id pól — Entrance zostaje przy "card-login-email" / "card-login-password".
+    [Parameter] public string IdPrefix { get; set; } = "card-login";
+    [Parameter] public string SubmitLabel { get; set; } = "Wróć do Saloonu";
+    [Parameter] public bool AfterRegistration { get; set; }
+
+    [Parameter] public EventCallback<AuthPostResult> OnSignedIn { get; set; }
+    [Parameter] public EventCallback OnSwitchToRegister { get; set; }
+
+    private ElementReference form;
+    private string? error;
+    private AlertVariant errorVariant = AlertVariant.Danger;
+    private bool invalidCredentials;
+    private bool busy;
+
+    private async Task SubmitAsync()
+    {
+        if (busy)
+            return;
+
+        busy = true;
+        error = null;
+        AuthPostResult result;
+        try
+        {
+            result = await JS.InvokeAsync<AuthPostResult>("sansPost.submitAuthForm", form);
+        }
+        catch (JSException)
+        {
+            result = new AuthPostResult("login", 0, "", "");
+        }
+
+        if (result.SignedIn)
+        {
+            await OnSignedIn.InvokeAsync(result);
+            return;
+        }
+
+        busy = false;
+        invalidCredentials = result.Error is "invalid";
+        (error, errorVariant) = result.Error switch
+        {
+            "rate-limited" => (AuthText.LoginRateLimited, AlertVariant.Warning),
+            "network" => (AuthText.Unavailable, AlertVariant.Warning),
+            _ => (AuthText.InvalidCredentials, AlertVariant.Danger)
+        };
+    }
+}

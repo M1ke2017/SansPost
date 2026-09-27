@@ -1,0 +1,590 @@
+@using SansPost.Features.Comments
+@using SansPost.Features.Moderation
+@inject UiServices Ui
+@inject NavigationManager Navigation
+@inject ToastService Toasts
+@inject IJSRuntime JS
+@inject ILogger<PostConversation> Logger
+
+@* Rozmowa: post (kategoria, tytuł, autor, czas, pełna treść), reakcje i dyskusja (komentarze, edycja z optimistic
+   concurrency, usuwanie, zgłoszenia, formularz zależny od praw konta). Jedna implementacja dla klasycznej strony
+   /post-view/{id} i dla rozmowy w BAR (Main Hall 3D) — różnią się tylko poziomem nagłówków, prefiksem id,
+   adresem powrotu po zalogowaniu i zachowaniem strony (tytuł karty, przewinięcie do #kotwicy).
+   Autoryzacja i limity zawsze po stronie serwisów (PostService, CommentService, LikeService). *@
+@if (SetPageTitle)
+{
+    <PageTitle>@(post?.Title ?? "Post") · SansPost</PageTitle>
+}
+
+@if (isLoading)
+{
+    <p class="muted" role="status">Wczytywanie posta…</p>
+}
+else if (loadFailed)
+{
+    <EmptyState Title="Nie udało się wczytać posta" HeadingLevel="@StateHeadingLevel" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger" Text="@UiErrors.Generic">
+        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+    </EmptyState>
+}
+else if (post is null)
+{
+    <EmptyState Title="Ten post nie jest dostępny" HeadingLevel="@StateHeadingLevel" IconName="@Icons.FileText"
+                Text="Mógł zostać usunięty przez autora lub ukryty przez moderację.">
+        @Unavailable
+    </EmptyState>
+}
+else
+{
+    <article class="stack-lg post-conversation" aria-labelledby="@TitleId">
+        <header class="post-detail-header">
+            <div class="cluster"><CategoryBadge Category="post.Category" /></div>
+            @switch (HeadingLevel)
+            {
+                case 1: <h1 id="@TitleId" class="post-detail-title" tabindex="-1">@post.Title</h1> break;
+                default: <h3 id="@TitleId" class="post-detail-title" tabindex="-1">@post.Title</h3> break;
+            }
+            <div class="author-line">
+                <Avatar Username="@post.AuthorUsername" />
+                <div class="who">
+                    <a href="@UiText.ProfileUrl(post.AuthorUsername)" class="truncate">@post.AuthorUsername</a>
+                    <span class="when">
+                        <TimeAgo Value="post.CreatedAt" />
+                        @if (post.UpdatedAt is DateTime updated)
+                        {
+                            <span> · <TimeAgo Value="updated" Prefix="edytowano " /></span>
+                        }
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <div class="prose-plain">@post.Content</div>
+
+        <div class="post-actions-bar">
+            <LikeButton PostId="post.Id" Liked="post.LikedByCurrentUser" Count="post.LikeCount" GuestLink="true" />
+            @if (CommentsLink)
+            {
+                <a class="stat" href="@($"{UiText.PostUrl(post.Id)}#comments")"><Icon Name="@Icons.Comment" /> @UiText.Comments(commentCount)</a>
+            }
+            else
+            {
+                <span class="stat"><Icon Name="@Icons.Comment" /> @UiText.Comments(commentCount)</span>
+            }
+            <span class="spacer"></span>
+            @if (IsOwner)
+            {
+                <a class="btn btn-sm" href="@($"/edit-post/{post.Id}")"><Icon Name="@Icons.Pencil" Size="15" /> Edytuj</a>
+            }
+            else if (Viewer is not null && Viewer.CanWrite)
+            {
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => reportDialog!.OpenAsync(ReportTargetType.Post, post.Id)">
+                    <Icon Name="@Icons.Flag" Size="15" /> Zgłoś
+                </button>
+            }
+        </div>
+    </article>
+
+    <section id="@($"{IdPrefix}comments")" class="stack post-comments" aria-labelledby="@($"{IdPrefix}comments-title")">
+        @switch (HeadingLevel)
+        {
+            case 1: <h2 id="@($"{IdPrefix}comments-title")" class="section-title">Komentarze · @UiText.Number(commentCount)</h2> break;
+            default: <h4 id="@($"{IdPrefix}comments-title")" class="section-title">Komentarze · @UiText.Number(commentCount)</h4> break;
+        }
+
+        @if (commentsError is not null && comments.Count == 0)
+        {
+            <Alert Variant="AlertVariant.Danger">
+                <ChildContent>@commentsError</ChildContent>
+                <Actions><button type="button" class="btn btn-sm" @onclick="LoadMoreCommentsAsync">Spróbuj ponownie</button></Actions>
+            </Alert>
+        }
+        else if (comments.Count == 0)
+        {
+            <p class="muted">Nikt jeszcze nie skomentował. @(Viewer is null ? "" : "Zacznij dyskusję.")</p>
+        }
+        else
+        {
+            <ol class="comment-list">
+                @foreach (var comment in comments)
+                {
+                    <li @key="comment.Id" id="@($"{IdPrefix}comment-{comment.Id}")" class="comment @(comment.Id == justAddedId ? "is-new" : "")">
+                        <Avatar Username="@comment.AuthorUsername" Size="sm" />
+                        <div style="min-width: 0">
+                            <div class="comment-head">
+                                <a href="@UiText.ProfileUrl(comment.AuthorUsername)">@comment.AuthorUsername</a>
+                                <TimeAgo Value="comment.CreatedAt" Class="when" />
+                                @if (comment.UpdatedAt is not null)
+                                {
+                                    <span class="when">· edytowano</span>
+                                }
+                            </div>
+
+                            @if (editingId == comment.Id)
+                            {
+                                <div class="stack-sm" style="margin-top: var(--space-2)">
+                                    @if (editConflict)
+                                    {
+                                        <Alert Variant="AlertVariant.Warning" Title="Komentarz zmienił się w międzyczasie">
+                                            <ChildContent>Twoja zmiana nie została zapisana, żeby nie nadpisać nowszej wersji.</ChildContent>
+                                            <Actions>
+                                                <button type="button" class="btn btn-sm btn-primary" @onclick="() => ReloadCommentAsync(comment)">Wczytaj aktualną wersję</button>
+                                                <button type="button" class="btn btn-sm" @onclick="CancelEdit">Anuluj</button>
+                                            </Actions>
+                                        </Alert>
+                                    }
+                                    else if (editError is not null)
+                                    {
+                                        <Alert Variant="AlertVariant.Danger">@editError</Alert>
+                                    }
+                                    <label class="visually-hidden" for="@($"{IdPrefix}edit-comment-{comment.Id}")">Edytuj komentarz</label>
+                                    <textarea id="@($"{IdPrefix}edit-comment-{comment.Id}")" class="textarea textarea-sm" maxlength="@CommentLimits.ContentMaxLength"
+                                              @bind="editContent" disabled="@editConflict" autofocus></textarea>
+                                    <div class="spread">
+                                        <CharCounter For="@($"{IdPrefix}edit-comment-{comment.Id}")" Value="@editContent" Max="CommentLimits.ContentMaxLength" />
+                                        <div class="cluster">
+                                            <button type="button" class="btn btn-sm btn-ghost" @onclick="CancelEdit">Anuluj</button>
+                                            <button type="button" class="btn btn-sm btn-primary" disabled="@(isBusy || editConflict)"
+                                                    @onclick="() => SaveEditAsync(comment)">Zapisz</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="comment-body">@comment.Content</p>
+                                <div class="comment-tools">
+                                    @if (comment.AuthorId == Viewer?.UserId)
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" disabled="@(!Viewer.CanWrite)" @onclick="() => StartEdit(comment)">
+                                            <Icon Name="@Icons.Pencil" Size="14" /> Edytuj
+                                        </button>
+                                        <button type="button" class="btn btn-ghost btn-sm" disabled="@(!Viewer.CanWrite)" @onclick="() => AskDeleteAsync(comment)">
+                                            <Icon Name="@Icons.Trash" Size="14" /> Usuń
+                                        </button>
+                                    }
+                                    else if (Viewer is not null && Viewer.CanWrite)
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => reportDialog!.OpenAsync(ReportTargetType.Comment, comment.Id)">
+                                            <Icon Name="@Icons.Flag" Size="14" /> Zgłoś
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </li>
+                }
+            </ol>
+
+            <LoadMore HasMore="commentsCursor is not null" IsLoading="isLoadingComments" OnClick="LoadMoreCommentsAsync"
+                      Label="Pokaż kolejne komentarze" Status="@commentsStatus" />
+        }
+
+        @if (Viewer is null)
+        {
+            <div class="composer">
+                <p class="muted">Zaloguj się, aby dołączyć do dyskusji.</p>
+                <div class="cluster">
+                    <a class="btn btn-primary" href="@UiText.LoginUrl(LoginReturnUrl ?? UiText.PostUrl(PostId))">Zaloguj się</a>
+                    <a class="btn" href="/register">Załóż konto</a>
+                </div>
+            </div>
+        }
+        else if (Viewer.IsSuspended)
+        {
+            <Alert Variant="AlertVariant.Warning">@UiErrors.Suspended</Alert>
+        }
+        else
+        {
+            <form @onsubmit="AddCommentAsync">
+                <FormGate Class="composer">
+                <label class="field-label" for="@($"{IdPrefix}new-comment")">Dodaj komentarz</label>
+                @if (addError is not null)
+                {
+                    <Alert Variant="@addErrorVariant">@addError</Alert>
+                }
+                <textarea id="@($"{IdPrefix}new-comment")" class="textarea textarea-sm" maxlength="@CommentLimits.ContentMaxLength"
+                          placeholder="Co o tym myślisz?" @bind="newComment"></textarea>
+                <div class="spread">
+                    @* @key: po wysłaniu licznik powstaje od nowa — liczbę w trakcie pisania ustawia JS, więc sam diff Blazora
+                       ("0" → "0") nie wyzerowałby widocznej wartości. *@
+                    <CharCounter @key="composerVersion" For="@($"{IdPrefix}new-comment")" Value="@newComment" Max="CommentLimits.ContentMaxLength" />
+                    <button type="submit" class="btn btn-primary" disabled="@isBusy"
+                            aria-busy="@(isBusy ? "true" : "false")">
+                        @if (isBusy)
+                        {
+                            <span class="spinner" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <Icon Name="@Icons.Cactus" Size="16" />
+                        }
+                        Opublikuj komentarz
+                    </button>
+                </div>
+                </FormGate>
+            </form>
+        }
+    </section>
+}
+
+<ReportDialog @ref="reportDialog" />
+
+<Modal @ref="deleteDialog" Title="Usunąć komentarz?">
+    <ChildContent>
+        @if (deleteError is not null)
+        {
+            <Alert Variant="@deleteErrorVariant">@deleteError</Alert>
+        }
+        <p>Komentarz zniknie z dyskusji. Tej operacji nie można cofnąć z poziomu aplikacji.</p>
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn" autofocus @onclick="() => deleteDialog!.CloseAsync()">Anuluj</button>
+        @if (deleteConflict && pendingDelete is not null)
+        {
+            <button type="button" class="btn btn-primary" @onclick="ReloadAfterDeleteConflictAsync">Wczytaj aktualną wersję</button>
+        }
+        else
+        {
+            <button type="button" class="btn btn-danger-solid" disabled="@isBusy" @onclick="ConfirmDeleteAsync">Usuń komentarz</button>
+        }
+    </Footer>
+</Modal>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    [Parameter, EditorRequired] public int PostId { get; set; }
+
+    // Strona: h1 (tytuł) i h2 (komentarze). BAR: h3 / h4 — pod tytułem okna "Karta rozmów".
+    [Parameter] public int HeadingLevel { get; set; } = 1;
+    [Parameter] public string TitleId { get; set; } = "post-title";
+
+    // Prefiks id komentarzy i pól — strona zostawia "comments" / "comment-12" (linki z powiadomień).
+    [Parameter] public string IdPrefix { get; set; } = "";
+
+    // Dokąd wrócić po zalogowaniu (BAR: ta sama rozmowa w sali).
+    [Parameter] public string? LoginReturnUrl { get; set; }
+
+    // Tylko strona: tytuł karty przeglądarki, link "#comments" i przewinięcie do kotwicy z adresu.
+    [Parameter] public bool SetPageTitle { get; set; } = true;
+    [Parameter] public bool CommentsLink { get; set; } = true;
+    [Parameter] public bool ScrollToFragment { get; set; } = true;
+
+    // Akcje pustego stanu "post niedostępny" (strona: powrót do odkrywania; BAR: powrót do listy).
+    [Parameter] public RenderFragment? Unavailable { get; set; }
+
+    private PostDetailsResponse? post;
+    private bool isLoading = true;
+    private bool loadFailed;
+    private bool isBusy;
+
+    private readonly List<CommentResponse> comments = new();
+    private int commentCount;
+    private string? commentsCursor;
+    private bool isLoadingComments;
+    private string? commentsError;
+    private string? commentsStatus;
+    private int? justAddedId;
+
+    private string newComment = "";
+    private int composerVersion;
+    private string? addError;
+    private AlertVariant addErrorVariant = AlertVariant.Danger;
+
+    private int? editingId;
+    private string editContent = "";
+    private string? editError;
+    private bool editConflict;
+
+    private CommentResponse? pendingDelete;
+    private string? deleteError;
+    private AlertVariant deleteErrorVariant = AlertVariant.Danger;
+    private bool deleteConflict;
+
+    private ReportDialog? reportDialog;
+    private Modal? deleteDialog;
+    private bool scrollPending;
+
+    private int StateHeadingLevel => HeadingLevel == 1 ? 1 : 0;
+
+    private bool IsOwner => post is not null && Viewer?.UserId == post.AuthorId;
+
+    private int? loadedId;
+
+    public string? Title => post?.Title;
+
+    // Tylko zmiana posta — nie przeładowujemy przy zmianie kaskadowanego Viewer (np. dociągnięty status konta).
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == PostId)
+            return;
+
+        loadedId = PostId;
+        scrollPending = ScrollToFragment;
+        editingId = null;
+        newComment = "";
+        addError = null;
+        justAddedId = null;
+        commentsStatus = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        loadFailed = false;
+        comments.Clear();
+        commentsCursor = null;
+        try
+        {
+            var viewerId = (await AuthState).User.GetUserId();
+            post = await Ui.Run((IPostService s) => s.GetByIdAsync(PostId, viewerId));
+            if (post is null)
+                return;
+
+            commentCount = post.CommentCount;
+            await LoadMoreCommentsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd ładowania posta {PostId}.", PostId);
+            loadFailed = true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Link z karty / profilu (#comments, #comment-12): przewinięcie po wczytaniu treści.
+        if (scrollPending && !isLoading && post is not null)
+        {
+            scrollPending = false;
+            var fragment = new Uri(Navigation.Uri).Fragment.TrimStart('#');
+            if (fragment.Length > 0)
+                await JS.InvokeVoidAsync("sansPost.scrollToId", fragment);
+        }
+    }
+
+    private async Task LoadMoreCommentsAsync()
+    {
+        isLoadingComments = true;
+        commentsError = null;
+        try
+        {
+            var before = comments.Count;
+            var result = await Ui.Run((CommentService s) => s.GetByPostAsync(PostId, new CommentPageQuery { Cursor = commentsCursor }));
+            if (!result.Succeeded)
+            {
+                commentsError = UiErrors.Describe(result);
+                return;
+            }
+
+            comments.AddRange(result.Value!.Items.Where(c => comments.All(existing => existing.Id != c.Id)).ToList());
+            commentsCursor = result.Value.NextCursor;
+            if (before > 0)
+                commentsStatus = $"Wczytano {UiText.Comments(comments.Count - before)}.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd wczytywania komentarzy posta {PostId}.", PostId);
+            commentsError = "Nie udało się wczytać komentarzy.";
+        }
+        finally
+        {
+            isLoadingComments = false;
+        }
+    }
+
+    private async Task AddCommentAsync()
+    {
+        if (Viewer is null || isBusy)
+            return;
+
+        // Pole wiązane zdarzeniem "change" (bez round-tripu na każdy znak) — przycisk jest zawsze aktywny, pusta treść daje komunikat.
+        if (string.IsNullOrWhiteSpace(newComment))
+        {
+            addError = "Napisz treść komentarza.";
+            addErrorVariant = AlertVariant.Warning;
+            return;
+        }
+
+        isBusy = true;
+        addError = null;
+        try
+        {
+            var result = await Ui.Run((CommentService s) => s.AddAsync(Viewer.UserId, PostId, new CommentRequest { Content = newComment }));
+            if (!result.Succeeded)
+            {
+                if (UiErrors.EndsSession(result))
+                {
+                    Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+                    return;
+                }
+
+                addError = UiErrors.Describe(result, notFound: "Ten post nie jest już dostępny.");
+                addErrorVariant = UiErrors.Variant(result);
+                return;
+            }
+
+            newComment = "";
+            composerVersion++;
+            commentCount++;
+            justAddedId = result.Value!.Id;
+
+            // Dyskusja rośnie na końcu (CreatedAt ASC). Jeśli nie wszystkie strony są wczytane, nowy komentarz pojawi się po doładowaniu.
+            if (commentsCursor is null)
+                comments.Add(result.Value);
+            commentsStatus = "Komentarz opublikowany.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd dodawania komentarza do posta {PostId}.", PostId);
+            addError = UiErrors.Generic;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void StartEdit(CommentResponse comment)
+    {
+        editingId = comment.Id;
+        editContent = comment.Content;
+        editError = null;
+        editConflict = false;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = null;
+        editError = null;
+        editConflict = false;
+    }
+
+    private async Task SaveEditAsync(CommentResponse comment)
+    {
+        if (Viewer is null || isBusy)
+            return;
+
+        isBusy = true;
+        editError = null;
+        try
+        {
+            // Wersja z chwili wczytania — równoległa zmiana daje 412 zamiast cichego nadpisania.
+            var result = await Ui.Run((CommentService s) => s.UpdateAsync(Viewer.UserId, comment.Id, comment.Version, new CommentRequest { Content = editContent }));
+            if (result.Succeeded)
+            {
+                Replace(comment, result.Value!);
+                editingId = null;
+                return;
+            }
+
+            if (UiErrors.EndsSession(result))
+            {
+                Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+                return;
+            }
+
+            if (result.Error == ServiceError.PreconditionFailed)
+                editConflict = true;
+            else
+                editError = UiErrors.Describe(result, notFound: "Ten komentarz nie jest już dostępny.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd edycji komentarza {CommentId}.", comment.Id);
+            editError = UiErrors.Generic;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ReloadCommentAsync(CommentResponse comment)
+    {
+        var current = await Ui.Run((CommentService s) => s.GetByIdAsync(comment.Id));
+        editingId = null;
+        editConflict = false;
+
+        if (current is null)
+        {
+            comments.Remove(comment);
+            commentCount = Math.Max(0, commentCount - 1);
+            Toasts.Show("Ten komentarz został w międzyczasie usunięty.", AlertVariant.Info);
+            return;
+        }
+
+        Replace(comment, current);
+    }
+
+    private async Task AskDeleteAsync(CommentResponse comment)
+    {
+        pendingDelete = comment;
+        deleteError = null;
+        deleteConflict = false;
+        await deleteDialog!.ShowAsync();
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (Viewer is null || pendingDelete is null || isBusy)
+            return;
+
+        isBusy = true;
+        try
+        {
+            var result = await Ui.Run((CommentService s) => s.DeleteAsync(Viewer.UserId, pendingDelete.Id, pendingDelete.Version));
+            if (result.Succeeded)
+            {
+                comments.Remove(pendingDelete);
+                commentCount = Math.Max(0, commentCount - 1);
+                pendingDelete = null;
+                await deleteDialog!.CloseAsync();
+                Toasts.Success("Komentarz usunięty.");
+                return;
+            }
+
+            if (UiErrors.EndsSession(result))
+            {
+                Navigation.NavigateTo("/login?ended=1", forceLoad: true);
+                return;
+            }
+
+            deleteConflict = result.Error == ServiceError.PreconditionFailed;
+            deleteError = UiErrors.Describe(result, notFound: "Ten komentarz nie jest już dostępny.",
+                stale: "Komentarz zmienił się od chwili wczytania. Wczytaj aktualną wersję przed usunięciem.");
+            deleteErrorVariant = UiErrors.Variant(result);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Błąd usuwania komentarza.");
+            deleteError = UiErrors.Generic;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ReloadAfterDeleteConflictAsync()
+    {
+        if (pendingDelete is not null)
+            await ReloadCommentAsync(pendingDelete);
+
+        pendingDelete = null;
+        await deleteDialog!.CloseAsync();
+    }
+
+    private void Replace(CommentResponse old, CommentResponse updated)
+    {
+        var index = comments.FindIndex(c => c.Id == old.Id);
+        if (index >= 0)
+            comments[index] = updated;
+    }
+}

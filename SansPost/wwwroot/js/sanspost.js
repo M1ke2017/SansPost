@@ -59,19 +59,49 @@
     });
 
     // ---- Dialog -----------------------------------------------------------
-    function showDialog(dialog, dotnet) {
-        if (!dialog || dialog.open) return;
+    // managed: o zamknięciu decyduje właściciel (np. BAR z poziomami — Escape cofa o poziom). Escape, klik w tło
+    // i żądanie zamknięcia systemu (np. gest "wstecz") trafiają do OnDialogDismiss zamiast zamykać dialog.
+    function showDialog(dialog, dotnet, managed, generation) {
+        if (!dialog) return;
+        dialog.__spGen = generation;   // także gdy okno jest już otwarte — jego zamknięcie dotyczy tego otwarcia
+        if (dialog.open) return;
         if (!dialog.__spBound) {
             dialog.__spBound = true;
+            const dismiss = function (reason) {
+                if (dialog.__spDotnet) dialog.__spDotnet.invokeMethodAsync("OnDialogDismiss", reason).catch(function () { });
+            };
             dialog.addEventListener("close", function () {
-                if (dialog.__spDotnet) dialog.__spDotnet.invokeMethodAsync("OnDialogClosed").catch(function () { });
+                // Zdarzenie "close" przychodzi jako osobne zadanie — jeśli okno zdążyło się już ponownie otworzyć
+                // (np. Escape i od razu Enter na przycisku otwierającym), dotyczy poprzedniego otwarcia: pomijamy.
+                if (dialog.open) return;
+                if (dialog.__spDotnet) dialog.__spDotnet.invokeMethodAsync("OnDialogClosed", dialog.__spGen || 0).catch(function () { });
             });
             // Klik w tło (poza panelem) zamyka dialog.
             dialog.addEventListener("click", function (event) {
-                if (event.target === dialog) dialog.close();
+                if (event.target !== dialog) return;
+                if (dialog.__spManaged) dismiss("backdrop"); else dialog.close();
+            });
+            // Escape obsłużony już przy keydown — przeglądarka nie wysyła wtedy żądania zamknięcia (także przy
+            // kolejnych naciśnięciach bez innej interakcji, których "cancel" nie dałoby się już zatrzymać).
+            dialog.addEventListener("keydown", function (event) {
+                if (!dialog.__spManaged || event.key !== "Escape" || event.defaultPrevented) return;
+                // Escape w oknie zagnieżdżonym (zgłoszenie, usunięcie komentarza) należy do niego.
+                const target = event.target;
+                if (target && target.closest && target.closest("dialog") !== dialog) return;
+                event.preventDefault();
+                // Pisany tekst (komentarz, edycja) nie znika przez przypadkowy Escape — okno zostaje na tym poziomie.
+                if (target && ((target.tagName === "TEXTAREA" && target.value.trim()) || target.isContentEditable
+                    || (target.tagName === "INPUT" && /^(text|email|password)$/.test(target.type) && target.value))) return;
+                dismiss("escape");
+            });
+            dialog.addEventListener("cancel", function (event) {
+                if (!dialog.__spManaged || !event.cancelable) return;
+                event.preventDefault();
+                dismiss("escape");
             });
         }
         dialog.__spDotnet = dotnet;
+        dialog.__spManaged = !!managed;
         dialog.showModal();
     }
 
@@ -261,14 +291,76 @@
         return at > 0 && Date.now() - at < 15000;
     }
 
-    // Otwarta strefa sali (bar z feedem) — powrót "wstecz" z posta przywraca panel zamiast pustej sali.
-    function hallArea() {
-        return safeGet("sessionStorage", "sp-hall-area");
+    // ---- BAR: historia -------------------------------------------------------
+    // Poziomy BAR to wpisy historii (BarNavigation): "w górę" = cofnięcie o jeden wpis, zamknięcie = o kilka.
+    function historyGo(delta) {
+        history.go(delta);
     }
 
-    function rememberHallArea(area) {
-        if (area) safeSet("sessionStorage", "sp-hall-area", area);
-        else try { sessionStorage.removeItem("sp-hall-area"); } catch { /* bez storage */ }
+    // Link do rozmowy kliknięty w oknie BAR: zamiast wyjścia na /post-view/{id} — poziom "rozmowa" w tym samym oknie;
+    // link do /login lub /register — karta logowania / rejestracji w tym samym oknie (klasyczne strony tylko wprost).
+    // Zwykły klik (bez Ctrl/Shift/Alt/Meta, lewy przycisk, bez target) — reszta (nowa karta, kopiowanie) zostaje
+    // natywna i daje klasyczny, udostępnialny adres. Celowo nie przez LocationChanging Blazora: zarejestrowany
+    // handler sprawia, że Blazor cofa i ponawia każde "wstecz"/"dalej" przeglądarki (dodatkowe popstate), co ścigało
+    // się z kolejną nawigacją użytkownika.
+    function bindBarLinks(dotnet) {
+        const handler = function (event) {
+            if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+            const link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+            if (!link || link.target || !link.closest("dialog.bar-panel[open]")) return;
+            const url = new URL(link.href, document.baseURI);
+            if (url.origin !== location.origin) return;
+            const post = /^\/(?:post-view|p)\/(\d+)\/?$/.exec(url.pathname);
+            const auth = /^\/(login|register)\/?$/.exec(url.pathname);
+            if (!post && !auth) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (post) {
+                dotnet.invokeMethodAsync("OpenConversation", Number(post[1])).catch(function () { });
+                return;
+            }
+            // Logowanie / rejestracja z BAR: karta w oknie; przycisk zapamiętany — po powrocie wraca na niego fokus.
+            document.querySelectorAll("[data-auth-return]").forEach(function (el) { el.removeAttribute("data-auth-return"); });
+            link.setAttribute("data-auth-return", "");
+            dotnet.invokeMethodAsync("OpenAuth", auth[1], url.searchParams.get("returnUrl")).catch(function () { });
+        };
+        document.addEventListener("click", handler, true);
+        return { dispose: function () { document.removeEventListener("click", handler, true); } };
+    }
+
+    // Nowy poziom w oknie (BAR): okno od góry, fokus na nagłówek poziomu (bez przewijania pod przyklejony nagłówek okna).
+    // Powrót do Karty rozmów (top = false): fokus na pozycję, z której wyszliśmy — przewinięta do widoku.
+    function focusInDialog(selector, top) {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        const dialog = el.closest("dialog");
+        if (top && dialog) dialog.scrollTop = 0;
+        el.focus({ preventScroll: !!top });
+        if (!top) el.scrollIntoView({ block: "center" });
+    }
+
+    // Jak wyżej, ale element może się jeszcze wczytywać (tytuł rozmowy po pobraniu posta): czekamy do 4 s,
+    // potem fallback. Nowe wywołanie anuluje poprzednie (szybkie przejścia między poziomami bez "skaczącego" fokusu).
+    let focusToken = 0;
+    function focusInDialogWhenReady(selector, fallback, top) {
+        const token = ++focusToken;
+        const started = performance.now();
+        const attempt = function () {
+            if (token !== focusToken) return;
+            const el = document.querySelector(selector);
+            if (el && el.getClientRects().length) { focusInDialog(selector, top); return; }
+            if (performance.now() - started > 4000) { if (fallback) focusInDialog(fallback, top); return; }
+            requestAnimationFrame(attempt);
+        };
+        attempt();
+    }
+
+    // Fokus w polu z kursorem na końcu (pisanie trwa dalej po przejściu Karta rozmów → wyniki).
+    function focusInputEnd(selector) {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        el.focus({ preventScroll: true });
+        try { el.setSelectionRange(el.value.length, el.value.length); } catch { /* pole bez zaznaczenia */ }
     }
 
     // Onboarding sali: pełny pasek stref do pierwszego świadomego wyboru strefy w tej sesji, potem kompaktowy.
@@ -306,7 +398,7 @@
         body.set("__RequestVerificationToken", form.elements["__RequestVerificationToken"].value);
         body.set("Email", form.elements["Email"].value);
         body.set("Password", form.elements["Password"].value);
-        body.set("ReturnUrl", "/saloon");
+        body.set("ReturnUrl", form.getAttribute("data-return-url") || "/saloon");   // serwer i tak przyjmie tylko adres lokalny
         return Object.assign({ stage: "login" }, await postForm(new URL("auth/login", document.baseURI).href, body));
     }
 
@@ -321,8 +413,11 @@
         saloonEntryDuration: saloonEntryDuration,
         bindEntranceParallax: bindEntranceParallax,
         takeDoorArrival: takeDoorArrival,
-        hallArea: hallArea,
-        rememberHallArea: rememberHallArea,
+        historyGo: historyGo,
+        focusInputEnd: focusInputEnd,
+        bindBarLinks: bindBarLinks,
+        focusInDialog: focusInDialog,
+        focusInDialogWhenReady: focusInDialogWhenReady,
         hallOnboarded: hallOnboarded,
         submitAuthForm: submitAuthForm,
         registerAndSignIn: registerAndSignIn,

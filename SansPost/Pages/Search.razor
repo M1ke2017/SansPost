@@ -1,11 +1,7 @@
 @page "/search"
 @using SansPost.Features.Search
 @implements IDisposable
-@inject UiServices Ui
 @inject NavigationManager Navigation
-@inject IJSRuntime JS
-@inject ILogger<Search> Logger
-@inject SearchRateLimiter SearchLimiter
 
 <PageTitle>@(string.IsNullOrWhiteSpace(Q) ? "Szukaj" : $"„{Q}” — szukaj") · SansPost</PageTitle>
 
@@ -50,20 +46,8 @@
     </div>
 </form>
 
-<p id="search-hint" class="text-sm subtle search-hint" role="status" aria-live="polite">
-    @if (isSearching)
-    {
-        <span class="cluster"><span class="spinner" aria-hidden="true" style="width: 14px; height: 14px"></span> Szukanie…</span>
-    }
-    else if (tooShort)
-    {
-        <span>Wpisz co najmniej @SearchLimits.QueryMinLength znaki.</span>
-    }
-    else if (hasSearched && error is null)
-    {
-        <span>@ResultSummary</span>
-    }
-</p>
+<PostSearchResults Query="@Q" Category="CategoryValue" HintId="search-hint"
+                   OnClearCategory="ClearCategoryAsync" OnClear="ClearAsync" />
 
 @if (string.IsNullOrWhiteSpace(Q))
 {
@@ -79,235 +63,29 @@
         </nav>
     </section>
 }
-else if (error is not null)
-{
-    <Alert Variant="@errorVariant">@error</Alert>
-}
-else if (hasSearched)
-{
-    <div class="stack-lg search-results">
-        @if (authors.Count > 0)
-        {
-            <section aria-labelledby="authors-title" class="stack-sm">
-                <h2 id="authors-title" class="section-title">Autorzy</h2>
-                <ul class="author-chips list-plain">
-                    @foreach (var author in authors)
-                    {
-                        <li @key="author.UserId">
-                            <a class="author-chip" href="@UiText.ProfileUrl(author.Username)">
-                                <Avatar Username="@author.Username" Size="sm" />
-                                <span class="truncate">@author.Username</span>
-                                <span class="subtle text-xs nowrap">@UiText.Posts(author.PostCount)</span>
-                            </a>
-                        </li>
-                    }
-                </ul>
-            </section>
-        }
-
-        <section aria-labelledby="posts-title" class="stack-sm">
-            <h2 id="posts-title" class="section-title">Posty</h2>
-            @if (results.Count == 0)
-            {
-                <EmptyState Title="@($"Brak postów dla „{Q}”")" IconName="@Icons.Search"
-                            Text="@(CategoryValue is PostCategory c ? $"W kategorii {c.DisplayName()} nic nie pasuje. Spróbuj bez filtra kategorii albo innych słów." : "Spróbuj innych lub krótszych słów.")">
-                    @if (CategoryValue is not null)
-                    {
-                        <button type="button" class="btn" @onclick="ClearCategoryAsync">Szukaj we wszystkich kategoriach</button>
-                    }
-                    <button type="button" class="btn btn-ghost" @onclick="ClearAsync">Wyczyść wyszukiwanie</button>
-                </EmptyState>
-            }
-            else
-            {
-                <ul class="post-list" aria-label="Wyniki wyszukiwania">
-                    @foreach (var item in results)
-                    {
-                        <li @key="item.Id" id="@($"result-{item.Id}")"><PostCard Post="item" HeadingLevel="3" /></li>
-                    }
-                </ul>
-                <LoadMore HasMore="nextCursor is not null" IsLoading="isLoadingMore" OnClick="LoadMoreAsync" Label="Więcej wyników" Status="@moreStatus" />
-            }
-        </section>
-    </div>
-}
 
 @code {
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(350);
 
-    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
-    [CascadingParameter(Name = "ClientAddress")] private string? ClientAddress { get; set; }
-
     // Stan wyszukiwania w adresie: wynik można udostępnić, a "wstecz" wraca do poprzedniej frazy.
+    // Samo wyszukiwanie (limit, anulowanie starszych odpowiedzi, stany, paginacja) — PostSearchResults.
     [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
     [SupplyParameterFromQuery(Name = "category")] public string? Category { get; set; }
 
     private ElementReference inputRef;
     private string input = "";
+    private string? inputFor;
     private CancellationTokenSource? debounce;
-    private (string?, string?) searchedFor = ("\0", null);
-    private int searchSequence;
-    private bool interactive;
-
-    private readonly List<PostCardModel> results = new();
-    private readonly List<UserSearchResult> authors = new();
-    private string? nextCursor;
-    private bool isSearching;
-    private bool isLoadingMore;
-    private bool hasSearched;
-    private bool tooShort;
-    private string? error;
-    private AlertVariant errorVariant = AlertVariant.Warning;
-    private string? moreStatus;
 
     private PostCategory? CategoryValue => CategoryMeta.TryParseSlug(Category, out var parsed) ? parsed : null;
 
-    private string ResultSummary => results.Count == 0 && authors.Count == 0
-        ? "Brak wyników."
-        : $"{(nextCursor is null ? "" : "Co najmniej ")}{UiText.Plural(results.Count, "wynik", "wyniki", "wyników")} wśród postów"
-          + (authors.Count > 0 ? $" i {UiText.Plural(authors.Count, "autor", "autorów", "autorów")}." : ".");
-
-    protected override async Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        var key = (Q?.Trim(), Category);
-        if (key == searchedFor)
-            return;
-
-        searchedFor = key;
-        input = Q ?? "";
-        // Wyszukiwanie tylko w circuicie: prerender pokazuje "Szukanie…", więc jedno wejście = jedno zapytanie do bazy
-        // i jedno użycie limitu (prerender nie jest też furtką do obejścia limitu).
-        if (!interactive)
+        // Pole odzwierciedla adres (wejście z linku, "wstecz"); własne pisanie nie jest nadpisywane tą samą frazą.
+        if (Q != inputFor)
         {
-            isSearching = (Q?.Trim().Length ?? 0) >= SearchLimits.QueryMinLength;
-            return;
-        }
-
-        await RunSearchAsync();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-            return;
-
-        interactive = true;
-        await RunSearchAsync();
-        StateHasChanged();
-    }
-
-    // Wspólny limit wyszukiwania (REST i UI). Zalogowany → UserId, gość → adres klienta z żądania strony.
-    private bool TryAcquireSearch(int? viewerId)
-    {
-        var (acquired, retryAfter) = SearchLimiter.TryAcquire(SearchRateLimiter.ClientKey(viewerId, ClientAddress));
-        if (acquired)
-            return true;
-
-        SansPost.Infrastructure.Hosting.SansPostTelemetry.RateLimitRejections.Add(1, new KeyValuePair<string, object?>("policy", "Search"));
-        Logger.LogWarning("Rate limit {Policy} rejected Blazor search from {ClientIp}.", "Search", ClientAddress);
-        error = UiErrors.SearchRateLimited(retryAfter);
-        errorVariant = AlertVariant.Warning;
-        return false;
-    }
-
-    private async Task RunSearchAsync()
-    {
-        var sequence = ++searchSequence;
-        var query = Q?.Trim() ?? "";
-
-        results.Clear();
-        authors.Clear();
-        nextCursor = null;
-        error = null;
-        moreStatus = null;
-        hasSearched = false;
-        tooShort = query.Length is > 0 and < SearchLimits.QueryMinLength;
-
-        if (query.Length < SearchLimits.QueryMinLength)
-            return;
-
-        isSearching = true;
-        try
-        {
-            var viewerId = (await AuthState).User.GetUserId();
-            if (!TryAcquireSearch(viewerId))
-                return;
-
-            var posts = await Ui.Run((SearchService s) => s.SearchPostsAsync(new PostSearchQuery { Q = query, Category = CategoryValue }, viewerId));
-            var users = CategoryValue is null
-                ? await Ui.Run((SearchService s) => s.SearchUsersAsync(query, 6))
-                : null;
-
-            // Wynik starszego zapytania nie nadpisuje nowszego (szybkie pisanie).
-            if (sequence != searchSequence)
-                return;
-
-            if (!posts.Succeeded)
-            {
-                error = UiErrors.Describe(posts);
-                errorVariant = UiErrors.Variant(posts) == AlertVariant.Danger ? AlertVariant.Warning : UiErrors.Variant(posts);
-                return;
-            }
-
-            results.AddRange(posts.Value!.Items.Select(PostCardModel.From));
-            nextCursor = posts.Value.NextCursor;
-            if (users is { Succeeded: true })
-                authors.AddRange(users.Value!);
-            hasSearched = true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Błąd wyszukiwania.");
-            if (sequence == searchSequence)
-            {
-                error = UiErrors.Generic;
-                errorVariant = AlertVariant.Danger;
-            }
-        }
-        finally
-        {
-            if (sequence == searchSequence)
-                isSearching = false;
-        }
-    }
-
-    private async Task LoadMoreAsync()
-    {
-        if (nextCursor is null)
-            return;
-
-        isLoadingMore = true;
-        try
-        {
-            var before = results.Count;
-            var viewerId = (await AuthState).User.GetUserId();
-            if (!TryAcquireSearch(viewerId))
-                return;
-
-            var page = await Ui.Run((SearchService s) => s.SearchPostsAsync(
-                new PostSearchQuery { Q = Q?.Trim(), Category = CategoryValue, Cursor = nextCursor }, viewerId));
-
-            if (!page.Succeeded)
-            {
-                error = UiErrors.Describe(page);
-                return;
-            }
-
-            results.AddRange(page.Value!.Items.Where(r => results.All(e => e.Id != r.Id)).Select(PostCardModel.From).ToList());
-            nextCursor = page.Value.NextCursor;
-            moreStatus = $"Wczytano {UiText.Plural(results.Count - before, "kolejny wynik", "kolejne wyniki", "kolejnych wyników")}.";
-
-            if (nextCursor is null && results.Count > before)
-                await JS.InvokeVoidAsync("sansPost.focusSelector", $"#result-{results[before].Id} .post-card-title a");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Błąd doładowania wyników wyszukiwania.");
-            error = UiErrors.Generic;
-        }
-        finally
-        {
-            isLoadingMore = false;
+            inputFor = Q;
+            input = Q ?? "";
         }
     }
 

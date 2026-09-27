@@ -1,0 +1,165 @@
+@using Microsoft.Extensions.Options
+@inject IJSRuntime JS
+@inject UiServices Ui
+@inject IOptions<PublicDemoOptions> DemoOptions
+
+@* Formularz "Karta nowego przybysza" — prezentacja istniejącej rejestracji (POST /auth/register), wspólna dla karty na
+   Entrance i karty w BAR. Przydomek z generatora (AliasPicker, "Losuj inny"), bez pola na własną nazwę. Po sukcesie
+   te same dane logują (POST /auth/login) z tym samym ReturnUrl co logowanie — właściciel dostaje wynik z adresem końcowym.
+   Zasady (limit kont, wyłączona rejestracja, unikalność przydomka i emaila) rozstrzyga serwer, jak na stronie /register. *@
+@if (availability == Availability.Checking)
+{
+    <p class="muted" role="status">Sprawdzanie wolnych miejsc w Saloonie…</p>
+}
+else if (availability != Availability.Open)
+{
+    <Alert Variant="AlertVariant.Warning" Title="@(availability == Availability.Disabled ? "Rejestracja jest obecnie wyłączona" : "Limit kont został osiągnięty")">
+        Wszystkie treści możesz czytać bez konta.
+    </Alert>
+    @if (OnGuest.HasDelegate)
+    {
+        <button type="button" class="btn btn-primary btn-lg btn-block card-submit" @onclick="OnGuest">Wejdź jako gość</button>
+    }
+}
+else
+{
+    @if (error is not null)
+    {
+        <Alert Variant="@errorVariant">@error</Alert>
+    }
+
+    <form class="card-form stack" method="post" action="auth/register" data-return-url="@ReturnUrl" @ref="form" @onsubmit="SubmitAsync">
+        <AntiforgeryField />
+        <AliasPicker @ref="picker" @bind-Alias="alias" />
+
+        <div class="field">
+            <label class="field-label" for="@($"{IdPrefix}-email")">Email</label>
+            <input class="input" type="email" id="@($"{IdPrefix}-email")" name="Email" maxlength="254" autocomplete="email" required autofocus
+                   aria-describedby="@($"{IdPrefix}-email-hint")" aria-invalid="@(identityTaken ? "true" : null)" />
+            <span class="field-hint" id="@($"{IdPrefix}-email-hint")">Nie jest nigdzie wyświetlany.</span>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="@($"{IdPrefix}-password")">Hasło</label>
+            <PasswordInput Id="@($"{IdPrefix}-password")" Name="Password" Autocomplete="new-password" DescribedBy="@($"{IdPrefix}-password-hint")"
+                           MinLength="PasswordPolicy.MinLength" MaxLength="PasswordPolicy.MaxLength" />
+            <span class="field-hint" id="@($"{IdPrefix}-password-hint")">@PasswordPolicy.MinLength–@PasswordPolicy.MaxLength znaków.</span>
+        </div>
+
+        <div class="field">
+            <label class="field-label" for="@($"{IdPrefix}-confirm")">Powtórz hasło</label>
+            <PasswordInput Id="@($"{IdPrefix}-confirm")" Name="ConfirmPassword" Autocomplete="new-password"
+                           MaxLength="PasswordPolicy.MaxLength" Invalid="passwordMismatch" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block card-submit" aria-busy="@(busy ? "true" : "false")">
+            @(busy ? "Otwieranie drzwi…" : "Dołącz do Saloonu")
+        </button>
+    </form>
+}
+
+<p class="card-switch">Masz już konto? <button type="button" class="card-link" @onclick="OnSwitchToLogin">Zaloguj się</button></p>
+
+@code {
+    private enum Availability { Checking, Open, Disabled, CapacityReached }
+
+    // Dokąd po rejestracji i zalogowaniu (weryfikuje serwer przy logowaniu).
+    [Parameter] public string ReturnUrl { get; set; } = SaloonRoutes.Hub;
+
+    // Prefiks id pól — Entrance zostaje przy "card-email" / "card-password" / "card-confirm".
+    [Parameter] public string IdPrefix { get; set; } = "card";
+
+    [Parameter] public EventCallback<AuthPostResult> OnSignedIn { get; set; }
+    [Parameter] public EventCallback OnRegisteredWithoutSignIn { get; set; }
+    [Parameter] public EventCallback OnSwitchToLogin { get; set; }
+
+    // Entrance: przy zamkniętej rejestracji "Wejdź jako gość". W Saloonie gość już jest — przycisk znika.
+    [Parameter] public EventCallback OnGuest { get; set; }
+
+    private AliasPicker? picker;
+    private ElementReference form;
+    private Availability availability = Availability.Checking;
+    private string? alias;
+    private string? error;
+    private AlertVariant errorVariant = AlertVariant.Danger;
+    private bool passwordMismatch;
+    private bool identityTaken;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Tylko informacja tak/nie (bez liczby kont). Serwer i tak rozstrzyga limit atomowo przy zapisie.
+        alias = await Ui.Run((IAliasGenerator s) => s.SuggestAsync());
+        availability = !DemoOptions.Value.RegistrationEnabled ? Availability.Disabled
+            : alias is null || !await Ui.Run((IAuthService s) => s.IsRegistrationAvailableAsync()) ? Availability.CapacityReached
+            : Availability.Open;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (busy)
+            return;
+
+        busy = true;
+        error = null;
+        AuthPostResult result;
+        try
+        {
+            result = await JS.InvokeAsync<AuthPostResult>("sansPost.registerAndSignIn", form);
+        }
+        catch (JSException)
+        {
+            result = new AuthPostResult("register", 0, "", "");
+        }
+
+        if (result.SignedIn)
+        {
+            await OnSignedIn.InvokeAsync(result);
+            return;
+        }
+
+        busy = false;
+        if (result.Stage == "login")
+        {
+            // Konto powstało, logowanie nie (np. limit prób) — logowanie z informacją "Konto utworzone".
+            await OnRegisteredWithoutSignIn.InvokeAsync();
+            return;
+        }
+
+        passwordMismatch = result.Error == "mismatch";
+        identityTaken = result.Error == "conflict";
+        errorVariant = AlertVariant.Danger;
+        switch (result.Error)
+        {
+            case "capacity":
+                availability = Availability.CapacityReached;
+                break;
+            case "disabled":
+                availability = Availability.Disabled;
+                break;
+            case "mismatch":
+                error = AuthText.PasswordMismatch;
+                break;
+            case "conflict":
+                error = AuthText.IdentityTaken;
+                break;
+            case "alias-taken":
+                errorVariant = AlertVariant.Warning;
+                error = AuthText.AliasTaken;
+                if (picker is not null)
+                    await picker.RerollAsync();
+                break;
+            case "rate-limited":
+                errorVariant = AlertVariant.Warning;
+                error = AuthText.RegisterRateLimited;
+                break;
+            case "network":
+                errorVariant = AlertVariant.Warning;
+                error = AuthText.Unavailable;
+                break;
+            default:
+                error = AuthText.InvalidRegistration;
+                break;
+        }
+    }
+}

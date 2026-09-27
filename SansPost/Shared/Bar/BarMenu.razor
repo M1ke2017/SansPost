@@ -1,0 +1,55 @@
+@* Karta rozmów — jak karta w saloonie: sekcje, pozycje z kropkowanym prowadzeniem i liczbą rozmów zamiast ceny.
+   Pozycje to prawdziwe przyciski (Enter / Spacja); tematy z istniejących kategorii (bez Feedback). *@
+<div class="bar-menu">
+    <section class="bar-menu-section" aria-labelledby="bar-menu-start">
+        <h3 id="bar-menu-start" class="bar-menu-heading"><span>Na początek</span></h3>
+        <ul class="bar-menu-list" role="list">
+            <li>@Item("newest", "Najnowsze", "świeże wpisy", new BarState(BarView.Newest))</li>
+            <li>@Item("popular", "Popularne", "najwięcej reakcji", new BarState(BarView.Popular, Sort: PostSort.Popular))</li>
+            <li>@Item("all", "Wszystkie rozmowy", "cały bar", new BarState(BarView.All))</li>
+        </ul>
+    </section>
+
+    <p class="bar-menu-divider" aria-hidden="true"><span>✦</span></p>
+
+    <section class="bar-menu-section" aria-labelledby="bar-menu-topics">
+        <h3 id="bar-menu-topics" class="bar-menu-heading"><span>Tematy</span></h3>
+        <ul class="bar-menu-list" role="list">
+            @foreach (var topic in BarState.Topics)
+            {
+                <li>@Item($"topic-{CategoryMeta.Slug(topic)}", topic.DisplayName(), TopicNote(topic), new BarState(BarView.Topic, topic), CategoryMeta.Icon(topic))</li>
+            }
+        </ul>
+    </section>
+
+    <p class="bar-menu-divider" aria-hidden="true"><span>✦</span></p>
+
+    <section class="bar-menu-section bar-menu-start-conversation" aria-labelledby="bar-menu-new">
+        <h3 id="bar-menu-new" class="bar-menu-heading"><span>Nowa rozmowa</span></h3>
+        <BarStartConversation />
+    </section>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<CategorySummaryResponse>? Categories { get; set; }
+    [Parameter] public EventCallback<BarState> OnSelect { get; set; }
+
+    private string TopicNote(PostCategory topic) =>
+        Categories?.FirstOrDefault(c => c.Category == topic) is { } summary
+            ? UiText.Plural(summary.PostCount, "rozmowa", "rozmowy", "rozmów")
+            : "";
+
+    private RenderFragment Item(string id, string name, string note, BarState target, string? icon = null) => __builder =>
+    {
+        @* autofocus: po otwarciu Karty fokus trafia na pierwszą pozycję (natywne showModal). *@
+        <button type="button" class="bar-menu-item" data-bar-item="@id" autofocus="@(id == "newest")" @onclick="() => OnSelect.InvokeAsync(target)">
+            @if (icon is not null)
+            {
+                <Icon Name="@icon" Size="16" Class="bar-menu-icon" />
+            }
+            <span class="bar-menu-name">@name</span>
+            <span class="bar-menu-leader" aria-hidden="true"></span>
+            <span class="bar-menu-note">@note</span>
+        </button>
+    };
+}

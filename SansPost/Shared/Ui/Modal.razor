@@ -14,7 +14,7 @@
                 }
                 <h2 class="dialog-title" id="@titleId">@Title</h2>
             </div>
-            <button type="button" class="btn btn-ghost btn-icon" aria-label="Zamknij okno" @onclick="CloseAsync">
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="Zamknij okno" @onclick="CloseRequestedAsync">
                 <Icon Name="@Icons.X" />
             </button>
         </div>
@@ -40,11 +40,18 @@
     // Wywoływane po każdym zamknięciu (przycisk, Escape, klik w tło) — np. powrót kamery sali do kadru głównego.
     [Parameter] public EventCallback OnClosed { get; set; }
 
+    // Tryb zarządzany: Escape, "Zamknij" i klik w tło nie zamykają okna same, tylko trafiają tutaj
+    // ("escape" | "button" | "backdrop") — właściciel decyduje (np. BAR: Escape cofa o poziom, na Karcie rozmów zamyka).
+    [Parameter] public EventCallback<string> OnDismiss { get; set; }
+
     private readonly string titleId = "dialog-" + Guid.NewGuid().ToString("N")[..8];
     private ElementReference element;
     private DotNetObjectReference<Modal>? selfReference;
     private bool isOpen;
     private bool showPending;
+    // Numer otwarcia: "zamknięte" z przeglądarki przychodzi asynchronicznie — spóźnione powiadomienie o zamknięciu
+    // poprzedniego otwarcia nie może zamknąć treści okna otwartego ponownie w międzyczasie.
+    private int generation;
 
     public bool IsOpen => isOpen;
 
@@ -52,6 +59,7 @@
     {
         isOpen = true;
         showPending = true;
+        generation++;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -72,13 +80,18 @@
 
         showPending = false;
         selfReference ??= DotNetObjectReference.Create(this);
-        await JS.InvokeVoidAsync("sansPost.showDialog", element, selfReference);
+        await JS.InvokeVoidAsync("sansPost.showDialog", element, selfReference, OnDismiss.HasDelegate, generation);
     }
 
+    private Task CloseRequestedAsync() => OnDismiss.HasDelegate ? OnDismiss.InvokeAsync("button") : CloseAsync();
+
     [JSInvokable]
-    public async Task OnDialogClosed()
+    public Task OnDialogDismiss(string reason) => OnDismiss.InvokeAsync(reason);
+
+    [JSInvokable]
+    public async Task OnDialogClosed(int closedGeneration)
     {
-        if (!isOpen)
+        if (!isOpen || closedGeneration != generation)
             return;
 
         isOpen = false;

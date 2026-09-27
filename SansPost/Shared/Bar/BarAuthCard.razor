@@ -1,0 +1,52 @@
+@inject NavigationManager Navigation
+
+@* Karta logowania / rejestracji w BAR — ten sam papier co Karta rozmów, te same formularze co karty na Entrance
+   (SaloonLoginForm / SaloonRegisterForm: istniejące POST /auth/login i /auth/register, przydomki z generatora).
+   Po sukcesie strona przeładowuje się pod adres wybrany przez serwer (ReturnUrl tylko lokalny) — nowe cookie, ten sam
+   kontekst Saloonu: rozmowa, lista albo formularz rozpoczęcia rozmowy. Wpis historii karty zostaje zastąpiony,
+   więc "wstecz" nie wraca do formularza logowania. *@
+<div class="bar-auth">
+    <button type="button" class="bar-back" @onclick="OnBack">
+        <Icon Name="@Icons.ArrowLeft" Size="16" /> @BackLabel
+    </button>
+    <h3 id="bar-auth-title" class="bar-level-title" tabindex="-1">@State.Title</h3>
+    <p class="bar-level-intro">@Intro</p>
+
+    @if (Viewer is not null)
+    {
+        @* Wpis historii karty po zalogowaniu (np. "wstecz" z innej strony) — bez ponownego formularza. *@
+        <p class="text-sm">Jesteś już zalogowany jako <strong>@Viewer.Username</strong>.</p>
+        <a class="btn btn-primary btn-lg btn-block" href="@State.Next">Przejdź dalej</a>
+    }
+    else if (State.View == BarView.Login)
+    {
+        <SaloonLoginForm ReturnUrl="@(State.Next ?? SaloonRoutes.Hub)" IdPrefix="bar-login" SubmitLabel="Zaloguj się"
+                         AfterRegistration="AfterRegistration" OnSignedIn="SignedIn" OnSwitchToRegister="() => OnSwitch.InvokeAsync(BarView.Register)" />
+    }
+    else
+    {
+        <SaloonRegisterForm ReturnUrl="@(State.Next ?? SaloonRoutes.Hub)" IdPrefix="bar-register" OnSignedIn="SignedIn"
+                            OnRegisteredWithoutSignIn="OnRegisteredWithoutSignIn" OnSwitchToLogin="() => OnSwitch.InvokeAsync(BarView.Login)" />
+    }
+</div>
+
+@code {
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    [Parameter, EditorRequired] public BarState State { get; set; } = default!;
+    [Parameter] public bool AfterRegistration { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback<BarView> OnSwitch { get; set; }
+    [Parameter] public EventCallback OnRegisteredWithoutSignIn { get; set; }
+
+    private string BackLabel => State.Origin is { } origin ? (origin.View == BarView.Conversation ? "Wróć do rozmowy" : $"Wróć: {origin.Title}") : "Wróć do sali";
+
+    private string Intro => (State.Next ?? "").StartsWith("/new", StringComparison.OrdinalIgnoreCase)
+        ? "Po zalogowaniu od razu przejdziesz do formularza nowej rozmowy."
+        : State.Origin?.View == BarView.Conversation
+            ? "Po zalogowaniu wrócisz do tej rozmowy — z reakcjami i komentarzami."
+            : "Po zalogowaniu wrócisz w to samo miejsce w Saloonie.";
+
+    // Nowe cookie wymaga nowego circuitu: pełne przeładowanie pod zweryfikowany przez serwer adres, zamiast wpisu karty.
+    private void SignedIn(AuthPostResult result) => Navigation.NavigateTo(result.ReturnTo, forceLoad: true, replace: true);
+}
