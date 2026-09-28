@@ -21,6 +21,8 @@ type DuelResult =
     | PlayerOneWins
     | PlayerTwoWins
     | Draw
+    /// Pojedynek oddany przez wskazanego gracza (poddanie albo brak powrotu po zerwaniu połączenia) — wygrywa przeciwnik.
+    | Forfeited of Player
 
 type DuelPhase =
     | WaitingForMoves
@@ -47,17 +49,19 @@ type Effect =
     | ReloadInterrupted of Player
     /// Prowokacja ukarała unik albo blok przeciwnika (traci 1 prestiżu).
     | TauntPunished of Taunter: Player
+    /// Gracz nie wybrał karty przed końcem czasu rundy — traci 1 prestiżu (bez losowania ruchu za niego).
+    | TimedOut of Player
 
 /// Oczekujące, ukryte zagrania bieżącej rundy.
 type PendingMoves =
     { One: Card option
       Two: Card option }
 
-/// Rozegrana runda — karty odsłonięte dopiero po rozstrzygnięciu.
+/// Rozegrana runda — karty odsłonięte dopiero po rozstrzygnięciu. None = gracz nie wybrał karty przed końcem czasu.
 type RoundRecord =
     { Round: int
-      PlayerOneCard: Card
-      PlayerTwoCard: Card
+      PlayerOneCard: Card option
+      PlayerTwoCard: Card option
       Effects: Effect list
       PlayerOneAfter: PlayerState
       PlayerTwoAfter: PlayerState }

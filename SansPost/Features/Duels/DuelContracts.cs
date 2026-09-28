@@ -4,10 +4,12 @@ namespace SansPost.Features.Duels
 {
     // Pojedynek "Śladem Rewolwerowca" z perspektywy jednego gracza ("Ty" / "Przeciwnik"). Bez UserId i bez ukrytej karty
     // przeciwnika — o jego bieżącej rundzie wiadomo tylko, czy jest gotowy. Karty odsłania historia rozegranych rund.
+    // Sprint 20 (pojedynek na żywo): Version rośnie z każdą zmianą sesji — klient odrzuca starszy stan, który dotarł
+    // po nowszym. Czas rundy liczy serwer: RoundDeadline + RoundRemainingMs (klient rysuje odliczanie od chwili odbioru).
     public sealed record DuelSnapshot(
         string DuelId,
-        string Mode,              // "training" | "challenge"
-        string Status,            // "waiting-for-opponent" | "in-progress" | "finished"
+        string Mode,              // "training" | "challenge" (REST) | "live" (wyzwanie przez stół gry, SignalR)
+        string Status,            // "waiting-for-opponent" | "ready-check" | "in-progress" | "finished"
         int Round,
         int MaxRounds,
         PlayerSnapshot You,
@@ -16,15 +18,24 @@ namespace SansPost.Features.Duels
         bool OpponentReady,
         string? Result,           // "win" | "loss" | "draw" po zakończeniu
         IReadOnlyList<AvailableAction> AvailableActions,
-        IReadOnlyList<RoundResult> History);
+        IReadOnlyList<RoundResult> History,
+        long Version = 0,
+        string? Ending = null,                // "surrender" | "disconnect" — pojedynek oddany; inaczej null
+        DateTimeOffset? RoundDeadline = null,
+        int? RoundRemainingMs = null,
+        string Rematch = "none",              // "none" | "you" (czekasz na zgodę) | "opponent" (przeciwnik proponuje) | "started"
+        string? RematchDuelId = null,
+        bool OpponentLeft = false);
 
-    public sealed record PlayerSnapshot(string Alias, int Prestige, int Ammo, bool Ready);
+    // Ready = karta tej rundy wybrana (bez ujawniania jakiej). StartReady = "GOTOWY" przed pierwszą rundą.
+    // Online = false, gdy gracz stracił połączenie; GraceRemainingMs — ile zostało do oddania pojedynku.
+    public sealed record PlayerSnapshot(string Alias, int Prestige, int Ammo, bool Ready, bool StartReady = false, bool Online = true, int? GraceRemainingMs = null);
 
-    // Rozegrana runda: obie karty (już odsłonięte), efekty po polsku, stan po rundzie.
+    // Rozegrana runda: obie karty (już odsłonięte; null = brak ruchu przed końcem czasu), efekty po polsku, stan po rundzie.
     public sealed record RoundResult(
         int Round,
-        string YourCard,
-        string OpponentCard,
+        string? YourCard,
+        string? OpponentCard,
         IReadOnlyList<string> Effects,
         int YourPrestige,
         int YourAmmo,
@@ -55,6 +66,9 @@ namespace SansPost.Features.Duels
     public enum DuelMode
     {
         Challenge,
-        Training
+        Training,
+
+        // Sprint 20: wyzwanie przyjęte przy stole gry — faza gotowości, zegar rundy, rozłączenia i rewanż (SignalR).
+        Live
     }
 }

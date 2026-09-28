@@ -13,6 +13,7 @@ using SansPost.Features.Posts;
 using SansPost.Features.Profiles;
 using SansPost.Features.Reactions;
 using SansPost.Features.Search;
+using SansPost.Hubs;
 using SansPost.Infrastructure.Hosting;
 using SansPost.Infrastructure.Persistence;
 using SansPost.Infrastructure.Security;
@@ -101,7 +102,22 @@ public class Program
         builder.Services.AddSingleton<MusicService>();
 
         // Stół gry "Śladem Rewolwerowca": sesje pojedynków w pamięci procesu, rozstrzyganie w silniku F# (SansPost.Game.Core).
+        // Sprint 20 — pojedynek na żywo: DuelHub (SignalR) nad tymi samymi serwisami; jedna instancja, bez backplane.
+        builder.Services.AddOptions<DuelOptions>().BindConfiguration(DuelOptions.Section)
+            .Validate(o => o.IsValid, "Duels: czasy wyzwania, rundy i powrotu muszą mieścić się w 1–300 s.").ValidateOnStart();
         builder.Services.AddSingleton<GameSessionService>();
+        builder.Services.AddSingleton<DuelConnectionRegistry>();
+        builder.Services.AddSingleton<DuelChallengeService>();
+        builder.Services.AddSingleton<IDuelNotifier, HubDuelNotifier>();
+        // Krótszy keep-alive niż domyślny (15 s / 30 s): zerwane połączenie bez zamknięcia (np. utrata sieci) serwer wykrywa
+        // po ~12 s, więc okno powrotu zaczyna się szybko. Małe wiadomości — ruchy i akcje, bez treści użytkownika.
+        builder.Services.AddSignalR().AddHubOptions<DuelHub>(options =>
+        {
+            options.KeepAliveInterval = TimeSpan.FromSeconds(5);
+            options.ClientTimeoutInterval = TimeSpan.FromSeconds(12);
+            options.MaximumReceiveMessageSize = 4 * 1024;
+            options.EnableDetailedErrors = false;
+        });
 
         var app = builder.Build();
 
@@ -175,6 +191,7 @@ public class Program
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(DatabaseHealthCheck.ReadyTag) }).AllowAnonymous();
         app.MapControllers();
         app.MapBlazorHub();
+        app.MapHub<DuelHub>(DuelHub.Path);
         app.MapFallbackToPage("/_Host");
 
         await app.RunAsync();

@@ -1,0 +1,54 @@
+@* Karty komend: prawdziwe przyciski (Tab, Enter, Spacja); opis i powód niedostępności czytane przez czytnik.
+   Bez pojedynku — podgląd kart (nieaktywne). Wybrana karta zostaje oznaczona jako "Twój wybór" (zakryta przed przeciwnikiem);
+   o tym, czy karta jest dostępna, rozstrzyga serwer (AvailableActions) — tu tylko prezentacja. *@
+<section class="game-deck" aria-labelledby="game-deck-title">
+    <h3 class="game-deck-title" id="game-deck-title">Karty komend</h3>
+    <ul class="game-cards">
+        @foreach (var action in Current?.AvailableActions ?? Preview)
+        {
+            var chosen = Current is not null && (Current.YourMove ?? Pending) == action.Card;
+            var reason = Current is not null && !CanPlay && action.Enabled ? "Udział w pojedynkach jest niedostępny." : action.DisabledReason;
+            <li>
+                <button type="button" class="game-card @(chosen ? "is-chosen" : "")" data-card="@action.Card"
+                        disabled="@(Current is null || !action.Enabled || !CanPlay || Busy || Pending is not null)"
+                        aria-pressed="@(Current is null ? null : chosen ? "true" : "false")"
+                        aria-describedby="@($"game-card-{action.Card}-text")" @onclick="() => OnPlay.InvokeAsync(action.Card)">
+                    <span class="game-card-icon"><Icon Name="@IconFor(action.Card)" Size="26" StrokeWidth="1.6" /></span>
+                    <span class="game-card-name">@action.Name</span>
+                    <span class="game-card-text" id="@($"game-card-{action.Card}-text")">
+                        @action.Description@if (chosen)
+                        {
+                            <span class="game-card-reason"> Twój wybór — zakryty przed przeciwnikiem.</span>
+                        }
+                        else if (Current is not null && reason is not null)
+                        {
+                            <span class="game-card-reason"> @reason</span>
+                        }
+                    </span>
+                </button>
+            </li>
+        }
+    </ul>
+</section>
+
+@code {
+    [Parameter] public DuelSnapshot? Current { get; set; }
+    [Parameter] public bool CanPlay { get; set; }
+    [Parameter] public bool Busy { get; set; }
+
+    // Karta wysłana, zanim serwer potwierdził (bez możliwości zmiany — przyciski nieaktywne do odpowiedzi).
+    [Parameter] public string? Pending { get; set; }
+    [Parameter] public EventCallback<string> OnPlay { get; set; }
+
+    private static readonly IReadOnlyList<AvailableAction> Preview =
+        DuelMapper.Catalog.Select(c => new AvailableAction(c.Id, c.Name, c.Description, false, null)).ToList();
+
+    public static string IconFor(string? card) => card switch
+    {
+        "shoot" => Icons.Revolver,
+        "dodge" => Icons.Swerve,
+        "reload" => Icons.Cylinder,
+        "block" => Icons.Shield,
+        _ => Icons.Megaphone
+    };
+}

@@ -17,65 +17,21 @@ namespace SansPost.Tests.Duels
     [Trait("Category", "Duels")]
     public sealed class GameSessionServiceTests : IDisposable
     {
-        // SQLite w pamięci ze wspólną pamięcią podręczną: każdy kontekst ma własne połączenie (jak pula w produkcji),
-        // więc równoległe ruchy (testy współbieżności) mogą równocześnie czytać stan konta.
-        private readonly string _connectionString = $"DataSource=duels-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        private readonly SqliteConnection _keepAlive;
-        private readonly ServiceProvider _services;
+        private readonly DuelAccounts _accounts = new();
         private readonly int Anna, Bart, Stranger;
 
         public GameSessionServiceTests()
         {
-            _keepAlive = new SqliteConnection(_connectionString);
-            _keepAlive.Open();
-            using (var schema = CreateContext())
-                schema.Database.EnsureCreated();
-
-            var services = new ServiceCollection();
-            services.AddScoped(_ => CreateContext());
-            services.AddScoped(provider => TestServices.Guard(provider.GetRequiredService<ApplicationDbContext>()));
-            _services = services.BuildServiceProvider();
-            Anna = AddAccount();
-            Bart = AddAccount();
-            Stranger = AddAccount();
+            Anna = _accounts.Add();
+            Bart = _accounts.Add();
+            Stranger = _accounts.Add();
         }
 
-        private ApplicationDbContext CreateContext() =>
-            new(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connectionString).Options);
+        public void Dispose() => _accounts.Dispose();
 
-        public void Dispose()
-        {
-            _services.Dispose();
-            _keepAlive.Dispose();
-        }
+        private void SetStatus(int userId, AccountStatus status) => _accounts.SetStatus(userId, status);
 
-        private int AddAccount()
-        {
-            using var context = CreateContext();
-            var name = TestUsers.RawName("gs");
-            var user = new User
-            {
-                Username = name,
-                NormalizedUsername = IdentityNormalizer.Normalize(name),
-                Email = $"{name}@example.com",
-                NormalizedEmail = IdentityNormalizer.Normalize($"{name}@example.com"),
-                PasswordHash = "test-data-no-login"
-            };
-            context.Users.Add(user);
-            context.SaveChanges();
-            return user.Id;
-        }
-
-        // Zmiana statusu jak w moderacji (bezpośrednio w bazie — polityka czyta aktualny stan przy każdej akcji).
-        private void SetStatus(int userId, AccountStatus status)
-        {
-            using var context = CreateContext();
-            context.Users.Single(u => u.Id == userId).Status = status;
-            context.SaveChanges();
-        }
-
-        private GameSessionService Service(TimeProvider? time = null) =>
-            new(time ?? TimeProvider.System, _services.GetRequiredService<IServiceScopeFactory>(), NullLogger<GameSessionService>.Instance);
+        private GameSessionService Service(TimeProvider? time = null) => _accounts.Sessions(time ?? TimeProvider.System, new RecordingNotifier());
 
         private static T Ok<T>(ServiceResult<T> result)
         {

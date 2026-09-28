@@ -76,6 +76,19 @@ let submitMoveForRound expectedRound player card (state: GameState) =
     else
         submitMove player card state
 
+/// Zamknięcie rundy: zapis w historii, wyczyszczone karty, koniec gry (nokaut / limit rund) albo kolejna runda.
+let private closeRound (valid: GameState) (record: RoundRecord) =
+    let next =
+        { valid with
+            PlayerOne = record.PlayerOneAfter
+            PlayerTwo = record.PlayerTwoAfter
+            Pending = noMoves
+            History = valid.History @ [ record ] }
+
+    match Rules.outcome valid.Rules valid.Round record.PlayerOneAfter record.PlayerTwoAfter with
+    | Some result -> { next with Phase = Finished result }, record
+    | None -> { next with Round = valid.Round + 1 }, record
+
 /// Jednoczesne odsłonięcie i rozstrzygnięcie rundy: nowy stan graczy, zapis w historii, koniec gry albo kolejna runda.
 let resolveRound (state: GameState) =
     match state.Phase, state.Pending with
@@ -86,25 +99,54 @@ let resolveRound (state: GameState) =
             let one, two, effects =
                 Rules.resolveCards valid.Rules (valid.PlayerOne, oneCard) (valid.PlayerTwo, twoCard)
 
-            let record =
+            closeRound
+                valid
                 { Round = valid.Round
-                  PlayerOneCard = oneCard
-                  PlayerTwoCard = twoCard
+                  PlayerOneCard = Some oneCard
+                  PlayerTwoCard = Some twoCard
                   Effects = effects
                   PlayerOneAfter = one
-                  PlayerTwoAfter = two }
-
-            let next =
-                { valid with
-                    PlayerOne = one
-                    PlayerTwo = two
-                    Pending = noMoves
-                    History = valid.History @ [ record ] }
-
-            match Rules.outcome valid.Rules valid.Round one two with
-            | Some result -> { next with Phase = Finished result }, record
-            | None -> { next with Round = valid.Round + 1 }, record)
+                  PlayerTwoAfter = two })
     | WaitingForMoves, _ -> Error RoundNotReady
+
+/// Koniec czasu rundy (o czasie decyduje serwer, silnik nie zna zegara): każdy gracz bez karty traci 1 prestiżu,
+/// karta tego, kto zdążył, przepada bez efektu. Obaj spóźnieni — obaj tracą; podwójny nokaut to remis (Rules.outcome).
+/// Numer rundy chroni przed spóźnionym zegarem: timeout starej rundy nie dotknie nowej.
+let timeoutRound expectedRound (state: GameState) =
+    match state.Phase with
+    | Finished _ -> Error DuelAlreadyFinished
+    | WaitingForMoves when expectedRound <> state.Round -> Error(StaleRound(Expected = expectedRound, Actual = state.Round))
+    | WaitingForMoves when isReady state -> Error(InvalidState "obie karty wybrane — rundę rozstrzyga resolveRound")
+    | WaitingForMoves ->
+        validate state
+        |> Result.map (fun (valid: GameState) ->
+            let settle player (current: PlayerState) =
+                match pendingMove player valid with
+                | Some _ -> current, []
+                | None -> Rules.timeoutPenalty current, [ TimedOut player ]
+
+            let one, oneEffects = settle PlayerOne valid.PlayerOne
+            let two, twoEffects = settle PlayerTwo valid.PlayerTwo
+
+            closeRound
+                valid
+                { Round = valid.Round
+                  PlayerOneCard = valid.Pending.One
+                  PlayerTwoCard = valid.Pending.Two
+                  Effects = oneEffects @ twoEffects
+                  PlayerOneAfter = one
+                  PlayerTwoAfter = two })
+
+/// Oddanie pojedynku (poddanie albo brak powrotu po rozłączeniu — powód zna serwer). Wygrywa przeciwnik.
+/// Ukryte karty bieżącej rundy przepadają nieodsłonięte; rozegrane rundy zostają w historii.
+let forfeit player (state: GameState) =
+    match state.Phase with
+    | Finished _ -> Error DuelAlreadyFinished
+    | WaitingForMoves ->
+        { state with
+            Pending = noMoves
+            Phase = Finished(Forfeited player) }
+        |> validate
 
 type MoveOutcome =
     /// Karta przyjęta, czekamy na przeciwnika.

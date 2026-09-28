@@ -80,6 +80,18 @@ let resolveCards (rules: DuelRules) (one: PlayerState, oneCard) (two: PlayerStat
     let effects = effectsOf rules PlayerOne one oneCard twoCard @ effectsOf rules PlayerTwo two twoCard oneCard
     oneAfter, twoAfter, effects
 
+/// Runda bez karty (koniec czasu): spóźniony gracz traci 1 prestiżu; nikt nie strzela i nie przeładowuje.
+/// Karta gracza, który zdążył, przepada bez efektu (nie zużywa naboju) — kara dotyczy tylko spóźnionego.
+let timeoutPenalty (state: PlayerState) = { state with Prestige = state.Prestige - 1 }
+
+/// Zwycięzca pojedynku (None = remis). Oddanie pojedynku wygrywa przeciwnik oddającego.
+let winner =
+    function
+    | PlayerOneWins -> Some PlayerOne
+    | PlayerTwoWins -> Some PlayerTwo
+    | Draw -> None
+    | Forfeited loser -> Some(opponentOf loser)
+
 /// Wynik po rundzie: nokaut (obaj — remis), limit rund (więcej prestiżu), inaczej pojedynek trwa.
 let outcome (rules: DuelRules) round (one: PlayerState) (two: PlayerState) =
     match one.Prestige <= 0, two.Prestige <= 0 with

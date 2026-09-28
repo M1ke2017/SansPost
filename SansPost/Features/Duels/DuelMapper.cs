@@ -1,3 +1,4 @@
+using Microsoft.FSharp.Core;
 using SansPost.Game.Core;
 
 namespace SansPost.Features.Duels
@@ -23,23 +24,29 @@ namespace SansPost.Features.Duels
 
         public static string CardId(Card card) => Cards.First(c => c.Card.Equals(card)).Id;
 
-        public static string CardName(string id) => Cards.FirstOrDefault(c => c.Id == id).Name ?? id;
+        public static string CardName(string? id) => id is null ? "Brak ruchu" : Cards.FirstOrDefault(c => c.Id == id).Name ?? id;
+
+        private static string? CardId(FSharpOption<Card>? card) => card is null ? null : CardId(card.Value);
 
         public static Card? ParseCard(string? id) =>
             Cards.FirstOrDefault(c => string.Equals(c.Id, id?.Trim(), StringComparison.OrdinalIgnoreCase)).Card;
 
-        public static DuelSnapshot Snapshot(string duelId, DuelMode mode, bool opponentJoined, string yourAlias, string? opponentAlias, DuelView view)
+        public static DuelSnapshot Snapshot(string duelId, DuelMode mode, bool opponentJoined, string yourAlias, string? opponentAlias, DuelView view,
+            LiveInfo? live = null)
         {
+            live ??= LiveInfo.None;
             var finished = view.Phase.IsFinished;
-            var status = finished ? "finished" : opponentJoined ? "in-progress" : "waiting-for-opponent";
-            var you = new PlayerSnapshot(yourAlias, view.Mine.Prestige, view.Mine.Ammo, view.MyMove is not null);
+            var readyCheck = live.ReadyCheck && !finished;
+            var status = finished ? "finished" : readyCheck ? "ready-check" : opponentJoined ? "in-progress" : "waiting-for-opponent";
+            var you = new PlayerSnapshot(yourAlias, view.Mine.Prestige, view.Mine.Ammo, view.MyMove is not null, live.YouStartReady);
             var opponent = opponentJoined
-                ? new PlayerSnapshot(opponentAlias ?? TrainingAlias, view.Opponent.Prestige, view.Opponent.Ammo, view.OpponentReady)
+                ? new PlayerSnapshot(opponentAlias ?? TrainingAlias, view.Opponent.Prestige, view.Opponent.Ammo, view.OpponentReady,
+                    live.OpponentStartReady, live.OpponentGraceMs is null, live.OpponentGraceMs)
                 : null;
 
             return new DuelSnapshot(
                 duelId,
-                mode == DuelMode.Training ? "training" : "challenge",
+                mode switch { DuelMode.Training => "training", DuelMode.Live => "live", _ => "challenge" },
                 status,
                 view.Round,
                 view.MaxRounds,
@@ -48,12 +55,19 @@ namespace SansPost.Features.Duels
                 view.MyMove is { } move ? CardId(move.Value) : null,
                 view.OpponentReady,
                 finished ? ResultFor(view.Me, ((DuelPhase.Finished)view.Phase).Item) : null,
-                Actions(view, opponentJoined),
-                view.History.Select(record => Round(view.Me, record)).ToList());
+                Actions(view, opponentJoined, readyCheck),
+                view.History.Select(record => Round(view.Me, record)).ToList(),
+                live.Version,
+                finished ? live.Ending : null,
+                finished ? null : live.RoundDeadline,
+                finished ? null : live.RoundRemainingMs,
+                live.Rematch,
+                live.RematchDuelId,
+                live.OpponentLeft);
         }
 
         // Karty do wyboru: wszystkie pięć, z powodem, gdy karta jest teraz niedostępna.
-        private static IReadOnlyList<AvailableAction> Actions(DuelView view, bool opponentJoined)
+        private static IReadOnlyList<AvailableAction> Actions(DuelView view, bool opponentJoined, bool readyCheck)
         {
             var available = view.Available.ToHashSet();
             return Cards.Select(c =>
@@ -63,6 +77,8 @@ namespace SansPost.Features.Duels
                     reason = "Pojedynek zakończony.";
                 else if (!opponentJoined)
                     reason = "Czekamy na przeciwnika.";
+                else if (readyCheck)
+                    reason = "Pojedynek zacznie się, gdy obaj gracze będą gotowi.";
                 else if (view.MyMove is not null)
                     reason = "Karta na tę rundę już wybrana.";
                 else if (!available.Contains(c.Card))
@@ -83,8 +99,9 @@ namespace SansPost.Features.Duels
                 mine.Prestige, mine.Ammo, theirs.Prestige, theirs.Ammo);
         }
 
+        // Zwycięzcę wskazuje silnik (Rules.winner — także przy oddaniu pojedynku); tu tylko perspektywa gracza.
         private static string ResultFor(Player me, DuelResult result) =>
-            result.IsDraw ? "draw" : (result.IsPlayerOneWins == me.IsPlayerOne) ? "win" : "loss";
+            Rules.winner(result) is { } winner ? winner.Value.Equals(me) ? "win" : "loss" : "draw";
 
         // Efekty rundy po polsku, z perspektywy oglądającego (bez form rodzajowych).
         public static string Describe(Player me, Effect effect) => effect switch
@@ -96,6 +113,7 @@ namespace SansPost.Features.Duels
             Effect.ReloadAtMax full => full.Item.Equals(me) ? "Bęben pełny — przeładowanie bez zmian." : "Przeciwnik przeładował pełny bęben.",
             Effect.ReloadInterrupted interrupted => interrupted.Item.Equals(me) ? "Trafienie przerwało Twoje przeładowanie." : "Twój strzał przerwał przeładowanie przeciwnika.",
             Effect.TauntPunished taunt => taunt.Taunter.Equals(me) ? "Twoja prowokacja ukarała defensywę przeciwnika." : "Prowokacja przeciwnika ukarała Twoją defensywę.",
+            Effect.TimedOut late => late.Item.Equals(me) ? "Czas minął — bez karty tracisz 1 prestiżu." : "Przeciwnik nie zdążył wybrać karty — traci 1 prestiżu.",
             _ => "Nieznany efekt."
         };
 
@@ -109,5 +127,22 @@ namespace SansPost.Features.Duels
             { IsRoundNotReady: true } => (ServiceError.Conflict, "Runda nie jest gotowa do rozstrzygnięcia.", "duel-round-not-ready"),
             _ => (ServiceError.Conflict, "Nieprawidłowy stan pojedynku.", "duel-invalid-state")
         };
+    }
+
+    // Stan sesji na żywo (cykl życia w C#, nie w silniku): gotowość, zegar rundy, połączenie przeciwnika, oddanie, rewanż.
+    public sealed record LiveInfo(
+        long Version,
+        bool ReadyCheck = false,
+        bool YouStartReady = false,
+        bool OpponentStartReady = false,
+        int? OpponentGraceMs = null,
+        DateTimeOffset? RoundDeadline = null,
+        int? RoundRemainingMs = null,
+        string? Ending = null,
+        string Rematch = "none",
+        string? RematchDuelId = null,
+        bool OpponentLeft = false)
+    {
+        public static LiveInfo None { get; } = new(0);
     }
 }

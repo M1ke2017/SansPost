@@ -4292,3 +4292,129 @@ html:has(dialog[open]) { overflow: hidden; }
     .game-card { transition: none; }
     .game-card:not([disabled]):hover { transform: none; }
 }
+
+/* Sprint 20 — pojedynek na żywo: lobby (gracze przy stole, wyzwania), zegar rundy, gotowość, odsłonięcie, koniec gry.
+   Odliczania ([data-deadline]) wypełnia duel.js w przeglądarce; wszystkie przyciski ≥ 44 px (dotyk). */
+.game-connection { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 14px; font-size: var(--text-sm); color: var(--wanted-ink); background: var(--wanted-poster); border: 1px dashed var(--wanted-rule); }
+.game-connection .icon { flex: none; color: var(--accent); }
+
+.game-lobby { display: flex; flex-direction: column; gap: var(--space-2); }
+.game-lobby-hint { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); }
+.game-lobby-note { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text); }
+.game-lobby-note:empty { display: none; }
+
+.game-invite {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px solid var(--wanted-rule);
+    box-shadow: inset 0 0 0 3px var(--wanted-poster), inset 0 0 0 4px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.game-invite.is-outgoing { border-style: dashed; box-shadow: none; }
+.game-invite-text { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; }
+.game-invite-text .icon { flex: none; color: var(--accent); }
+.game-invite .btn { justify-self: start; }
+
+.game-countdown, .game-timer { font-variant-numeric: tabular-nums; font-weight: var(--weight-bold); }
+.game-countdown { margin-left: auto; font-size: var(--text-sm); color: var(--accent); }
+.game-countdown[data-urgent], .game-timer[data-urgent] { color: var(--danger); text-decoration: underline; text-underline-offset: 3px; }
+
+.game-online { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.game-online-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 4px 4px 12px;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px solid color-mix(in srgb, var(--wanted-rule) 70%, transparent);
+}
+.game-online-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent); }
+.game-online-alias { flex: 1; min-width: 0; font-family: var(--font-display); font-weight: var(--weight-bold); overflow-wrap: anywhere; }
+.game-online-state { padding: 0 10px; font-size: var(--text-sm); font-style: italic; color: var(--wanted-muted); line-height: 44px; }
+
+.game-challenge, .game-accept, .game-reject, .game-cancel, .game-ready-button, .game-rematch, .game-leave,
+.game-surrender, .game-surrender-confirm, .game-surrender-cancel { min-height: 44px; }
+
+.game-center { display: grid; gap: 6px; }
+.game-clock { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.game-clock .icon { flex: none; color: var(--accent); }
+.game-timer { min-width: 3.2em; font-size: 1.3rem; color: var(--accent); }
+.game-grace { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-sm); color: var(--text); }
+.game-grace .icon { flex: none; color: var(--danger); }
+
+.game-player.is-offline { border-style: dashed; }
+.game-connection-state { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--wanted-muted); }
+.game-connection-state.is-lost { color: var(--wanted-ink); text-decoration: underline wavy color-mix(in srgb, var(--danger) 80%, transparent); text-underline-offset: 3px; }
+
+.game-readycheck {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px dashed var(--wanted-rule);
+}
+.game-readycheck-state { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; }
+.game-surrender-row { display: grid; gap: 6px; justify-items: start; }
+.game-surrender-row .game-note { color: var(--text); }
+
+.game-over {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px solid var(--wanted-rule);
+    box-shadow: inset 0 0 0 3px var(--wanted-poster), inset 0 0 0 5px color-mix(in srgb, var(--wanted-rule) 65%, transparent);
+}
+.game-over-title { margin: 0; font-family: var(--font-display); font-size: 1.9rem; letter-spacing: 0.12em; }
+.game-over.is-win .game-over-title { color: var(--accent); }
+.game-over-summary { margin: 0; font-size: var(--text-sm); }
+.game-over-actions { justify-content: center; }
+.game-over .game-note { margin: 0; color: var(--wanted-ink); }
+
+/* Odsłonięcie: dwie zakryte karty obracają się (~0,7 s, druga z opóźnieniem), potem efekty i zmiany — razem ≈ 1,15 s. */
+.game-reveal-cards { align-items: center; }
+.game-flip { display: inline-grid; perspective: 600px; }
+.game-flip-inner { display: grid; transform-style: preserve-3d; }
+.game-flip-face, .game-flip-back {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 6px 12px;
+    backface-visibility: hidden;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px solid var(--wanted-rule);
+    border-radius: 4px;
+}
+.game-flip-face .icon { flex: none; color: var(--accent); }
+.game-flip-back { transform: rotateY(180deg); color: var(--wanted-poster); background: repeating-linear-gradient(45deg, var(--accent) 0 6px, color-mix(in srgb, var(--accent) 75%, #000) 6px 12px); }
+.game-reveal-vs { font-family: var(--font-display); font-weight: var(--weight-bold); color: var(--accent); }
+.game-reveal-delta { margin: 6px 0 0; font-size: var(--text-xs); color: var(--text-muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+    .game-flip-inner { animation: game-flip 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+    .game-flip.is-opponent .game-flip-inner { animation-delay: 0.15s; }
+    .game-reveal-after { animation: game-reveal-after 0.3s ease-out 0.85s both; }
+}
+
+@keyframes game-flip {
+    from { transform: rotateY(-180deg); }
+    to { transform: rotateY(0deg); }
+}
+
+@keyframes game-reveal-after {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+}

@@ -84,5 +84,19 @@ namespace SansPost.Features.Identity
                 _ => ServiceResult.Fail(ServiceError.Forbidden, "Konto nie może wykonywać tej operacji.", "account-inactive")
             };
         }
+
+        // Ta sama reguła dla wielu kont naraz (jedno zapytanie): które z podanych mogą działać — np. lista graczy
+        // dostępnych przy stole gry, żeby nie proponować pojedynku komuś, kto i tak nie może go przyjąć.
+        public async Task<IReadOnlySet<int>> ActiveAmongAsync(IReadOnlyCollection<int> userIds, CancellationToken cancellationToken = default)
+        {
+            if (userIds.Count == 0)
+                return new HashSet<int>();
+            var active = await _context.Users
+                .AsNoTracking()
+                .Where(u => userIds.Contains(u.Id) && u.Status == AccountStatus.Active)
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+            return active.ToHashSet();
+        }
     }
 }

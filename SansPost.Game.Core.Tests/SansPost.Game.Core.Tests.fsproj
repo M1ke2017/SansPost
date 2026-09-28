@@ -12,6 +12,7 @@
     <Compile Include="Support.fs" />
     <Compile Include="RulesMatrixTests.fs" />
     <Compile Include="DuelTests.fs" />
+    <Compile Include="TimeoutForfeitTests.fs" />
     <Compile Include="PerformanceTests.fs" />
   </ItemGroup>
 

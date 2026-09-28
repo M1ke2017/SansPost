@@ -17,5 +17,9 @@ namespace SansPost.Infrastructure.Security
         // REST: wyłącznie JWT — cookie UI nigdy nie uwierzytelnia wywołań /api.
         public const string ApiUser = "ApiUser";
         public const string ApiAdmin = "ApiAdmin";
+
+        // Stół gry na żywo (DuelHub): przeglądarka łączy się z cookie UI, klienci API — z JWT. Oba schematy walidują
+        // AuthVersion (ban / zawieszenie kończy sesję), status konta dla akcji sprawdza serwis gry.
+        public const string DuelPlayer = "DuelPlayer";
     }
 }

@@ -188,8 +188,8 @@ let ``cards are revealed in history only after resolution`` () =
     let view = Duel.viewFor PlayerTwo state
 
     let revealed = Assert.Single(view.History)
-    Assert.Equal(Block, revealed.PlayerOneCard)
-    Assert.Equal(Taunt, revealed.PlayerTwoCard)
+    Assert.Equal(Some Block, revealed.PlayerOneCard)
+    Assert.Equal(Some Taunt, revealed.PlayerTwoCard)
     Assert.Equal(1, revealed.Round)
     Assert.Equal(None, view.MyMove)
     Assert.False(view.OpponentReady)
@@ -257,4 +257,4 @@ let ``training dummy is deterministic, legal and blind to the hidden card`` () =
 
     Assert.Equal(first, second)
     Assert.True(Duel.isFinished first)
-    Assert.Equal(Reload, first.History.Head.PlayerTwoCard)   // scenariusz zaczyna od przeładowania
+    Assert.Equal(Some Reload, first.History.Head.PlayerTwoCard)   // scenariusz zaczyna od przeładowania

@@ -112,7 +112,7 @@ Odpowiedź: `Healthy` / `Unhealthy` (503) — bez szczegółów. HEALTHCHECK obr
 
 ## 10. Reverse proxy
 
-`deploy/Caddyfile`: TLS, HTTP→HTTPS, `reverse_proxy sanspost:8080` (WebSocket Blazora działa bez dodatkowej konfiguracji). Caddy nadpisuje `X-Forwarded-*` od klientów.
+`deploy/Caddyfile`: TLS, HTTP→HTTPS, `reverse_proxy sanspost:8080` (WebSocket Blazora i stołu gry `/hubs/duel` działają bez dodatkowej konfiguracji). Caddy nadpisuje `X-Forwarded-*` od klientów.
 Aplikacja ufa nagłówkom **tylko** od `ForwardedHeaders__KnownProxies__0=172.30.57.10` (stały adres proxy w sieci compose). Nagłówki od innych nadawców są ignorowane — klient nie podmieni adresu IP (limity, logi) ani schematu.
 Inne proxy (nginx, Traefik, load balancer): ustaw jego adres w `KnownProxies` lub sieć w `KnownNetworks` (CIDR); `ForwardLimit` = liczba zaufanych przeskoków (domyślnie 1). Nie używaj „trust all”.
 
@@ -123,6 +123,15 @@ TLS kończy się na proxy; w obrazie nie ma certyfikatów, kontener słucha HTTP
 ## 12. Limity (rate limiting)
 
 W pamięci procesu. **1 instancja:** limity działają zgodnie z konfiguracją (`RateLimiting__Auth|Search|Writes__PermitLimit`, okno 1 min). **N instancji:** efektywny limit ≈ N × skonfigurowany. Rozproszony limiter (np. Redis) — przyszłość, nie ma go w tym wdrożeniu.
+
+### Stół gry na żywo (SignalR)
+
+Pojedynki 1v1 (`/hubs/duel`, uwierzytelnienie cookie sesji albo JWT) trzymają stan w pamięci procesu — tak jak limity:
+**jedna instancja** (bez backplane Redis). Przy wielu instancjach potrzebny byłby sticky routing i backplane — poza tym wdrożeniem.
+Restart aplikacji kończy trwające pojedynki (nie ma trwałej historii gier). Czasy (sekundy, zakres 1–300, walidowane przy starcie):
+`Duels__ChallengeSeconds` (ważność wyzwania, domyślnie 30), `Duels__RoundSeconds` (czas na ruch, 15),
+`Duels__GraceSeconds` (okno powrotu po zerwaniu połączenia, 20). Keep-alive huba 5 s / limit 12 s — proxy nie może zamykać
+bezczynnych WebSocketów szybciej niż po ~15 s (Caddy domyślnie ich nie zamyka).
 
 ## 13. Pula połączeń PostgreSQL
 

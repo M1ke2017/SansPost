@@ -91,6 +91,10 @@ namespace SansPost.Infrastructure.Security
                     .AddAuthenticationSchemes(AuthSchemes.Jwt)
                     .RequireAuthenticatedUser());
 
+                options.AddPolicy(AuthPolicies.DuelPlayer, policy => policy
+                    .AddAuthenticationSchemes(AuthSchemes.Cookie, AuthSchemes.Jwt)
+                    .RequireAuthenticatedUser());
+
                 options.AddPolicy(AuthPolicies.ApiAdmin, policy => policy
                     .AddAuthenticationSchemes(AuthSchemes.Jwt)
                     .RequireAuthenticatedUser()
