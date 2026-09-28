@@ -3415,7 +3415,6 @@ html:has(dialog[open]) { overflow: hidden; }
 @media (min-width: 768px) {
     .app:has(.saloon-hall) .app-header { display: none; }
     .saloon-hall { height: 100svh; }
-    .saloon-hall .hall-note-region { top: 62px; }   /* pod narożnikiem */
 
     .hall-corner {
         position: absolute;
@@ -3488,42 +3487,6 @@ html:has(dialog[open]) { overflow: hidden; }
     background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 60%, rgb(40 20 8 / 0.28) 100%);
 }
 
-/* ---- Zapowiedź strefy ("Wkrótce") ---------------------------------------- */
-.hall-note-region {
-    position: absolute;
-    left: 50%;
-    top: 16px;
-    z-index: 3;
-    width: min(420px, calc(100% - 32px));
-    translate: -50% 0;
-    pointer-events: none;
-}
-
-.hall-note {
-    display: grid;
-    justify-items: start;
-    gap: 6px;
-    padding: 16px 18px;
-    color: #3a2616;
-    background: #f6ecd8;
-    border: 1px solid #c2a076;
-    border-radius: 6px;
-    box-shadow: inset 0 0 0 5px #f6ecd8, inset 0 0 0 6px #c2a076, 0 18px 40px -18px rgb(0 0 0 / 0.7);
-    pointer-events: auto;
-}
-
-.hall-note-kicker {
-    margin: 0;
-    font-size: var(--text-xs);
-    font-weight: var(--weight-bold);
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: #8a4f25;
-}
-
-.hall-note-title { margin: 0; font-family: var(--font-display); font-size: 1.25rem; color: #3a2616; }
-.hall-note-text { margin: 0; font-size: var(--text-sm); color: #5a4330; }
-
 /* ---- Panel baru z feedem (natywny <dialog> jako szuflada z prawej) --------- */
 .dialog.dialog-panel {
     width: min(760px, 100vw);
@@ -3573,9 +3536,6 @@ html:has(dialog[open]) { overflow: hidden; }
     }
     .hall-zones-caption { grid-column: 1 / -1; }
     .hall-zone { min-width: 0; width: 100%; padding: 5px 8px 6px; }
-    /* Zapowiedź strefy nad paskiem, w całości w widoku (scena nad nią zostaje czytelna). */
-    .hall-note-region { top: auto; bottom: 124px; width: calc(100% - 16px); }
-    .hall-note { padding: 12px 14px; }
     .dialog.dialog-panel { width: 100vw; margin: 0; }
 }
 
@@ -4009,4 +3969,326 @@ html:has(dialog[open]) { overflow: hidden; }
     .wanted-poster.is-featured,
     .wanted-poster.is-small:nth-child(n) { rotate: none; }
     .wanted-poster-alias { font-size: 1.6rem; }
+}
+
+/* ==========================================================================
+   Sprint 18 — Kącik muzyczny (radio country) i mini-player.
+   Kącik: mała papierowa karta. Desktop — z lewej strony (kącik z pianinem i gramofonem po prawej zostaje widoczny),
+   telefon — pełnoekranowy arkusz (.bar-panel). Mini-player: pojawia się dopiero po "Graj"; mały, dyskretny.
+   ========================================================================== */
+@media (min-width: 768px) {
+    .dialog.dialog-panel.bar-panel.music-panel {
+        width: min(420px, calc(100vw - 32px));
+        height: auto;
+        max-height: calc(100dvh - 32px);
+        margin: auto auto auto 24px;
+    }
+    .dialog.dialog-panel.bar-panel.music-panel[open] { animation-name: panel-in-left; }
+}
+
+@keyframes panel-in-left {
+    from { transform: translateX(-40px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+.music-corner { display: flex; flex-direction: column; gap: var(--space-4); }
+.music-intro { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.music-loading { margin: 0; font-style: italic; color: var(--text-muted); }
+
+.music-unavailable { padding: 20px 18px; text-align: center; background: var(--wanted-poster); border: 1px dashed var(--wanted-rule); }
+.music-unavailable-title { margin: 0; font-family: var(--font-display); font-size: 1.2rem; color: var(--wanted-ink); }
+.music-unavailable-text { margin: 6px 0 0; font-size: var(--text-sm); color: var(--wanted-muted); }
+.music-reload { align-self: flex-start; min-height: 44px; }
+
+/* Bieżąca stacja: kartka przypięta nad gramofonem. */
+.music-now {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 18px 14px;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px solid var(--wanted-rule);
+    box-shadow: inset 0 0 0 4px var(--wanted-poster), inset 0 0 0 5px color-mix(in srgb, var(--wanted-rule) 55%, transparent);
+}
+
+.music-now-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--wanted-muted);
+}
+
+.music-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 7px;
+    color: #fff;
+    letter-spacing: 0.1em;
+    background: #a3342a;
+    border-radius: 999px;
+}
+
+.music-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.music-station-name { margin: 0; font-family: var(--font-display); font-size: 1.35rem; line-height: 1.2; overflow-wrap: anywhere; }
+.music-station-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; font-size: var(--text-sm); color: var(--wanted-muted); }
+.music-homepage { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+
+.music-status { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-muted); }
+.music-status.is-error { color: var(--danger); }
+
+.music-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.music-controls .btn { min-height: 44px; }
+.music-toggle-icon { display: inline-block; min-width: 1.1em; text-align: center; }
+
+.music-volume { display: grid; gap: 2px; }
+.music-volume label { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.music-range, .mini-player-volume { height: 44px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.music-range { width: 100%; }
+
+.music-stations-section { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.music-stations-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.music-stations-title::before,
+.music-stations-title::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--wanted-rule) 70%, transparent); }
+
+.music-stations { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+
+.music-station {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    font: inherit;
+    color: var(--text);
+    text-align: left;
+    background: none;
+    border: 0;
+    border-left: 3px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.music-station:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.music-station[aria-current="true"] { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.music-station-title { font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+.music-station-info { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* Mini-player: nad treścią, poza oknami dialogowymi (te są w warstwie górnej). */
+.mini-player {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: min(380px, calc(100vw - 16px));
+    padding: 4px 10px 4px 6px;
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border-strong));
+    border-radius: 999px;
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(6px);
+}
+
+.mini-player-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+    color: var(--accent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.mini-player-text { display: grid; min-width: 0; line-height: 1.2; }
+.mini-player-kicker { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: var(--weight-bold); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.mini-player-live { padding: 0 5px; color: #fff; background: #a3342a; border-radius: 999px; }
+.mini-player-name { max-width: 160px; overflow: hidden; font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; text-overflow: ellipsis; }
+
+.mini-player-toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    font: inherit;
+    color: var(--accent);
+    background: none;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.mini-player-toggle:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.mini-player-volume { flex: none; width: 88px; }
+
+/* Main Hall na desktopie: pod znakiem SansPost w narożniku (widoczny obok okien BAR i Wanted po prawej). */
+@media (min-width: 768px) {
+    body:has(.saloon-hall) .mini-player { top: 72px; bottom: auto; }
+}
+
+/* Telefon: w sali — pod nagłówkiem (u dołu jest pasek stref); na innych stronach — nad dolną nawigacją. */
+@media (max-width: 767.98px) {
+    .mini-player { left: 8px; bottom: calc(var(--bottom-nav-height) + 8px + env(safe-area-inset-bottom, 0px)); }
+    body:has(.saloon-hall) .mini-player { top: calc(var(--header-height) + 8px); bottom: auto; }
+    .mini-player-name { max-width: 120px; }
+    .mini-player-volume { width: 72px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dialog.dialog-panel.bar-panel.music-panel[open] { animation: none; }
+}
+
+/* ==========================================================================
+   Sprint 19 — Stół gry "Śladem Rewolwerowca". Karty komend jak westernowe rozkazy na papierze: ikona, nazwa, krótki
+   opis. Bez kolorów kart do gry, żetonów i stawek. Desktop: okno z prawej (stół w lewej części kadru), telefon — arkusz.
+   ========================================================================== */
+@media (min-width: 768px) {
+    .dialog.dialog-panel.bar-panel.game-panel { width: min(580px, calc(100vw - 32px)); }
+}
+
+.game-table { display: flex; flex-direction: column; gap: var(--space-4); }
+.game-intro { display: flex; flex-direction: column; gap: var(--space-2); }
+.game-lede { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+
+.game-rules { font-size: var(--text-sm); }
+.game-rules summary { display: flex; align-items: center; min-height: 44px; font-weight: var(--weight-semibold); cursor: pointer; }
+.game-rules ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.game-engine { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+
+.game-guest { display: grid; gap: var(--space-2); padding: 14px 16px; background: var(--wanted-poster); border: 1px dashed var(--wanted-rule); color: var(--wanted-ink); }
+.game-guest p { margin: 0; }
+.game-guest .btn, .game-start { min-height: 44px; }
+.game-start { align-self: flex-start; }
+.game-restricted { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 12px 14px; font-size: var(--text-sm); color: var(--wanted-ink); background: var(--wanted-poster); border: 1px dashed var(--wanted-rule); }
+.game-restricted .icon { flex: none; margin-top: 2px; color: var(--accent); }
+
+.game-board { display: flex; flex-direction: column; gap: var(--space-3); }
+.game-board-title { display: flex; align-items: baseline; gap: 10px; margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+.game-mode { font-family: var(--font-body, inherit); font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+
+.game-players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+
+.game-player {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 12px 14px;
+    color: var(--wanted-ink);
+    background: var(--wanted-poster);
+    border: 1px solid var(--wanted-rule);
+    box-shadow: inset 0 0 0 3px var(--wanted-poster), inset 0 0 0 4px color-mix(in srgb, var(--wanted-rule) 55%, transparent);
+}
+
+.game-player > p { margin: 0; }
+.game-player.is-waiting { align-content: center; font-style: italic; color: var(--wanted-muted); }
+.game-player-role { font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--wanted-muted); }
+.game-player-alias { font-family: var(--font-display); font-size: 1.1rem; font-weight: var(--weight-bold); overflow-wrap: anywhere; }
+.game-stars { font-size: 1.15rem; letter-spacing: 0.12em; color: #a3342a; }
+.game-bullets { font-size: 0.95rem; letter-spacing: 0.3em; color: var(--wanted-ink); }
+.game-ready { font-size: var(--text-xs); font-style: italic; color: var(--wanted-muted); }
+.game-ready.is-ready { font-style: normal; font-weight: var(--weight-bold); color: var(--accent); }
+
+.game-status { margin: 0; font-weight: var(--weight-semibold); }
+.game-status.is-final { font-family: var(--font-display); font-size: 1.2rem; color: var(--accent); }
+.game-note { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+
+.game-reveal { padding: 10px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.game-reveal-cards { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; }
+.game-effects { margin: 6px 0 0; padding-left: 1.2em; font-size: var(--text-sm); }
+.game-effects-none { margin: 6px 0 0; font-size: var(--text-sm); color: var(--text-muted); }
+
+.game-deck { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.game-deck-title,
+.game-history-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.game-deck-title::before, .game-deck-title::after,
+.game-history-title::before, .game-history-title::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--wanted-rule) 70%, transparent); }
+
+.game-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+
+.game-card {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+    min-height: 44px;
+    padding: 12px 10px 12px;
+    font: inherit;
+    color: var(--wanted-ink);
+    text-align: center;
+    background: var(--wanted-poster);
+    border: 1px solid var(--wanted-rule);
+    border-radius: 4px;
+    box-shadow:
+        inset 0 0 0 3px var(--wanted-poster),
+        inset 0 0 0 4px color-mix(in srgb, var(--wanted-rule) 60%, transparent),
+        0 8px 18px -14px rgb(0 0 0 / 0.6);
+    cursor: pointer;
+    transition: transform 120ms var(--ease), box-shadow 120ms var(--ease);
+}
+
+.game-card:not([disabled]):hover { transform: translateY(-2px); box-shadow: inset 0 0 0 3px var(--wanted-poster), inset 0 0 0 4px var(--accent), 0 12px 22px -14px rgb(0 0 0 / 0.7); }
+.game-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.game-card[disabled] { cursor: default; opacity: 0.62; }
+.game-card.is-chosen { opacity: 1; border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--wanted-poster), inset 0 0 0 5px var(--accent); }
+.game-card-icon { display: grid; place-items: center; width: 44px; height: 44px; color: #a3342a; border: 1px solid color-mix(in srgb, var(--wanted-rule) 70%, transparent); border-radius: 50%; }
+.game-card-name { max-width: 100%; font-family: var(--font-display); font-size: 0.86rem; font-weight: var(--weight-bold); letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.game-card-text { font-size: var(--text-xs); line-height: 1.4; color: var(--wanted-muted); }
+.game-card-reason { display: block; margin-top: 2px; font-style: italic; font-weight: var(--weight-semibold); }
+
+.game-history { display: flex; flex-direction: column; gap: var(--space-2); }
+.game-history-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
+.game-history-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 4px; border-bottom: 1px dashed color-mix(in srgb, var(--wanted-rule) 60%, transparent); }
+.game-history-round { font-weight: var(--weight-bold); }
+.game-history-score { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+
+@media (max-width: 767.98px) {
+    .game-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-card { transition: none; }
+    .game-card:not([disabled]):hover { transform: none; }
 }

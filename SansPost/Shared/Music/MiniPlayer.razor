@@ -1,0 +1,28 @@
+@inherits MusicStateComponent
+
+@* Mini-player (Sprint 18): pojawia się dopiero po uruchomieniu radia i zostaje przy każdej zmianie widoku — sala, BAR,
+   tablica Wanted, inne strony. Pauza / Graj i głośność sterują tym samym, jedynym elementem audio (js/music.js).
+   Mały i dyskretny: desktop — narożnik, telefon — nad treścią pod nagłówkiem (poza dolną nawigacją i paskiem stref). *@
+@if (State is { Started: true, Name: not null } radio)
+{
+    <aside class="mini-player @(radio.IsActive ? "is-live" : "")" aria-label="Radio w Saloonie">
+        <span class="mini-player-icon" aria-hidden="true">♪</span>
+        <span class="mini-player-text">
+            <span class="mini-player-kicker">
+                @if (radio.Status == "playing")
+                {
+                    <span class="mini-player-live">LIVE</span>
+                }
+                @(radio.Status == "error" ? "Stacja nie odpowiada" : "Country Radio")
+            </span>
+            <span class="mini-player-name" title="@radio.Name">@radio.Name</span>
+        </span>
+        <button type="button" class="mini-player-toggle" data-music-toggle @attributes="radio.StationAttributes()"
+                aria-label="@($"{(radio.IsActive ? "Pauza" : "Graj")}: {radio.Name}")">
+            <span aria-hidden="true">@(radio.IsActive ? "❚❚" : "▶")</span>
+        </button>
+        <label class="visually-hidden" for="mini-player-volume">Głośność radia</label>
+        <input id="mini-player-volume" class="mini-player-volume" type="range" min="0" max="100" step="5" value="@radio.Volume"
+               aria-valuetext="@($"{radio.Volume}%")" data-music-volume />
+    </aside>
+}

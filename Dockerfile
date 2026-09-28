@@ -6,7 +6,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY SansPost/SansPost.csproj SansPost/
+COPY SansPost.Game.Core/SansPost.Game.Core.fsproj SansPost.Game.Core/
 RUN dotnet restore SansPost/SansPost.csproj
+COPY SansPost.Game.Core/ SansPost.Game.Core/
 COPY SansPost/ SansPost/
 RUN dotnet publish SansPost/SansPost.csproj -c Release -o /app/publish --no-restore -p:UseAppHost=false
 

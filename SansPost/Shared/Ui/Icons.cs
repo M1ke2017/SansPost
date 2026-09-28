@@ -60,6 +60,11 @@ namespace SansPost.Shared.Ui
         public const string Cactus = "cactus";
         public const string Bell = "bell";
 
+        // Karty komend "Śladem Rewolwerowca" (Sprint 19): strzał, unik, przeładowanie (bęben).
+        public const string Revolver = "revolver";
+        public const string Swerve = "swerve";
+        public const string Cylinder = "cylinder";
+
         private static readonly Dictionary<string, string> Paths = new()
         {
             [Search] = "<circle cx='11' cy='11' r='7.5'/><path d='m20.5 20.5-4.2-4.2'/>",
@@ -115,7 +120,10 @@ namespace SansPost.Shared.Ui
             [NoticeBoard] = "<rect x='3' y='3.5' width='18' height='13' rx='1.5'/><path d='m7 21 2-4.5'/><path d='m17 21-2-4.5'/><rect x='6.5' y='7' width='5' height='6' rx='0.5'/><circle cx='9' cy='7' r='0.9'/><path d='M14 8h3.5'/><path d='M14 11h3.5'/>",
             [Cactus] = "<path d='M10 21V6a2 2 0 0 1 4 0v15'/><path d='M14 12h2a2 2 0 0 0 2-2V8'/><path d='M10 14H8a2 2 0 0 1-2-2v-2'/><path d='M6 21h12'/>",
             [Bell] = "<path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.9 1.9 0 0 0 3.4 0'/>",
-            [Menu] = "<path d='M4 6h16'/><path d='M4 12h16'/><path d='M4 18h16'/>"
+            [Menu] = "<path d='M4 6h16'/><path d='M4 12h16'/><path d='M4 18h16'/>",
+            [Revolver] = "<path d='M2.5 7.5h15l1.5 1.5v2.5h-9l-1.5 8H4.5l1.3-7H2.5z'/><path d='M19 7.5V6'/><path d='M10.5 11.5v2.5a1.5 1.5 0 0 1-1.5 1.5H8'/><path d='M21.5 9.5h-2.5'/>",
+            [Swerve] = "<path d='M4 20c4.5 0 6-3 6-7s2-7 6.5-7H20'/><path d='m17 3 3 3-3 3'/><path d='M4 14h2'/><path d='M4 10h3'/>",
+            [Cylinder] = "<circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='1.4'/><circle cx='12' cy='6.8' r='1.6'/><circle cx='16.5' cy='9.4' r='1.6'/><circle cx='16.5' cy='14.6' r='1.6'/><circle cx='12' cy='17.2' r='1.6'/><circle cx='7.5' cy='14.6' r='1.6'/><circle cx='7.5' cy='9.4' r='1.6'/>"
         };
 
         public static string Path(string name) => Paths.TryGetValue(name, out var path) ? path : string.Empty;

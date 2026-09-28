@@ -1,7 +1,7 @@
 // SansPost — Saloon Main Hall 3D (Sprint 15, dopracowanie wizualne 15B): wnętrze Saloonu dla /saloon na wydajnym GPU.
 // Start, decyzja renderera, lazy Three.js, próba płynności i sprzątanie — wspólne z Entrance (js/scene3d-common.js);
 // przy fallbacku zostaje klasyczny widok /saloon (Blazor).
-// Cztery strefy: BAR (rozmowy — otwiera istniejący feed w panelu HTML), WANTED, GAME, MUSIC (na razie "wkrótce").
+// Cztery strefy, każda z oknem HTML: BAR (rozmowy), WANTED (tablica), GAME (pojedynek "Śladem Rewolwerowca"), MUSIC (radio).
 // Canvas jest obrazem sali (aria-hidden); każda akcja ma odpowiednik w HTML (przyciski stref w SaloonHall.razor) —
 // na szerokim ekranie przyciski leżą dokładnie na szyldach stref w scenie, na wąskim stoją w pasku u dołu.
 // Styl: stylizowane low-poly z dopracowanym światłem i materiałami (proceduralne tekstury z canvas, bez modeli GLB).
@@ -45,15 +45,17 @@ const ZONES = {
         sign: { center: [2.5, 3.4, -6.75], w: 1.1, h: 0.32, facing: "z" },
         // Tylko stół z krzesłami (do wysokości oparć) — nad nim widać kącik muzyczny, który musi dać się kliknąć.
         hit: [[3.0, 1.4, 2.6], [2.5, 0.7, -5.9]],
-        // Z góry i z przodu: cały blat z kartami, oba krzesła i lampa nad stołem.
-        view: { position: [2.5, 2.8, -3.1], target: [2.5, 0.8, -6.0] },
+        // Z góry i z przodu: cały blat z kartami, oba krzesła i lampa nad stołem. Kamera zerka w prawo, więc stół leży
+        // w lewej części kadru — prawą stronę na desktopie zajmuje okno pojedynku.
+        view: { position: [2.2, 2.8, -3.0], target: [3.45, 0.8, -6.0] },
         portrait: { position: [2.5, 3.9, -2.0], target: [2.5, 0.8, -5.9] }
     },
     music: {
         sign: { center: [6.36, 3.35, -8.8], w: 1.4, h: 0.42, facing: "-x" },
         hit: [[3.0, 3.0, 4.4], [5.1, 1.4, -8.9]],
-        // Z ukosa od strony sali: front pianina, stołek, gramofon i gitara na ścianie.
-        view: { position: [3.0, 1.95, -6.9], target: [6.0, 1.3, -9.3] },
+        // Z ukosa i nieco z góry: front pianina, stołek, gitara i talerz gramofonu (widać obracającą się płytę).
+        // Na desktopie okno Kącika leży z lewej, więc kącik zostaje w prawej, odsłoniętej części kadru.
+        view: { position: [3.3, 2.45, -7.2], target: [6.0, 0.95, -9.8] },
         portrait: { position: [2.0, 2.0, -9.2], target: [6.0, 1.2, -9.2] }
     }
 };
@@ -335,26 +337,6 @@ function plaqueTexture(text, font, { width = 768, height = 224, size = 0.5 } = {
     }, false);
 }
 
-// Tabliczka kredowa "wkrótce" (zapowiedź strefy w świecie sali).
-function chalkTexture(font) {
-    return canvasTexture(256, 96, (ctx, w, h) => {
-        ctx.fillStyle = "#5a3a22";
-        ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = "#1f2622";
-        ctx.fillRect(8, 8, w - 16, h - 16);
-        const rnd = random(5);
-        for (let i = 0; i < 300; i++) {
-            ctx.fillStyle = `rgba(240,240,230,${rnd() * 0.05})`;
-            ctx.fillRect(8 + rnd() * (w - 16), 8 + rnd() * (h - 16), 2, 1);
-        }
-        ctx.fillStyle = "rgba(240,238,226,0.92)";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = `italic 600 40px ${font}`;
-        ctx.fillText("wkrótce", w / 2, h / 2 + 2);
-    }, false);
-}
-
 // Tablica Wanted: jedna tekstura (canvas 1024×664) dla całej tablicy — nagłówek, główny list gończy "MOST WANTED"
 // (przydomek i tytuł rozmowy z rankingu) i cztery mniejsze (#2–#5). Rysowana od razu z pustymi listami (sylwetka i "?"),
 // potem setWanted przerysowuje ten sam canvas wynikiem z serwera. Pusta tablica: "Tablica czeka na pierwszą rozmowę."
@@ -633,7 +615,7 @@ function propsTexture(font) {
             ctx.font = `700 34px ${font}`; ctx.fillText("RUNDA", x + r, y + r - 44);
             ctx.font = `700 96px ${font}`; ctx.fillText("I", x + r, y + r + 26);
         }
-        // Notatka pojedynku: zasady wkrótce.
+        // Notatka pojedynku: podstawowe zasady (3 prestiżu, 1 nabój, 12 rund).
         {
             const { x, y, w, h } = ATLAS.rules;
             ctx.fillStyle = "#eadbb6"; ctx.fillRect(x, y, w, h);
@@ -641,7 +623,7 @@ function propsTexture(font) {
             ctx.fillStyle = "#4a2614"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.font = `700 28px ${font}`; ctx.fillText("ŚLADEM", x + w / 2, y + 44);
             ctx.fillText("REWOLWEROWCA", x + w / 2, y + 80);
-            ctx.font = `italic 600 24px ${font}`; ctx.fillStyle = "#7a4a26"; ctx.fillText("zasady pojedynku — wkrótce", x + w / 2, y + 124);
+            ctx.font = `italic 600 24px ${font}`; ctx.fillStyle = "#7a4a26"; ctx.fillText("3 prestiżu · 1 nabój · 12 rund", x + w / 2, y + 124);
             ctx.fillStyle = "rgba(74,38,20,0.55)";
             for (let l = 0; l < 4; l++) ctx.fillRect(x + 40, y + 160 + l * 22, w - 80 - (l % 2) * 60, 3);
         }
@@ -789,14 +771,7 @@ function materials(font) {
         barBulb: glow("#fff1cf", "#ffc86e"),
         gameBulb: glow("#fff1cf", "#ffd98f"),
         musicBulb: glow("#fff1cf", "#ffc86e"),
-        keys: new THREE.MeshStandardMaterial({ map: keysTexture(), roughness: 0.4 }),
-        chalk: (() => {
-            // Kreda lekko "świeci" jak szyldy — zapowiedź czytelna także nocą.
-            const map = chalkTexture(font);
-            const material = new THREE.MeshStandardMaterial({ map, emissive: "#ffffff", emissiveMap: map, emissiveIntensity: 0.2, roughness: 0.9 });
-            material.userData.sign = true;
-            return material;
-        })()
+        keys: new THREE.MeshStandardMaterial({ map: keysTexture(), roughness: 0.4 })
     };
 }
 
@@ -1161,17 +1136,13 @@ function buildGame(root, b, M, font) {
     light.target.position.set(x, 0.8, z);
     root.add(light, light.target);
 
-    // Szyld "STÓŁ GRY" na łańcuchach (rama z fazą) i kredowa tabliczka "wkrótce".
+    // Szyld "STÓŁ GRY" na łańcuchach (rama z fazą). Od Sprintu 19 stół działa — bez kredowej tabliczki "wkrótce".
     const { center, w, h } = ZONES.game.sign;
     const sign = plaque(plaqueTexture("STÓŁ GRY", font, { size: 0.46 }), w, h);
     sign.position.set(...center);
     root.add(sign);
     plaqueFrame(b, M.trim, w + 0.12, h + 0.12, center[0], center[1], center[2] - 0.065);
     for (const dx of [-0.42, 0.42]) b.add(M.iron, cylinder(0.008, 0.008, HEIGHT - center[1] - h / 2, 4), center[0] + dx, (HEIGHT + center[1] + h / 2) / 2, center[2] - 0.03);
-    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.19), M.chalk);
-    tag.position.set(center[0] - 0.32, center[1] - h / 2 - 0.2, center[2] + 0.01);
-    tag.rotation.z = -0.06;
-    root.add(tag);
 
     // Dwa krzesła naprzeciw siebie — pojedynek jeden na jeden.
     const chairs = [[x - 1.3, 0, z + wobble(0.06), Math.PI / 2 + wobble(0.12)], [x + 1.3, 0, z + wobble(0.06), -Math.PI / 2 + wobble(0.12)]];
@@ -1225,15 +1196,29 @@ function buildMusic(root, b, M, font) {
     b.add(M.musicBulb, new THREE.SphereGeometry(0.035, 10, 8), px - 0.05, lampY + 0.31, lampZ);
 
     // Gramofon na stoliku w rogu: toczona noga, skrzynka, płyta z etykietą, ramię, wygięta tuba.
+    // Płyta (z odblaskiem, żeby obrót był widoczny) i ramię to osobne, małe siatki — obracają się tylko, gdy gra radio.
     const gx = 5.8, gz = -10.3;
     b.add(M.darkWood, new THREE.LatheGeometry([[0.16, 0], [0.16, 0.03], [0.05, 0.06], [0.035, 0.4], [0.06, 0.6], [0.26, 0.64], [0.26, 0.67]].map(([r, py]) => new THREE.Vector2(r, py)), 16), gx, base, gz);
     b.box(M.wood, 0.36, 0.12, 0.36, gx, base + 0.73, gz, 0, 0.3);
-    b.add(M.lacquer, cylinder(0.14, 0.14, 0.012, 28), gx, base + 0.796, gz);
-    b.add(M.leather, cylinder(0.04, 0.04, 0.014, 16), gx, base + 0.798, gz);
-    b.box(M.brass, 0.02, 0.02, 0.2, gx + 0.1, base + 0.82, gz - 0.02, 0, 0.6);
+    const record = new THREE.Group();
+    record.position.set(gx, base + 0.796, gz);
+    record.add(new THREE.Mesh(cylinder(0.14, 0.14, 0.012, 28), M.lacquer));
+    const label = new THREE.Mesh(cylinder(0.04, 0.04, 0.014, 16), M.leather);
+    label.position.y = 0.002;
+    const glint = new THREE.Mesh(box(0.09, 0.003, 0.018), M.paper);   // jasny pasek na rowkach — obrót widać z sali
+    glint.position.set(0.085, 0.0075, 0);
+    record.add(label, glint);
+    root.add(record);
+    const arm = new THREE.Group();
+    arm.position.set(gx + 0.1, base + 0.82, gz - 0.02);
+    const armBar = new THREE.Mesh(box(0.02, 0.02, 0.2), M.brass);
+    armBar.rotation.y = 0.6;
+    arm.add(armBar);
+    root.add(arm);
     const horn = [[0.012, 0], [0.016, 0.08], [0.028, 0.16], [0.06, 0.25], [0.12, 0.32], [0.2, 0.36]].map(([r, py]) => new THREE.Vector2(r, py));
-    b.add(M.brass, new THREE.LatheGeometry(horn, 24), gx + 0.1, base + 0.8, gz + 0.08, 0, 0.5, 0.95);
-    b.add(M.brass, cylinder(0.014, 0.014, 0.1, 8), gx + 0.12, base + 0.8, gz + 0.06, 0, 0, 0.95);
+    // Tuba za talerzem (od strony sali płyta zostaje odsłonięta).
+    b.add(M.brass, new THREE.LatheGeometry(horn, 24), gx + 0.12, base + 0.8, gz - 0.14, 0, 0.5, 0.95);
+    b.add(M.brass, cylinder(0.014, 0.014, 0.1, 8), gx + 0.14, base + 0.8, gz - 0.16, 0, 0, 0.95);
 
     // Gitara na ścianie (detal ścienny, front w -x).
     const gy = 1.95, gz2 = -7.3, wallX = 6.34;
@@ -1244,24 +1229,20 @@ function buildMusic(root, b, M, font) {
     b.box(M.darkWood, 0.05, 0.13, 0.08, wallX, gy + 0.84, gz2);
     b.box(M.iron, 0.03, 0.05, 0.03, wallX + 0.03, gy + 0.92, gz2);
 
-    // Szyld "MUZYKA" (rama z fazą) i kredowa tabliczka "wkrótce".
+    // Szyld "MUZYKA" (rama z fazą). Od Sprintu 18 strefa działa — bez kredowej tabliczki "wkrótce".
     const { center, w, h } = ZONES.music.sign;
     const sign = plaque(plaqueTexture("MUZYKA", font, { size: 0.5 }), w, h);
     sign.position.set(...center);
     sign.rotation.y = -Math.PI / 2;
     root.add(sign);
     plaqueFrame(b, M.trim, w + 0.14, h + 0.14, center[0] + 0.065, center[1], center[2], -Math.PI / 2);
-    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.23), M.chalk);
-    tag.position.set(center[0] - 0.01, center[1] - h / 2 - 0.12, center[2] - 0.45);   // nad listwą na obrazy (y 2.9)
-    tag.rotation.set(0, -Math.PI / 2, 0.05);
-    root.add(tag);
 
     // Ciepłe światło boczne od strony sali, na front pianina i gramofon.
     const light = new THREE.SpotLight("#ffc07a", 1, 7, 0.8, 0.7, 1.3);
     light.position.set(4.5, 2.6, -7.4);
     light.target.position.set(5.9, 0.9, -9.1);
     root.add(light, light.target);
-    return { glows: [M.musicBulb, sign.material], lights: [light], halos: [[px - 0.05, lampY + 0.3, lampZ, 0.4]] };
+    return { glows: [M.musicBulb, sign.material], lights: [light], halos: [[px - 0.05, lampY + 0.3, lampZ, 0.4]], turntable: { record, arm } };
 }
 
 function buildFurniture(root, b, M, gameChairs) {
@@ -1404,7 +1385,6 @@ function applyTheme(s, colors) {
     const woodTone = new THREE.Color(colors.wood);
     for (const material of Object.values(s.M)) if (material.userData?.tint) material.color.copy(material.userData.tint).multiply(woodTone);
     s.M.mirror.emissiveIntensity = colors.mirrorGlow;
-    s.M.chalk.emissiveIntensity = colors.signGlow;
     s.zones.bar.key.intensity = colors.barKey;
     for (const material of s.halos) material.opacity = colors.halo;
     s.colors = colors;
@@ -1602,6 +1582,12 @@ function setup(host, options, force) {
         };
         window.__sansPostHall = state.debug;
         applyTheme(state, PALETTE[theme()]);
+
+        // Gramofon kręci się, gdy radio (js/music.js) naprawdę gra; stan radia przetrwał wejście do sali.
+        state.onMusic = event => setSpin(state, event.detail?.status === "playing");
+        window.addEventListener("sansPost:music", state.onMusic);
+        state.debug.musicListener = true;
+        setSpin(state, window.sansPostMusic?.state().status === "playing");
         // Wejście przez drzwi: pierwsza klatka już z progu (settle rusza po starcie), inaczej od razu kadr docelowy.
         const fromDoor = options.arrived && !options.area;
         setView(state, fromDoor ? { ...DOOR_VIEW, fov: mainView(aspectOf(state)).fov } : targetView(state));
@@ -1635,10 +1621,57 @@ function setup(host, options, force) {
     }
 }
 
+// Gramofon: obrót płyty (33⅓ obr./min) i drobny ruch ramienia tylko przy grającym radiu; reduced motion — stoi.
+function setSpin(s, on) {
+    on = !!on && !reducedMotion();
+    if (s.spinning === on) return;
+    s.spinning = on;
+    s.lastSpinFrame = 0;
+    // Każde włączenie mierzy od nowa (inny kadr, inny moment — wcześniejsze wstrzymanie nie jest trwałe).
+    s.spinThrottled = false;
+    s.spinInterval = 0;
+    s.spinSamples = 0;
+    s.debug.spinThrottled = false;
+    s.debug.spinning = on;
+    s.dirty = true;
+}
+
+// 20 kl./s wystarcza dla płyty (33⅓ obr./min — ok. 10° na klatkę); mniej pracy GPU i wątku głównego.
+const SPIN_FRAME_MS = 1000 / 20;
+
+// Gramofon jest w kadrze tylko w widoku głównym sali i przy Kąciku muzycznym — przy barze czy tablicy Wanted płyta
+// jest poza kadrem, więc scena nie rysuje dodatkowych klatek (radio gra dalej).
+// Animacja jest dekoracją — nie może obniżać responsywności: gdy renderer nie nadąża (np. WebGL programowy, słabe GPU)
+// i klatki gramofonu przychodzą średnio rzadziej niż SPIN_SLOW_MS, płyta staje (radio gra dalej).
+const spinVisible = s => s.spinning && !s.spinThrottled && (s.area === null || s.area === "music");
+const SPIN_SLOW_MS = 125;
+const SPIN_SAMPLES = 8;
+const RECORD_RAD_PER_S = (100 / 3) / 60 * Math.PI * 2;
+
 function tick(time) {
     const s = state;
     if (!s) return;
-    if (!s.dirty && !s.move) return;
+    const spin = spinVisible(s);
+    if (!s.dirty && !s.move && !spin) return;
+    if (spin) {
+        // Sam gramofon nie potrzebuje 60 kl./s — rzadsze klatki, gdy nic innego się nie zmienia.
+        if (!s.dirty && !s.move && time - s.lastSpinFrame < SPIN_FRAME_MS) return;
+        const interval = s.lastSpinFrame ? time - s.lastSpinFrame : 0;
+        const dt = Math.min(0.1, interval / 1000);
+        s.lastSpinFrame = time;
+        // Odstęp między klatkami samego gramofonu (bez przejazdów kamery; przerwy w tle karty pomijamy).
+        if (interval > 0 && interval < 1000 && !s.move) {
+            s.spinInterval = s.spinInterval ? s.spinInterval * 0.8 + interval * 0.2 : interval;
+            if (++s.spinSamples >= SPIN_SAMPLES && s.spinInterval > SPIN_SLOW_MS) {
+                s.spinThrottled = true;
+                s.debug.spinThrottled = true;
+            }
+        }
+        const { record, arm } = s.zones.music.turntable;
+        record.rotation.y = (record.rotation.y - dt * RECORD_RAD_PER_S) % (Math.PI * 2);
+        arm.rotation.y = Math.sin(time / 1700) * 0.012;
+        s.debug.recordAngle = record.rotation.y;
+    }
     s.dirty = false;
 
     if (s.move) {
@@ -1713,6 +1746,8 @@ export function dispose() {
     s.resize?.disconnect();
     s.themeObserver?.disconnect();
     unbindPointer(s);
+    window.removeEventListener("sansPost:music", s.onMusic);
+    s.debug.musicListener = false;
     s.dotnet = null;
     disposeScene(s.scene, s.renderer);
     s.debug.disposed = true;

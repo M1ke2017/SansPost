@@ -1,4 +1,4 @@
-# Kontekst budowania obrazu: tylko projekt aplikacji. Wszystko inne — poza obrazem.
+# Kontekst budowania obrazu: tylko projekt aplikacji i silnik gry (SansPost.Game.Core). Wszystko inne — poza obrazem.
 **/.git
 **/.gitignore
 **/.gitattributes
@@ -17,6 +17,7 @@
 # Testy, E2E, zrzuty wizualne, Playwright/Chromium
 SansPost.Tests
 SansPost.E2E
+SansPost.Game.Core.Tests
 **/VisualBaselines
 **/visual-actual
 **/frontier-shots

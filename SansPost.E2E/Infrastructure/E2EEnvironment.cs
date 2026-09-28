@@ -31,6 +31,9 @@ namespace SansPost.E2E.Infrastructure
         // Główna instancja: treści startowe, admin z bootstrapu, hojne limity.
         public SansPostServer Main { get; private set; } = null!;
 
+        // Atrapa Radio Browser (Kącik muzyczny) — żadna instancja E2E nie pyta publicznego API.
+        public FakeRadioBrowser Radio { get; } = new();
+
         public async Task InitializeAsync()
         {
             await _postgres.StartAsync();
@@ -73,6 +76,7 @@ namespace SansPost.E2E.Infrastructure
                 ["RateLimiting__Auth__PermitLimit"] = "10000",
                 ["RateLimiting__Search__PermitLimit"] = "10000",
                 ["RateLimiting__Writes__PermitLimit"] = "10000",
+                ["Music__RadioBrowserServers"] = Radio.BaseUrl,
                 ["Logging__LogLevel__Default"] = "Warning",
                 ["Logging__LogLevel__SansPost"] = "Information"
             };
@@ -106,6 +110,7 @@ namespace SansPost.E2E.Infrastructure
             if (Browser is not null)
                 await Browser.DisposeAsync();
             Playwright?.Dispose();
+            await Radio.DisposeAsync();
             await _postgres.DisposeAsync();
         }
 

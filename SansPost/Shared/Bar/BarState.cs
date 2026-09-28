@@ -7,7 +7,9 @@ namespace SansPost.Shared.Bar
 {
     // Poziomy BAR w Main Hall 3D: Karta rozmów (Menu) i to, co z niej wybrano. Wanted (Sprint 17) — tablica Wanted:
     // druga strefa sali, która korzysta z tych samych poziomów (rozmowa, karta logowania) i tej samej historii.
-    public enum BarView { Menu, Newest, Popular, All, Topic, Search, Conversation, Login, Register, Wanted }
+    // Music (Sprint 18) — Kącik muzyczny: jeden poziom (radio), ta sama historia, Escape i powrót fokusu.
+    // Game (Sprint 19) — Stół gry "Śladem Rewolwerowca": jeden poziom (stół), karta logowania nad nim dla gościa.
+    public enum BarView { Menu, Newest, Popular, All, Topic, Search, Conversation, Login, Register, Wanted, Music, Game }
 
     // Stan BAR odzwierciedlony w adresie /saloon — link można udostępnić, a "wstecz"/"dalej" wracają do tego samego widoku:
     //   ?bar=menu · ?bar=newest · ?bar=popular · ?bar=all[&sort=popular] · ?bar=topic&category=gry[&sort=popular]
@@ -20,7 +22,9 @@ namespace SansPost.Shared.Bar
     // Tablica Wanted — ten sam model, własny klucz w adresie (strefa sali to "wanted", nie bar):
     //   ?wanted=board · ?wanted=post&id=12 (rozmowa otwarta z plakatu; powrót — do tablicy)
     //   ?wanted=login&next=…&back=%2Fsaloon%3Fwanted%3Dpost%26id%3D12 — karta logowania nad rozmową z tablicy.
-    // Brak "bar" i "wanted" = sala bez otwartego okna. Parametry spoza BAR (np. "scene") nie są przenoszone.
+    // Kącik muzyczny: ?music=radio (bez poziomów pod spodem).
+    // Stół gry: ?game=table · ?game=login&next=…&back=%2Fsaloon%3Fgame%3Dtable (logowanie gościa nad stołem).
+    // Brak "bar", "wanted", "music" i "game" = sala bez otwartego okna. Parametry spoza BAR (np. "scene") nie są przenoszone.
     public sealed record BarState(BarView View, PostCategory? Category = null, PostSort Sort = PostSort.Newest, string Query = "",
         int PostId = 0, BarState? Origin = null, string? Next = null)
     {
@@ -28,12 +32,22 @@ namespace SansPost.Shared.Bar
 
         public static readonly BarState Wanted = new(BarView.Wanted);
 
+        public static readonly BarState Music = new(BarView.Music);
+
+        public static readonly BarState Game = new(BarView.Game);
+
         // Tematy w Karcie rozmów — Feedback zostaje zwykłą kategorią w systemie, ale nie jest tematem baru.
         public static readonly IReadOnlyList<PostCategory> Topics = CategoryMeta.All.Where(c => c != PostCategory.Feedback).ToList();
 
         public static BarState? Parse(string? bar, string? category, string? sort, string? query, string? postId = null, string? from = null,
-            string? next = null, string? back = null, string? wanted = null)
+            string? next = null, string? back = null, string? wanted = null, string? music = null, string? game = null)
         {
+            if (bar is null && wanted is null && string.Equals(music, "radio", StringComparison.OrdinalIgnoreCase))
+                return Music;
+
+            if (bar is null && wanted is null && music is null && game is not null)
+                return ParseGame(game, next, back);
+
             if (bar is null && wanted is not null)
                 return ParseWanted(wanted, postId, next, back);
 
@@ -85,6 +99,17 @@ namespace SansPost.Shared.Bar
             return null;
         }
 
+        // Stół gry i karta logowania nad nim (gość, który chce zagrać).
+        private static BarState? ParseGame(string game, string? next, string? back)
+        {
+            if (string.Equals(game, "table", StringComparison.OrdinalIgnoreCase))
+                return Game;
+            if (string.Equals(game, "login", StringComparison.OrdinalIgnoreCase) || string.Equals(game, "register", StringComparison.OrdinalIgnoreCase))
+                return Auth(string.Equals(game, "register", StringComparison.OrdinalIgnoreCase) ? BarView.Register : BarView.Login,
+                    SafeReturn(next) ?? Game.Url, Game);
+            return null;
+        }
+
         public static BarState Conversation(int postId, BarState origin) => new(BarView.Conversation, PostId: postId, Origin: origin);
 
         public static BarState Auth(BarView view, string next, BarState? origin) => new(view, Origin: origin, Next: next);
@@ -95,7 +120,10 @@ namespace SansPost.Shared.Bar
         public bool IsWanted => View == BarView.Wanted || Origin?.IsWanted == true;
 
         // Strefa Main Hall, do której podchodzi kamera i której przycisk dostaje fokus po zamknięciu okna.
-        public string Zone => IsWanted ? "wanted" : "bar";
+        public string Zone => View == BarView.Music ? "music" : IsGame ? "game" : IsWanted ? "wanted" : "bar";
+
+        // Poziom należy do Stołu gry (stół albo karta logowania nad nim).
+        public bool IsGame => View == BarView.Game || Origin?.IsGame == true;
 
         // Adres powrotu po zalogowaniu: tylko ścieżka lokalna ("/…", bez "//" i "/\" — bez open redirect). Serwer
         // (AccountController) i tak przyjmuje wyłącznie adres lokalny, a po sukcesie nawigacja idzie pod adres, który wybrał.
@@ -117,6 +145,8 @@ namespace SansPost.Shared.Bar
             var q = QueryHelpers.ParseQuery(url[(url.IndexOf('?') + 1)..]);
             string? Get(string key) => q.TryGetValue(key, out var value) ? value.ToString() : null;
             var bar = Get("bar");
+            if (bar is null && Get("game") is { } game)
+                return Game;
             if (bar is null && Get("wanted") is { } wanted)
                 return string.Equals(wanted, "login", StringComparison.OrdinalIgnoreCase) || string.Equals(wanted, "register", StringComparison.OrdinalIgnoreCase)
                     ? Wanted
@@ -135,12 +165,18 @@ namespace SansPost.Shared.Bar
             {
                 if (IsAuth)
                 {
-                    var url = $"{SaloonRoutes.Hub}?{(IsWanted ? "wanted" : "bar")}={(View == BarView.Register ? "register" : "login")}&next={Uri.EscapeDataString(Next ?? SaloonRoutes.Hub)}";
+                    var url = $"{SaloonRoutes.Hub}?{(IsGame ? "game" : IsWanted ? "wanted" : "bar")}={(View == BarView.Register ? "register" : "login")}&next={Uri.EscapeDataString(Next ?? SaloonRoutes.Hub)}";
                     return Origin is null ? url : $"{url}&back={Uri.EscapeDataString(Origin.Url)}";
                 }
 
                 if (View == BarView.Wanted)
                     return $"{SaloonRoutes.Hub}?wanted=board";
+
+                if (View == BarView.Music)
+                    return $"{SaloonRoutes.Hub}?music=radio";
+
+                if (View == BarView.Game)
+                    return $"{SaloonRoutes.Hub}?game=table";
 
                 if (View == BarView.Conversation && IsWanted)
                     return $"{SaloonRoutes.Hub}?wanted=post&id={PostId}";
@@ -167,7 +203,7 @@ namespace SansPost.Shared.Bar
         // lista → Karta rozmów, Karta rozmów i tablica Wanted → sala (null).
         public BarState? Parent => View switch
         {
-            BarView.Menu or BarView.Wanted => null,
+            BarView.Menu or BarView.Wanted or BarView.Music or BarView.Game => null,
             BarView.Conversation => Origin ?? Menu,
             BarView.Login or BarView.Register => Origin,
             BarView.Search when Category is PostCategory category => new BarState(BarView.Topic, category),
@@ -186,6 +222,8 @@ namespace SansPost.Shared.Bar
             BarView.Login => "Powrót do Saloonu",
             BarView.Register => "Karta nowego przybysza",
             BarView.Wanted => "Tablica Wanted",
+            BarView.Music => "Muzyka w Saloonie",
+            BarView.Game => "Śladem Rewolwerowca",
             _ => ""
         };
     }

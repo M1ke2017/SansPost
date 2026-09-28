@@ -121,12 +121,13 @@ namespace SansPost.E2E
                 await Expect(scene.Locator("dialog[open]")).ToHaveCountAsync(0);
                 await scene.WaitForFunctionAsync("() => window.__sansPostHall.moving === false && window.__sansPostHall.area === null");
 
-                // Sprint 15C: zapowiedź strefy "Wkrótce" i pasek stref po onboardingu (kompaktowy).
+                // Sprint 19: Stół gry (gość — zasady i podgląd kart komend) i pasek stref po onboardingu (kompaktowy).
                 await scene.Locator(".hall-zone[data-zone='game']").ClickAsync();
-                await Expect(scene.Locator("#hall-note .hall-note")).ToBeVisibleAsync();
+                await Expect(scene.Locator("dialog[open].game-panel .game-card").First).ToBeVisibleAsync();
                 await Expect(scene.Locator("nav.hall-zones.is-compact")).ToHaveCountAsync(1);
                 await scene.WaitForFunctionAsync("() => window.__sansPostHall.moving === false");
-                await AuditAsync(scene, $"Main Hall zone note ({scheme})");
+                await scene.Locator("dialog[open]").EvaluateAsync("d => Promise.allSettled(d.getAnimations({ subtree: true }).map(a => a.finished))");
+                await AuditAsync(scene, $"Stół gry — gość ({scheme})");
             }
 
             // Panel powiadomień (zalogowany, z powiadomieniem) i moderacja (admin, z otwartym oknem potwierdzenia).

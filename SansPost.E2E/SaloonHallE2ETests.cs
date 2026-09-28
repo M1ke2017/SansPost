@@ -65,7 +65,6 @@ namespace SansPost.E2E
         private static ILocator Caption(IPage page) => page.Locator(".hall-zones-caption");
         private static readonly Regex Compact = new("is-compact");
         private static readonly string[] AllZones = { "bar", "wanted", "game", "music" };
-        private static Task<bool> FocusOnZoneButton(IPage page) => page.EvaluateAsync<bool>("() => !!document.activeElement?.closest('.hall-zone')");
         private static string Js(double value) => value.ToString(CultureInfo.InvariantCulture);
 
         // Klik w canvas w rzucie strefy z kadru głównego (window.__sansPostHall.points) — z kontrolą, że w tym miejscu
@@ -281,13 +280,14 @@ namespace SansPost.E2E
             Assert.True(nav.Y + nav.Height <= 800 && nav.Y > 400, $"Pasek u dołu sali (y {nav.Y}, h {nav.Height}).");
             await AssertNoOverlapAsync(page);
 
-            await Zone(page, "music").ClickAsync();
-            await Expect(page.Locator("#hall-note .hall-note")).ToBeVisibleAsync();
+            await Zone(page, "game").ClickAsync();
+            await Expect(page.Locator("dialog[open].game-panel")).ToBeVisibleAsync();
             await Expect(Helper(page)).ToHaveClassAsync(Compact);
             await Expect(Caption(page)).ToHaveCountAsync(0);
             Assert.Equal("1", await page.EvaluateAsync<string>("() => sessionStorage.getItem('sp-hall-onboarded')"));
             await page.Keyboard.PressAsync("Escape");
-            await Expect(page.Locator("#hall-note .hall-note")).ToHaveCountAsync(0);
+            await Expect(page.Locator("dialog[open]")).ToHaveCountAsync(0);
+            await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null && window.__sansPostHall.moving === false");
 
             // Kolejne wejście w tej samej sesji: od razu kompaktowy; przygaszony, ale pełny przy fokusie klawiatury.
             await OpenHallAsync(page);
@@ -306,42 +306,6 @@ namespace SansPost.E2E
             await OpenHallAsync(next);
             await Expect(Caption(next)).ToBeVisibleAsync();
             await Expect(Helper(next)).Not.ToHaveClassAsync(Compact);
-        }
-
-        // Obiekt w sali (canvas) i przycisk paska prowadzą do tej samej ścieżki: kamera podchodzi, "Wkrótce", przycisk
-        // strefy aria-expanded. Po kliknięciu w scenę fokus nie jest przerzucany na pasek (zostaje w sali).
-        // Tablica Wanted od Sprintu 17 otwiera okno tablicy — WantedBoardE2ETests.
-        [Theory]
-        [InlineData("game", "Stół gry")]
-        [InlineData("music", "Kącik muzyczny")]
-        public async Task PlaceholderZones_FromSceneObject_SameFlowAsHelperBar(string zone, string title)
-        {
-            await using var context = await _env.NewContextAsync(width: 1280, height: 800);
-            var page = await context.NewPageAsync();
-            await OpenHallAsync(page);
-            var mainZ = await Debug(page, "cameraZ");
-
-            // Wskazanie myszą podświetla strefę w sali i odpowiadający jej przycisk paska.
-            var point = await page.EvaluateAsync<double[]>($"() => window.__sansPostHall.points.{zone}");
-            var box = (await page.Locator(".saloon-hall canvas").BoundingBoxAsync())!;
-            await page.Mouse.MoveAsync((float)(box.X + point[0]), (float)(box.Y + point[1]));
-            await Expect(Helper(page)).ToHaveAttributeAsync("data-hover", zone);
-
-            await ClickZoneInSceneAsync(page, zone);
-            var note = page.Locator("#hall-note .hall-note");
-            await Expect(note.GetByRole(AriaRole.Heading, new() { Name = title })).ToBeVisibleAsync();
-            await Expect(Zone(page, zone)).ToHaveAttributeAsync("aria-expanded", "true");
-            Assert.Equal(zone, await page.EvaluateAsync<string>("() => window.__sansPostHall.area"));
-            await WaitCameraStillAsync(page);
-            Assert.NotEqual(mainZ, await Debug(page, "cameraZ"), 1);
-            await Expect(Helper(page)).ToHaveClassAsync(Compact);
-
-            await note.GetByRole(AriaRole.Button, new() { Name = "Wróć do sali" }).ClickAsync();
-            await Expect(note).ToHaveCountAsync(0);
-            await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
-            Assert.False(await FocusOnZoneButton(page), "Po otwarciu ze sceny fokus nie skacze na pasek stref.");
-            await WaitCameraStillAsync(page);
-            Assert.Equal(mainZ, await Debug(page, "cameraZ"), 2);
         }
 
         // Klawiatura na pasku: Tab / Shift+Tab po strefach (fokus widoczny, strefa podświetlona w sali), Enter otwiera,
@@ -365,9 +329,10 @@ namespace SansPost.E2E
             await Expect(Zone(page, "game")).ToBeFocusedAsync();
 
             await page.Keyboard.PressAsync("Enter");
-            await Expect(page.Locator("#hall-note .hall-note")).ToBeVisibleAsync();
+            await Expect(page.Locator("dialog[open].game-panel")).ToBeVisibleAsync();
+            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon?game=table"));
             await page.Keyboard.PressAsync("Escape");
-            await Expect(page.Locator("#hall-note .hall-note")).ToHaveCountAsync(0);
+            await Expect(page.Locator("dialog[open]")).ToHaveCountAsync(0);
             await Expect(Zone(page, "game")).ToBeFocusedAsync();
             await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
         }
@@ -404,43 +369,7 @@ namespace SansPost.E2E
             await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
         }
 
-        // ---- GAME / MUSIC (Wanted — WantedBoardE2ETests) -------------------------------------------------------
-
-        [Theory]
-        [InlineData("game", "Stół gry")]
-        [InlineData("music", "Kącik muzyczny")]
-        public async Task PlaceholderZones_ShowComingSoon_ThenBackToHall(string zone, string title)
-        {
-            await using var context = await _env.NewContextAsync(width: 1280, height: 800);
-            var page = await context.NewPageAsync();
-            await OpenHallAsync(page);
-            var mainZ = await Debug(page, "cameraZ");
-
-            await Zone(page, zone).FocusAsync();
-            await page.Keyboard.PressAsync("Space");
-            var note = page.Locator("#hall-note .hall-note");
-            await Expect(note).ToBeVisibleAsync();
-            await WaitCameraStillAsync(page);
-            Assert.NotEqual(mainZ, await Debug(page, "cameraZ"), 1);   // kamera podeszła do strefy
-            await Expect(note.GetByRole(AriaRole.Heading, new() { Name = title })).ToBeVisibleAsync();
-            await Expect(note).ToContainTextAsync("Wkrótce");
-            await Expect(Zone(page, zone)).ToHaveAttributeAsync("aria-expanded", "true");
-            Assert.Equal(zone, await page.EvaluateAsync<string>("() => window.__sansPostHall.area"));
-            await Expect(page.Locator("dialog[open]")).ToHaveCountAsync(0);
-
-            await note.GetByRole(AriaRole.Button, new() { Name = "Wróć do sali" }).ClickAsync();
-            await Expect(note).ToHaveCountAsync(0);
-            await Expect(Zone(page, zone)).ToBeFocusedAsync();
-            await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
-            await WaitCameraStillAsync(page);
-            Assert.Equal(mainZ, await Debug(page, "cameraZ"), 2);
-
-            // Escape też zamyka zapowiedź.
-            await page.Keyboard.PressAsync("Enter");
-            await Expect(note).ToBeVisibleAsync();
-            await page.Keyboard.PressAsync("Escape");
-            await Expect(note).ToHaveCountAsync(0);
-        }
+        // Strefy Wanted, Music i Game mają własne testy (WantedBoardE2ETests, MusicCornerE2ETests, GameTableE2ETests).
 
         // ---- Reduced motion, mobile ----------------------------------------------------------------------------
 
@@ -497,22 +426,17 @@ namespace SansPost.E2E
             await Expect(page.Locator(".hall-corner")).ToBeHiddenAsync();
             await Ui.AssertNoHorizontalOverflowAsync(page, $"sala {width}");
 
-            foreach (var zone in new[] { "game", "music" })
-            {
-                await Zone(page, zone).ClickAsync();
-                var note = page.Locator("#hall-note .hall-note");
-                await Expect(note).ToBeVisibleAsync();
-                var noteBox = (await note.BoundingBoxAsync())!;
-                nav = (await Helper(page).BoundingBoxAsync())!;
-                Assert.True(noteBox.X >= 0 && noteBox.X + noteBox.Width <= width && noteBox.Y >= hall.Y, $"Zapowiedź {zone} poza ekranem.");
-                Assert.True(noteBox.Y + noteBox.Height <= nav.Y, $"Zapowiedź {zone} zasłania pasek stref.");
-                await Expect(Caption(page)).ToHaveCountAsync(0);
-                foreach (var z in AllZones) Assert.True((await Zone(page, z).BoundingBoxAsync())!.Height >= 44, "Pasek na mobile zostaje pełny.");
-                await Ui.AssertNoHorizontalOverflowAsync(page, $"{zone} {width}");
-                await note.GetByRole(AriaRole.Button, new() { Name = "Wróć do sali" }).ClickAsync();
-                await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null");
-                await WaitCameraStillAsync(page);
-            }
+            // Stół gry na telefonie: pełnoszeroki arkusz, pasek stref zostaje pełny.
+            await Zone(page, "game").ClickAsync();
+            await Expect(page.Locator("dialog[open].game-panel")).ToBeVisibleAsync();
+            await page.Locator("dialog[open]").EvaluateAsync("d => Promise.allSettled(d.getAnimations({ subtree: true }).map(a => a.finished))");
+            var sheet = (await page.Locator("dialog[open].game-panel").BoundingBoxAsync())!;
+            Assert.True(sheet.X >= 0 && sheet.X + sheet.Width <= width + 0.5, "Arkusz stołu gry w szerokości ekranu.");
+            await Ui.AssertNoHorizontalOverflowAsync(page, $"stół gry {width}");
+            await page.Keyboard.PressAsync("Escape");
+            await page.WaitForFunctionAsync("() => !document.querySelector('dialog[open]') && window.__sansPostHall.area === null && window.__sansPostHall.moving === false");
+            await Expect(Caption(page)).ToHaveCountAsync(0);
+            foreach (var z in AllZones) Assert.True((await Zone(page, z).BoundingBoxAsync())!.Height >= 44, "Pasek na mobile zostaje pełny.");
 
             await ClickZoneInSceneAsync(page, "bar", dx: 30, dy: 40);
             await Expect(Panel(page).Locator("[data-bar-item='newest']")).ToBeVisibleAsync();

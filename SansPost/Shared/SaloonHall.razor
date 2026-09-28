@@ -7,10 +7,11 @@
 @* Saloon Main Hall 3D (Sprint 15): sala Three.js (js/saloon3d.js) z czterema strefami. Canvas jest tylko obrazem sali —
    każda strefa ma prawdziwy przycisk HTML (Tab, Enter/Spacja, fokus widoczny), a treść zostaje HTML-em/Blazorem:
    BAR otwiera istniejący feed w panelu (natywny <dialog>: Escape, "Zamknij", powrót fokusu), tablica Wanted (Sprint 17)
-   — najciekawsze rozmowy tygodnia w tym samym oknie, pozostałe strefy — "Wkrótce".
+   — najciekawsze rozmowy tygodnia w tym samym oknie, Kącik muzyczny (Sprint 18) — radio country, Stół gry (Sprint 19)
+   — pojedynek "Śladem Rewolwerowca" na silniku F#.
    Do decyzji renderera sala jest w stanie Pending (warstwa z logo, bez klasycznego feedu); OnDecided("3d" | "css")
    dostaje strona /saloon dopiero wtedy, gdy pierwsza klatka jest narysowana albo zapadła decyzja fallback. *@
-<section class="saloon-hall @(ready ? "is-ready" : "")" aria-labelledby="hall-title" aria-describedby="hall-description" @onkeydown="OnKeyDownAsync">
+<section class="saloon-hall @(ready ? "is-ready" : "")" aria-labelledby="hall-title" aria-describedby="hall-description">
     <h1 id="hall-title" class="visually-hidden">Saloon SansPost — sala główna</h1>
     <p id="hall-description" class="visually-hidden">Wybierz miejsce w sali: bar z rozmowami, tablicę Wanted, stół gry albo kącik muzyczny.</p>
 
@@ -54,27 +55,13 @@
         @foreach (var zone in Zones)
         {
             <button type="button" class="hall-zone @(zone.Id == "bar" ? "is-primary" : "")" data-zone="@zone.Id"
-                    aria-haspopup="@(zone.Note is null ? "dialog" : null)"
-                    aria-expanded="@(zone.Note is null ? null : note == zone ? "true" : "false")"
-                    aria-controls="@(zone.Note is null ? null : "hall-note")"
+                    aria-haspopup="dialog"
                     @onclick="() => SelectZoneAsync(zone.Id)">
                 <span class="hall-zone-name">@zone.Name</span>
                 <span class="hall-zone-hint">@zone.Hint</span>
             </button>
         }
     </nav>
-
-    <div class="hall-note-region" id="hall-note" role="status">
-        @if (note is not null)
-        {
-            <div class="hall-note">
-                <p class="hall-note-kicker">Wkrótce</p>
-                <h2 class="hall-note-title">@note.Name</h2>
-                <p class="hall-note-text">@note.Note</p>
-                <button type="button" class="btn btn-sm" @onclick="BackToHallAsync">Wróć do sali</button>
-            </div>
-        }
-    </div>
 
     @* Pending: ciepłe wnętrze + logo do chwili, gdy pierwsza klatka sali jest gotowa (potem krótkie przenikanie). *@
     <div class="hall-pending" role="status">
@@ -116,16 +103,16 @@
 
     [Parameter] public EventCallback<string> OnDecided { get; set; }
 
-    private sealed record Zone(string Id, string Name, string Hint, string? Note);
+    private sealed record Zone(string Id, string Name, string Hint);
 
     private sealed record RendererDecision(string Renderer, string Reason);
 
     private static readonly Zone[] Zones =
     {
-        new("bar", "Bar", "rozmowy", null),
-        new("wanted", "Tablica Wanted", "najlepsze rozmowy", null),
-        new("game", "Stół gry", "wkrótce", "Szybkie pojedynki jeden na jeden. Karty są już rozdane — brakuje tylko graczy."),
-        new("music", "Kącik muzyczny", "wkrótce", "Zagra tu radio country. Pianino jest nastrojone, gramofon czeka na płytę.")
+        new("bar", "Bar", "rozmowy"),
+        new("wanted", "Tablica Wanted", "najlepsze rozmowy"),
+        new("game", "Stół gry", "pojedynek"),
+        new("music", "Kącik muzyczny", "radio country")
     };
 
     private ElementReference host;
@@ -135,7 +122,6 @@
     private BarConversationPanel? barPanel;
     private SaloonLoginCard? loginCard;
     private SaloonRegisterCard? registerCard;
-    private Zone? note;
     private bool ready;
     private bool busy;
     // Onboarding paska stref: po pierwszym świadomym wyborze strefy w sesji pasek na desktopie staje się kompaktowy.
@@ -256,7 +242,6 @@
                 if (Bar is not null && !barPanel!.IsOpen)
                 {
                     barOpenings++;
-                    note = null;
                     busy = true;
                     openZone = Bar.Zone;
                     if (module is not null)
@@ -302,42 +287,17 @@
         if (!ready || busy || barPanel?.IsOpen == true || Bar is not null || Zones.All(z => z.Id != zoneId))
             return;
 
-        if (zoneId is "bar" or "wanted")
-        {
-            // Bar i tablica Wanted to poziomy w historii (/saloon?bar=menu, /saloon?wanted=board): "wstecz" zamyka je
-            // jak Escape. Kamera i okno — SyncBarAsync. Przycisk paska, szyld i obiekt w scenie — ta sama ścieżka.
-            openedFromCanvas = fromCanvas;
-            note = null;
-            await CompleteOnboardingAsync();
-            BarNavigation.Push(Navigation, zoneId == "bar" ? BarState.Menu : BarState.Wanted);
-            return;
-        }
-
-        busy = true;
-        note = null;
+        // Każda strefa to poziom w historii (/saloon?bar=menu, ?wanted=board, ?music=radio, ?game=table): "wstecz" zamyka
+        // go jak Escape. Kamera i okno — SyncBarAsync. Przycisk paska, szyld i obiekt w scenie — ta sama ścieżka.
         openedFromCanvas = fromCanvas;
-        StateHasChanged();
-        try
+        await CompleteOnboardingAsync();
+        BarNavigation.Push(Navigation, zoneId switch
         {
-            await CompleteOnboardingAsync();
-
-            // Kamera do strefy (przy reduced motion — od razu), potem treść.
-            if (module is not null)
-                await module.InvokeVoidAsync("focusArea", zoneId);
-
-            note = Zones.First(z => z.Id == zoneId);
-        }
-        catch (JSDisconnectedException)
-        {
-        }
-        catch (JSException)
-        {
-        }
-        finally
-        {
-            busy = false;
-            StateHasChanged();
-        }
+            "bar" => BarState.Menu,
+            "wanted" => BarState.Wanted,
+            "music" => BarState.Music,
+            _ => BarState.Game
+        });
     }
 
     // Nowe cookie wymaga nowego circuitu: /saloon od nowa (sala bez otwartego baru, już z kontem).
@@ -371,16 +331,6 @@
         catch (JSDisconnectedException)
         {
         }
-    }
-
-    private async Task BackToHallAsync()
-    {
-        var zone = note?.Id;
-        note = null;
-        await ResetViewAsync();
-        // Fokus wraca do elementu, który otworzył strefę; po kliknięciu w scenę zostaje w sali (bez skoku do paska).
-        if (zone is not null && !openedFromCanvas)
-            await JS.InvokeVoidAsync("sansPost.focusSelector", $".hall-zone[data-zone='{zone}']");
     }
 
     // Okno zamknięte: kamera wraca do kadru głównego, fokus na przycisk strefy, która je otworzyła — BAR albo tablica Wanted
@@ -422,12 +372,6 @@
         catch (JSException)
         {
         }
-    }
-
-    private async Task OnKeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape" && note is not null)
-            await BackToHallAsync();
     }
 
     // Opuszczenie /saloon (albo fallback na widok klasyczny): pętla, listenery, obserwatory i zasoby WebGL.

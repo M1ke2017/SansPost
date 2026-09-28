@@ -49,9 +49,10 @@ namespace SansPost.Shared.Bar
                 navigation.NavigateTo(SaloonRoutes.Hub, new NavigationOptions { ReplaceHistoryEntry = true });
         }
 
-        // Adres z otwartym oknem sali: BAR (?bar=…) albo tablica Wanted (?wanted=…).
+        // Adres z otwartym oknem sali: BAR (?bar=…), tablica Wanted (?wanted=…), Kącik muzyczny (?music=…) albo Stół gry (?game=…).
         private static bool IsBarUrl(string uri) =>
             uri.Contains("/saloon?", StringComparison.OrdinalIgnoreCase)
-            && (uri.Contains("bar=", StringComparison.OrdinalIgnoreCase) || uri.Contains("wanted=", StringComparison.OrdinalIgnoreCase));
+            && (uri.Contains("bar=", StringComparison.OrdinalIgnoreCase) || uri.Contains("wanted=", StringComparison.OrdinalIgnoreCase)
+                || uri.Contains("music=", StringComparison.OrdinalIgnoreCase) || uri.Contains("game=", StringComparison.OrdinalIgnoreCase));
     }
 }

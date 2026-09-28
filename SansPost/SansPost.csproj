@@ -20,4 +20,9 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Silnik minigry w F# (czysta domena). Zależność tylko w tę stronę: SansPost → SansPost.Game.Core. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SansPost.Game.Core\SansPost.Game.Core.fsproj" />
+  </ItemGroup>
+
 </Project>

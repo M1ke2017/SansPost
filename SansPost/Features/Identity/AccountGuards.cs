@@ -35,8 +35,11 @@ namespace SansPost.Features.Identity
         }
     }
 
-    // Serwerowa brama każdej operacji zapisu (post, komentarz, reakcja, zgłoszenie) — dla REST i Blazor jednakowo.
-    // 1) limit zapisów per użytkownik (partycja = UserId, nie IP), 2) konto musi być Active.
+    // Serwerowa brama aktywnych działań — dla REST, Blazor (i przyszłego huba) jednakowo:
+    //   CheckAsync — zapis treści (post, komentarz, reakcja, zgłoszenie): limit zapisów per użytkownik (partycja = UserId,
+    //                nie IP), potem polityka konta;
+    //   CheckActiveAccountAsync — sama polityka konta, jedno źródło prawdy dla każdej aktywnej funkcji społecznościowej
+    //                (także pojedynków): działa tylko konto Active; Suspended może przeglądać, Banned w ogóle nie ma sesji.
     public class WriteGuard
     {
         private readonly ApplicationDbContext _context;
@@ -60,6 +63,13 @@ namespace SansPost.Features.Identity
                     "Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za chwilę.", "write-rate-limited", retryAfter);
             }
 
+            return await CheckActiveAccountAsync(actorUserId, cancellationToken);
+        }
+
+        // null = konto może wykonywać aktywne działania (Active). Zawsze aktualny stan z bazy (jeden odczyt po PK) —
+        // zawieszenie działa od następnej operacji, bez czekania na wygaśnięcie sesji.
+        public async Task<ServiceResult?> CheckActiveAccountAsync(int actorUserId, CancellationToken cancellationToken = default)
+        {
             var status = await _context.Users
                 .AsNoTracking()
                 .Where(u => u.Id == actorUserId)
@@ -70,7 +80,7 @@ namespace SansPost.Features.Identity
             {
                 AccountStatus.Active => null,
                 AccountStatus.Suspended => ServiceResult.Fail(ServiceError.Forbidden,
-                    "Twoje konto jest zawieszone — możesz przeglądać treści, ale nie możesz publikować.", "account-suspended"),
+                    "Twoje konto jest zawieszone — możesz przeglądać, ale nie możesz publikować ani brać udziału w pojedynkach.", "account-suspended"),
                 _ => ServiceResult.Fail(ServiceError.Forbidden, "Konto nie może wykonywać tej operacji.", "account-inactive")
             };
         }

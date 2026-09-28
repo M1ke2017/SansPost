@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using SansPost.Features.Comments;
 using SansPost.Features.Demo;
+using SansPost.Features.Duels;
 using SansPost.Features.Identity;
 using SansPost.Features.Moderation;
+using SansPost.Features.Music;
 using SansPost.Features.Notifications;
 using SansPost.Features.Posts;
 using SansPost.Features.Profiles;
@@ -84,6 +86,22 @@ public class Program
         builder.Services.AddScoped<DemoContentSeeder>();
         builder.Services.AddHostedService<DemoContentHostedService>();
         builder.Services.AddScoped<FeaturedPostLocator>();
+
+        // Kącik muzyczny: odkrywanie stacji country w Radio Browser (tylko lista — audio gra przeglądarka ze stacji),
+        // pamięć podręczna procesu zamiast zapytań przy każdym wejściu. Krótkie limity czasu w RadioBrowserClient.
+        builder.Services.AddOptions<MusicOptions>().BindConfiguration(MusicOptions.Section);
+        builder.Services.AddMemoryCache();
+        builder.Services.AddHttpClient(RadioBrowserClient.HttpClientName, (services, http) =>
+        {
+            http.DefaultRequestHeaders.UserAgent.ParseAdd(services.GetRequiredService<IOptions<MusicOptions>>().Value.UserAgent);
+            http.Timeout = Timeout.InfiniteTimeSpan;          // limity: RequestTimeout / TotalTimeout w kliencie
+            http.MaxResponseContentBufferSize = 1024 * 1024;  // lista stacji, nie plik
+        });
+        builder.Services.AddSingleton<RadioBrowserClient>();
+        builder.Services.AddSingleton<MusicService>();
+
+        // Stół gry "Śladem Rewolwerowca": sesje pojedynków w pamięci procesu, rozstrzyganie w silniku F# (SansPost.Game.Core).
+        builder.Services.AddSingleton<GameSessionService>();
 
         var app = builder.Build();
 

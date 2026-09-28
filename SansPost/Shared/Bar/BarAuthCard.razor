@@ -45,7 +45,9 @@
         ? "Po zalogowaniu od razu przejdziesz do formularza nowej rozmowy."
         : State.Origin?.View == BarView.Conversation
             ? "Po zalogowaniu wrócisz do tej rozmowy — z reakcjami i komentarzami."
-            : "Po zalogowaniu wrócisz w to samo miejsce w Saloonie.";
+            : State.IsGame
+                ? "Po zalogowaniu wrócisz do stołu gry i zaczniesz pojedynek treningowy."
+                : "Po zalogowaniu wrócisz w to samo miejsce w Saloonie.";
 
     // Nowe cookie wymaga nowego circuitu: pełne przeładowanie pod zweryfikowany przez serwer adres, zamiast wpisu karty.
     private void SignedIn(AuthPostResult result) => Navigation.NavigateTo(result.ReturnTo, forceLoad: true, replace: true);

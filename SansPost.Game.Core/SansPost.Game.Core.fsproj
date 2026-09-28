@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Silnik minigry "Śladem Rewolwerowca" (The Gunslinger's Draw): czysta logika domeny w F#.
+       Bez ASP.NET, EF Core, HTTP, SignalR i Blazora — tylko typy i funkcje. SansPost (C#) zależy od tego projektu,
+       nigdy odwrotnie. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Domain.fs" />
+    <Compile Include="Rules.fs" />
+    <Compile Include="Duel.fs" />
+    <Compile Include="TrainingDummy.fs" />
+  </ItemGroup>
+
+</Project>

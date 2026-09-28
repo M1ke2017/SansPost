@@ -104,7 +104,7 @@
         {
             try
             {
-                await JS.InvokeVoidAsync("sansPost.focusInDialog", "[data-wanted-post]", true);
+                await JS.InvokeVoidAsync("sansPost.focusInDialogWhenReady", "[data-wanted-post]", null, true);
             }
             catch (JSDisconnectedException)
             {

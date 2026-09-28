@@ -22,6 +22,9 @@ Wolumeny: `pgdata` (baza), `dpkeys` (klucze Data Protection — sesje przeżywaj
 - Porty 80 i 443 (lub `HTTP_PORT` / `HTTPS_PORT`).
 - Domena wskazująca na serwer (dla Let's Encrypt); do testu lokalnego wystarczy `localhost`.
 - Zasoby jednej instancji — patrz „Zasoby” niżej.
+- Wychodzący HTTPS do `*.api.radio-browser.info` (Kącik muzyczny: tylko lista stacji, najwyżej raz na 20 min dzięki pamięci
+  podręcznej). Audio pobiera przeglądarka prosto ze stacji — serwer nie przesyła strumieni. Bez dostępu Saloon działa,
+  a Kącik pokazuje „Radio jest chwilowo niedostępne”. Opcjonalnie `Music__RadioBrowserServers` (lista adresów po przecinku).
 
 ## 3. Zmienne środowiskowe (`.env`, wzór: `.env.example`)
 

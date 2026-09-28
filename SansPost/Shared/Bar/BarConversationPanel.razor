@@ -10,9 +10,11 @@
    Escape cofa o jeden poziom, na Karcie rozmów zamyka bar; "Zamknij" i klik w scenę zamykają bar od razu.
    Otwarcie i zamknięcie (z kamerą) prowadzi SaloonHall.
    Sprint 17: to samo okno (te same poziomy, historia, Escape i fokus) pokazuje też tablicę Wanted — plakat otwiera
-   rozmowę, a powrót prowadzi do tablicy, nie do baru. Strefę wyznacza stan (BarState.IsWanted). *@
-<Modal @ref="modal" Title="@(Wanted ? "Tablica Wanted" : "Karta rozmów")" Kicker="@(Wanted ? "Most Wanted · SansPost Saloon" : "Bar · SansPost Saloon")"
-       Class="@(Wanted ? "dialog-panel bar-panel wanted-panel" : "dialog-panel bar-panel")"
+   rozmowę, a powrót prowadzi do tablicy, nie do baru. Sprint 18: Kącik muzyczny (radio) — mała karta, jeden poziom.
+   Strefę wyznacza stan (BarState.Zone). *@
+<Modal @ref="modal" Title="@(Zone switch { "wanted" => "Tablica Wanted", "music" => "Muzyka w Saloonie", "game" => "Śladem Rewolwerowca", _ => "Karta rozmów" })"
+       Kicker="@(Zone switch { "wanted" => "Most Wanted · SansPost Saloon", "music" => "Kącik muzyczny", "game" => "Stół gry", _ => "Bar · SansPost Saloon" })"
+       Class="@(Zone switch { "wanted" => "dialog-panel bar-panel wanted-panel", "music" => "dialog-panel bar-panel music-panel", "game" => "dialog-panel bar-panel game-panel", _ => "dialog-panel bar-panel" })"
        OnDismiss="OnDismissAsync" OnClosed="OnClosed">
     @if (State is { } state)
     {
@@ -43,6 +45,12 @@
 
                 @switch (level.View)
                 {
+                    case BarView.Game:
+                        <GameTable />
+                        break;
+                    case BarView.Music:
+                        <MusicCorner FocusOnLoad="true" />
+                        break;
                     case BarView.Wanted:
                         <WantedBoard Active="@(!auth && conversation is null)" FocusMainPoster="@(state.View == BarView.Wanted)"
                                      OnOpen="OpenConversation" OnLoaded="OnWantedLoaded" />
@@ -98,8 +106,8 @@
 
     public bool IsOpen => modal?.IsOpen == true;
 
-    // Okno pokazuje tablicę Wanted (nagłówek, wygląd); po zamknięciu zostaje wygląd ostatnio pokazanej strefy.
-    private bool Wanted => (State ?? shown)?.IsWanted == true;
+    // Strefa pokazana w oknie (nagłówek, wygląd): bar, wanted albo music.
+    private string Zone => (State ?? shown)?.Zone ?? "bar";
 
     public Task ShowAsync() => modal!.ShowAsync();
 
@@ -239,7 +247,7 @@
         if (State is not { } state)
             return;
 
-        if (reason == "escape" && state.View is not (BarView.Menu or BarView.Wanted))
+        if (reason == "escape" && state.View is not (BarView.Menu or BarView.Wanted or BarView.Music or BarView.Game))
             await UpAsync();
         else
             await BarNavigation.CloseAsync(Navigation, JS);

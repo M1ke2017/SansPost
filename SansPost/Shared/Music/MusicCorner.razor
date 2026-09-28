@@ -1,0 +1,167 @@
+@inherits MusicStateComponent
+@inject MusicService Music
+@inject ILogger<MusicCorner> Logger
+
+@* Kącik muzyczny (Sprint 18) w oknie sali: radio country z Radio Browser. Lista stacji z serwera (MusicService — pamięć
+   podręczna, ostatnia poprawna lista); odtwarzanie w przeglądarce, prosto ze stacji (js/music.js — jeden element audio
+   na sesję, sterowany atrybutami data-music-*). Nic nie gra samo: dźwięk dopiero po "Graj". Zamknięcie okna nie
+   zatrzymuje radia — sterowanie przejmuje mini-player. Bez udawanych tytułów utworów: stacja, kraj, LIVE, kodek. *@
+<div class="music-corner">
+    <p class="music-intro">Radio country na żywo, prosto ze stacji. Gra dalej, gdy wrócisz do sali, baru albo tablicy Wanted.</p>
+
+    @if (stations is null)
+    {
+        <p class="music-loading" role="status">Stroimy radio…</p>
+    }
+    else if (stations.Count == 0)
+    {
+        <div class="music-unavailable" role="status">
+            <p class="music-unavailable-title">Radio jest chwilowo niedostępne.</p>
+            <p class="music-unavailable-text">Lista stacji nie odpowiada. Saloon działa dalej — spróbuj za chwilę.</p>
+        </div>
+        <button type="button" class="btn btn-sm music-reload" @onclick="LoadAsync">Spróbuj ponownie</button>
+    }
+    else
+    {
+        var selected = Selected;
+        var status = State?.Status ?? "idle";
+        var active = status is "playing" or "loading";
+        var next = Next(selected);
+
+        <section class="music-now @(active ? "is-live" : "")" aria-labelledby="music-station-name">
+            <p class="music-now-kicker">
+                @if (status == "playing")
+                {
+                    <span class="music-live">LIVE</span>
+                }
+                <span>@(active ? "Teraz gra" : "Wybrana stacja")</span>
+            </p>
+            <h3 class="music-station-name" id="music-station-name">@selected.Name</h3>
+            <p class="music-station-meta">
+                @if (selected.Country is not null)
+                {
+                    <span>@selected.Country</span>
+                }
+                <span>@Format(selected)</span>
+            </p>
+            @if (selected.Homepage is not null)
+            {
+                <a class="music-homepage" href="@selected.Homepage" target="_blank" rel="noopener noreferrer"
+                   aria-label="@($"Strona stacji {selected.Name} (otwiera się w nowej karcie)")">Strona stacji</a>
+            }
+        </section>
+
+        <p class="music-status @(status == "error" ? "is-error" : "")" role="status">@MusicState.TextFor(status)</p>
+
+        <div class="music-controls">
+            @{ var toggleText = active ? "Pauza" : status == "error" ? "Spróbuj ponownie" : "Graj"; }
+            <button type="button" class="btn btn-primary music-toggle" data-music-toggle @attributes="MusicState.Attributes(selected)"
+                    aria-label="@($"{toggleText}: {selected.Name}")">
+                <span class="music-toggle-icon" aria-hidden="true">@(active ? "❚❚" : "▶")</span>
+                @toggleText
+            </button>
+            @if (next is not null)
+            {
+                <button type="button" class="btn music-next" data-music-station @attributes="MusicState.Attributes(next)"
+                        aria-label="@($"Następna stacja: {next.Name}")">
+                    Następna stacja
+                </button>
+            }
+        </div>
+
+        <div class="music-volume">
+            <label for="music-volume">Głośność</label>
+            <input id="music-volume" class="music-range" type="range" min="0" max="100" step="5" value="@(State?.Volume ?? 70)"
+                   aria-valuetext="@($"{State?.Volume ?? 70}%")" data-music-volume />
+        </div>
+
+        <section class="music-stations-section" aria-labelledby="music-stations-title">
+            <h3 class="music-stations-title" id="music-stations-title">Wybierz stację</h3>
+            <ul class="music-stations">
+                @foreach (var station in stations)
+                {
+                    <li @key="station.StationId">
+                        <button type="button" class="music-station" data-music-station @attributes="MusicState.Attributes(station)"
+                                aria-current="@(station.StationId == selected.StationId ? "true" : null)">
+                            <span class="music-station-title">@station.Name</span>
+                            <span class="music-station-info">@(station.Country is null ? Format(station) : $"{station.Country} · {Format(station)}")</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+</div>
+
+@code {
+    // Okno otwarte na Kąciku: fokus na "Graj", gdy lista stacji jest gotowa (bez limitu czasu na wczytanie).
+    [Parameter] public bool FocusOnLoad { get; set; }
+
+    private IReadOnlyList<RadioStationResponse>? stations;
+    private readonly CancellationTokenSource loading = new();
+    private bool focused;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        stations = null;
+        try
+        {
+            var result = await Music.GetStationsAsync(loading.Token);
+            stations = result.Stations;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            // Radio nigdy nie psuje Saloonu: każdy błąd to "chwilowo niedostępne".
+            Logger.LogWarning(ex, "Nie udało się wczytać listy stacji.");
+            stations = Array.Empty<RadioStationResponse>();
+        }
+    }
+
+    // Stacja z odtwarzacza (także spoza bieżącej listy — lista mogła się odświeżyć), inaczej pierwsza z listy.
+    private RadioStationResponse Selected =>
+        stations!.FirstOrDefault(s => s.StationId == State?.StationId)
+        ?? (State is { StationId: { } id, Name: { } name, StreamUrl: { } url }
+            ? new RadioStationResponse(id, name, State.Country, State.Homepage, url, State.Codec, State.Bitrate)
+            : stations![0]);
+
+    private RadioStationResponse? Next(RadioStationResponse selected)
+    {
+        if (stations!.Count < 2)
+            return null;
+        var index = stations.ToList().FindIndex(s => s.StationId == selected.StationId);
+        return stations[(index + 1) % stations.Count];
+    }
+
+    private static string Format(RadioStationResponse station) =>
+        string.Join(" · ", new[] { station.Codec, station.Bitrate is int kbps ? $"{kbps} kbps" : null }.Where(part => part is not null));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (focused || !FocusOnLoad || stations is not { Count: > 0 })
+            return;
+
+        focused = true;
+        try
+        {
+            // "WhenReady": lista z pamięci podręcznej bywa gotowa, zanim okno się otworzy (showModal przestawiłby fokus).
+            await JS.InvokeVoidAsync("sansPost.focusInDialogWhenReady", "[data-music-toggle]", null, true);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        loading.Cancel();
+        loading.Dispose();
+        await base.DisposeAsync();
+    }
+}

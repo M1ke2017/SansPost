@@ -115,6 +115,12 @@ else
     // Tablica Wanted (Sprint 17): ?wanted=board | post (z id) | login / register — ten sam model stanu co BAR.
     [SupplyParameterFromQuery(Name = "wanted")] public string? WantedParam { get; set; }
 
+    // Kącik muzyczny (Sprint 18): ?music=radio.
+    [SupplyParameterFromQuery(Name = "music")] public string? MusicParam { get; set; }
+
+    // Stół gry (Sprint 19): ?game=table (i karta logowania gościa ?game=login).
+    [SupplyParameterFromQuery(Name = "game")] public string? GameParam { get; set; }
+
     private enum SaloonRenderer { Pending, ThreeD, CssFallback }
 
     private SaloonRenderer renderer;
@@ -125,7 +131,7 @@ else
 
     private PostSort SortValue => string.Equals(Sort, "popular", StringComparison.OrdinalIgnoreCase) ? PostSort.Popular : PostSort.Newest;
 
-    private BarState? BarValue => BarState.Parse(BarParam, CategoryParam, Sort, QueryParam, PostIdParam, FromParam, NextParam, BackParam, WantedParam);
+    private BarState? BarValue => BarState.Parse(BarParam, CategoryParam, Sort, QueryParam, PostIdParam, FromParam, NextParam, BackParam, WantedParam, MusicParam, GameParam);
 
     protected override async Task OnInitializedAsync()
     {

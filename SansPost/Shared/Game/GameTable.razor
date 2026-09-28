@@ -1,0 +1,297 @@
+@inject GameSessionService Sessions
+@inject IJSRuntime JS
+
+@* Stół gry (Sprint 19) — "Śladem Rewolwerowca" (The Gunslinger's Draw). Pojedynek treningowy z manekinem działa na
+   prawdziwym silniku F# (SansPost.Game.Core) przez serwer: karta idzie do GameSessionService, który rozstrzyga rundę
+   i oddaje widok gracza — bez ukrytej karty przeciwnika. Klient niczego nie liczy. Pojedynki z innymi graczami na żywo
+   (SignalR, zaproszenia, lobby) — kolejny etap.
+   Konto zawieszone: stół, zasady i stan własnego pojedynku zostają widoczne, akcje są nieaktywne z wyjaśnieniem. O tym, kto
+   może grać, rozstrzyga serwer (GameSessionService → wspólna polityka konta); ViewerContext służy tu tylko prezentacji. *@
+<div class="game-table">
+    <section class="game-intro" aria-labelledby="game-rules-title">
+        <p class="game-lede">The Gunslinger's Draw — pojedynek jeden na jeden, 3–5 minut. Bez hazardu i nagród — liczy się przewidywanie przeciwnika.</p>
+        <details class="game-rules" open="@(duel is null)">
+            <summary id="game-rules-title">Zasady w skrócie</summary>
+            <ul>
+                <li>Obaj gracze wybierają kartę w ukryciu; karty odsłaniają się jednocześnie.</li>
+                <li>Na start: <strong>3 prestiżu</strong> i <strong>1 nabój</strong> (bęben mieści 2).</li>
+                <li>Kto straci cały prestiż — przegrywa. Po 12 rundach wygrywa więcej prestiżu.</li>
+            </ul>
+        </details>
+        <p class="game-engine"><Icon Name="@Icons.Cpu" Size="14" /> Silnik: SansPost.Game.Core (F#) — każdą rundę rozstrzyga serwer.</p>
+    </section>
+
+    @if (Viewer is null)
+    {
+        <div class="game-guest">
+            <p>Pojedynek jest przypisany do konta. Zaloguj się, żeby zagrać z manekinem treningowym.</p>
+            <div class="cluster">
+                <a class="btn btn-primary" href="@UiText.LoginUrl(BarState.Game.Url)">Zaloguj się, aby zagrać</a>
+                <a class="btn" href="@($"/register?returnUrl={Uri.EscapeDataString(BarState.Game.Url)}")">Załóż konto</a>
+            </div>
+        </div>
+        @Deck(null)
+    }
+    else if (duel is null)
+    {
+        @if (!CanPlay)
+        {
+            @Restricted
+        }
+        else
+        {
+            @if (error is not null)
+            {
+                <Alert Variant="AlertVariant.Warning">@error</Alert>
+            }
+            <button type="button" class="btn btn-primary game-start" @onclick="StartTraining">
+                <Icon Name="@Icons.Revolver" Size="18" /> Rozpocznij pojedynek treningowy
+            </button>
+        }
+        @Deck(null)
+    }
+    else
+    {
+        var you = duel.You;
+        var opponent = duel.Opponent;
+        <section class="game-board" aria-labelledby="game-board-title">
+            <h3 class="game-board-title" id="game-board-title">
+                @(duel.Status == "finished" ? "Pojedynek zakończony" : $"Runda {duel.Round} z {duel.MaxRounds}")
+                <span class="game-mode">@(duel.Mode == "training" ? "trening" : "wyzwanie")</span>
+            </h3>
+            <div class="game-players">
+                @Player(you, "Ty", "game-you")
+                @if (opponent is not null)
+                {
+                    @Player(opponent, "Przeciwnik", "game-opponent")
+                }
+                else
+                {
+                    <p class="game-player is-waiting">Czekamy na przeciwnika…</p>
+                }
+            </div>
+
+            <p class="game-status @(duel.Status == "finished" ? "is-final" : "")" role="status">@StatusText</p>
+
+            @if (lastRound is not null)
+            {
+                <div class="game-reveal">
+                    <p class="game-reveal-cards">
+                        <span>Ty: <strong>@DuelMapper.CardName(lastRound.YourCard)</strong></span>
+                        <span aria-hidden="true">·</span>
+                        <span>Przeciwnik: <strong>@DuelMapper.CardName(lastRound.OpponentCard)</strong></span>
+                    </p>
+                    @if (lastRound.Effects.Count > 0)
+                    {
+                        <ul class="game-effects">
+                            @foreach (var effect in lastRound.Effects)
+                            {
+                                <li>@effect</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="game-effects-none">Bez efektu — obaj stoją.</p>
+                    }
+                </div>
+            }
+
+            @if (!CanPlay)
+            {
+                @Restricted
+            }
+            else if (duel.Status == "finished")
+            {
+                <button type="button" class="btn btn-primary game-start" @onclick="StartTraining">Nowy pojedynek treningowy</button>
+            }
+            else if (duel.Mode == "challenge")
+            {
+                <p class="game-note">Wyzwanie innego gracza działa na razie przez API — na żywo (SignalR) w kolejnym etapie.</p>
+                <button type="button" class="btn btn-sm" @onclick="Refresh">Odśwież stan</button>
+            }
+        </section>
+
+        @Deck(duel)
+
+        @if (duel.History.Count > 0)
+        {
+            <section class="game-history" aria-labelledby="game-history-title">
+                <h3 class="game-history-title" id="game-history-title">Przebieg</h3>
+                <ol class="game-history-list" reversed>
+                    @foreach (var round in duel.History.Reverse())
+                    {
+                        <li>
+                            <span class="game-history-round">Runda @round.Round</span>
+                            <span>@DuelMapper.CardName(round.YourCard) — @DuelMapper.CardName(round.OpponentCard)</span>
+                            <span class="game-history-score">@round.YourPrestige : @round.OpponentPrestige</span>
+                        </li>
+                    }
+                </ol>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter] private ViewerContext? Viewer { get; set; }
+
+    private DuelSnapshot? duel;
+    private RoundResult? lastRound;
+    private string? error;
+    private bool busy;
+    private bool focusCards;
+
+    protected override void OnInitialized()
+    {
+        // Powrót do stołu (odświeżenie, ponowne otwarcie): trwający albo świeżo zakończony pojedynek użytkownika.
+        if (Viewer is not null && Sessions.GetActive(Viewer.UserId) is { Succeeded: true } active)
+        {
+            duel = active.Value;
+            lastRound = duel!.History.LastOrDefault();
+        }
+    }
+
+    // Zawieszenie ustalone przez serwer w trakcie tej wizyty (ViewerContext mógł jeszcze nie wiedzieć).
+    private bool restricted;
+
+    private bool CanPlay => Viewer is { CanWrite: true } && !restricted;
+
+    private async Task StartTraining()
+    {
+        if (Viewer is null || busy)
+            return;
+        var result = await Sessions.CreateAsync(Viewer.UserId, Viewer.Username, DuelMode.Training);
+        if (!result.Succeeded)
+        {
+            restricted = result.Code == "account-suspended";
+            error = restricted ? null : result.Message;
+            return;
+        }
+        error = null;
+        duel = result.Value;
+        lastRound = null;
+        focusCards = true;
+    }
+
+    private async Task Play(string card)
+    {
+        if (Viewer is null || duel is null || busy || !CanPlay)
+            return;
+        busy = true;
+        try
+        {
+            var result = await Sessions.SubmitMoveAsync(Guid.Parse(duel.DuelId), Viewer.UserId, card, duel.Round);
+            if (!result.Succeeded)
+            {
+                restricted = result.Code == "account-suspended";
+                error = restricted ? null : result.Message;
+                Refresh();
+                return;
+            }
+            error = null;
+            duel = result.Value!.Snapshot;
+            if (result.Value.RoundResult is { } round)
+                lastRound = round;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void Refresh()
+    {
+        if (Viewer is not null && duel is not null && Sessions.Get(Guid.Parse(duel.DuelId), Viewer.UserId) is { Succeeded: true } current)
+            duel = current.Value;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focusCards)
+            return;
+        focusCards = false;
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.focusInDialogWhenReady", ".game-card:not([disabled])", null, false);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private string StatusText => duel switch
+    {
+        null => "",
+        { Status: "finished", Result: "win" } => "Wygrana! Przeciwnik schodzi ze sceny.",
+        { Status: "finished", Result: "loss" } => "Przegrana — tym razem to Ty schodzisz ze sceny.",
+        { Status: "finished" } => "Remis — obaj rewolwerowcy zostają w grze.",
+        { Status: "waiting-for-opponent" } => "Czekamy, aż przeciwnik dołączy.",
+        { YourMove: not null, OpponentReady: false } => "Karta wybrana — czekamy na przeciwnika.",
+        _ when error is not null => error,
+        _ when lastRound is not null => $"Runda {lastRound.Round} rozstrzygnięta. Wybierz kartę na rundę {duel.Round}.",
+        _ => "Wybierz kartę — przeciwnik wybiera w tym samym czasie."
+    };
+
+    private static string IconFor(string card) => card switch
+    {
+        "shoot" => Icons.Revolver,
+        "dodge" => Icons.Swerve,
+        "reload" => Icons.Cylinder,
+        "block" => Icons.Shield,
+        _ => Icons.Megaphone
+    };
+
+    private static string Stars(int count, int max) => new string('★', Math.Max(0, count)) + new string('☆', Math.Max(0, max - Math.Max(0, count)));
+
+    private RenderFragment Player(PlayerSnapshot player, string role, string css) =>
+        @<div class="game-player @css">
+            <p class="game-player-role">@role</p>
+            <p class="game-player-alias">@player.Alias</p>
+            <p class="game-player-stat">
+                <span class="visually-hidden">Prestiż: @player.Prestige.</span>
+                <span class="game-stars" aria-hidden="true" title="Prestiż">@Stars(player.Prestige, 3)</span>
+            </p>
+            <p class="game-player-stat">
+                <span class="visually-hidden">Naboje: @player.Ammo z 2.</span>
+                <span class="game-bullets" aria-hidden="true" title="Naboje">@(new string('●', player.Ammo))@(new string('○', Math.Max(0, 2 - player.Ammo)))</span>
+            </p>
+            @if (role == "Przeciwnik" && duel?.Status == "in-progress")
+            {
+                <p class="game-ready @(player.Ready ? "is-ready" : "")">@(player.Ready ? "Karta wybrana" : "Myśli…")</p>
+            }
+        </div>;
+
+    private RenderFragment Restricted =>
+        @<p class="game-restricted" role="status">
+            <Icon Name="@Icons.Lock" Size="16" />
+            <span>Możesz przeglądać Stół gry, ale udział w pojedynkach jest obecnie niedostępny.</span>
+        </p>;
+
+    // Karty komend: prawdziwe przyciski (Tab, Enter, Spacja); opis i powód niedostępności czytane przez czytnik.
+    private RenderFragment Deck(DuelSnapshot? current) =>
+        @<section class="game-deck" aria-labelledby="game-deck-title">
+            <h3 class="game-deck-title" id="game-deck-title">Karty komend</h3>
+            <ul class="game-cards">
+                @foreach (var action in current?.AvailableActions ?? DuelMapper.Catalog.Select(c => new AvailableAction(c.Id, c.Name, c.Description, false, null)).ToList())
+                {
+                    var chosen = current?.YourMove == action.Card;
+                    var reason = current is not null && !CanPlay && action.Enabled ? "Udział w pojedynkach jest niedostępny." : action.DisabledReason;
+                    <li>
+                        <button type="button" class="game-card @(chosen ? "is-chosen" : "")" data-card="@action.Card"
+                                disabled="@(current is null || !action.Enabled || !CanPlay || busy)" aria-pressed="@(current is null ? null : chosen ? "true" : "false")"
+                                aria-describedby="@($"game-card-{action.Card}-text")" @onclick="() => Play(action.Card)">
+                            <span class="game-card-icon"><Icon Name="@IconFor(action.Card)" Size="26" StrokeWidth="1.6" /></span>
+                            <span class="game-card-name">@action.Name</span>
+                            <span class="game-card-text" id="@($"game-card-{action.Card}-text")">
+                                @action.Description@if (current is not null && reason is not null && !chosen)
+                                {
+                                    <span class="game-card-reason"> @reason</span>
+                                }
+                            </span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        </section>;
+}
