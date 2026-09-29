@@ -1,7 +1,7 @@
 @* Przełączanie obsługuje sanspost.js (delegacja kliknięcia) — atrybut data-theme na <html> jest poza drzewem Blazora.
    Ikona zależy wyłącznie od CSS, więc stan przycisku nie rozjeżdża się z motywem. *@
 <button type="button" class="btn btn-ghost btn-icon theme-toggle" data-theme-toggle
-        aria-label="Przełącz jasny lub ciemny motyw" title="Jasny / ciemny motyw">
+        aria-label="@L["Przełącz jasny lub ciemny motyw"]" title="@L["Jasny / ciemny motyw"]">
     <span class="when-light"><Icon Name="@Icons.Moon" /></span>
     <span class="when-dark"><Icon Name="@Icons.Sun" /></span>
 </button>

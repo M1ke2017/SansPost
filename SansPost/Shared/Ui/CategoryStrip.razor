@@ -4,22 +4,22 @@
    Stan strzałek (początek/koniec) liczy sanspost.js z scrollLeft / clientWidth / scrollWidth — po scrollu, resize,
    kliknięciu i zmianie listy. Strzałki są zwykłymi <button> (Enter/Space, widoczny fokus). *@
 <div class="sign-strip" @ref="strip" data-scroller>
-    <button type="button" class="strip-btn strip-btn-left" data-scroll="-1" aria-label="Przewiń kategorie w lewo" disabled>
+    <button type="button" class="strip-btn strip-btn-left" data-scroll="-1" aria-label="@L["Przewiń kategorie w lewo"]" disabled>
         <Icon Name="@Icons.ArrowLeft" Size="16" />
     </button>
-    <nav class="sign-row" aria-label="Kategorie" data-scroller-track>
+    <nav class="sign-row" aria-label="@L["Kategorie"]" data-scroller-track>
         <a class="sign sign-all @(Current is null ? "active" : "")" href="@SaloonRoutes.Hub" aria-current="@(Current is null ? "page" : null)">
-            <Icon Name="@Icons.Compass" Size="16" /> Wszystkie
+            <Icon Name="@Icons.Compass" Size="16" /> @L["Wszystkie"]
         </a>
         @foreach (var category in CategoryMeta.All)
         {
             <a class="sign @CategoryMeta.CssClass(category) @(category == Current ? "active" : "")" href="@CategoryMeta.Url(category)"
                aria-current="@(category == Current ? "page" : null)">
-                <Icon Name="@CategoryMeta.Icon(category)" Size="16" /> @category.DisplayName()
+                <Icon Name="@CategoryMeta.Icon(category)" Size="16" /> @L[category.DisplayName()]
             </a>
         }
     </nav>
-    <button type="button" class="strip-btn strip-btn-right" data-scroll="1" aria-label="Przewiń kategorie w prawo" disabled>
+    <button type="button" class="strip-btn strip-btn-right" data-scroll="1" aria-label="@L["Przewiń kategorie w prawo"]" disabled>
         <Icon Name="@Icons.ArrowLeft" Size="16" Class="flip-x" />
     </button>
 </div>

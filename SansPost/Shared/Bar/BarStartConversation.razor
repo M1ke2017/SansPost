@@ -2,21 +2,21 @@
    Gość czyta bez konta; wejście do rozmowy prowadzi przez logowanie (powrót prosto do formularza) albo rejestrację. *@
 @if (Viewer is null)
 {
-    <p class="text-sm subtle">Czytać można bez konta. Żeby zacząć rozmowę, zaloguj się.</p>
+    <p class="text-sm subtle">@L["Czytać można bez konta. Żeby zacząć rozmowę, zaloguj się."]</p>
     <div class="cluster">
-        <a class="btn btn-primary btn-sm" href="@UiText.LoginUrl(NewPostUrl)"><Icon Name="@Icons.Cactus" Size="16" /> Zaloguj się, aby rozpocząć rozmowę</a>
+        <a class="btn btn-primary btn-sm" href="@UiText.LoginUrl(NewPostUrl)"><Icon Name="@Icons.Cactus" Size="16" /> @L["Zaloguj się, aby rozpocząć rozmowę"]</a>
         @* returnUrl: w BAR rejestracja wraca do formularza rozmowy; klasyczna strona /register go nie używa. *@
-        <a class="btn btn-sm" href="@($"/register?returnUrl={Uri.EscapeDataString(NewPostUrl)}")">Załóż konto</a>
+        <a class="btn btn-sm" href="@($"/register?returnUrl={Uri.EscapeDataString(NewPostUrl)}")">@L["Załóż konto"]</a>
     </div>
 }
 else if (!Viewer.CanWrite)
 {
-    <p class="text-sm subtle">Konto jest zawieszone — możesz czytać, ale rozpoczynanie rozmów jest obecnie niedostępne.</p>
+    <p class="text-sm subtle">@L["Konto jest zawieszone — możesz czytać, ale rozpoczynanie rozmów jest obecnie niedostępne."]</p>
 }
 else
 {
     <a class="btn btn-primary btn-sm" href="@NewPostUrl">
-        <Icon Name="@Icons.Cactus" Size="16" /> @(Category is PostCategory c ? $"Rozpocznij rozmowę: {c.DisplayName()}" : "Rozpocznij rozmowę")
+        <Icon Name="@Icons.Cactus" Size="16" /> @(Category is PostCategory c ? L.Format("Rozpocznij rozmowę: {0}", L[c.DisplayName()]) : L["Rozpocznij rozmowę"])
     </a>
 }
 

@@ -3,24 +3,24 @@
 @inject UiServices Ui
 @inject ILogger<Profile> Logger
 
-<PageTitle>@(profile is null ? "Profil" : profile.Username) · SansPost</PageTitle>
+<PageTitle>@(profile is null ? L["Profil"] : profile.Username) · SansPost</PageTitle>
 
 @if (isLoading)
 {
-    <p class="muted" role="status">Wczytywanie profilu…</p>
+    <p class="muted" role="status">@L["Wczytywanie profilu…"]</p>
 }
 else if (loadFailed)
 {
     <EmptyState Title="Nie udało się wczytać profilu" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger"
                 Text="@UiErrors.Generic">
-        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> @L["Spróbuj ponownie"]</button>
     </EmptyState>
 }
 else if (profile is null)
 {
     <EmptyState Title="Nie znaleziono użytkownika" HeadingLevel="1" IconName="@Icons.User"
                 Text="Taki profil nie istnieje. Sprawdź nazwę albo poszukaj autora w wyszukiwarce.">
-        <a class="btn btn-primary" href="/search">Szukaj autorów</a>
+        <a class="btn btn-primary" href="/search">@L["Szukaj autorów"]</a>
     </EmptyState>
 }
 else
@@ -32,20 +32,33 @@ else
                 <div class="stack-sm" style="min-width: 0">
                     <h1>@profile.Username</h1>
                     <div class="stats">
-                        <span><Icon Name="@Icons.Calendar" Size="15" Class="inline-icon subtle" /> Na SansPost od @UiText.MonthYear(profile.JoinedAt)</span>
-                        <span><strong>@UiText.Number(profile.PostCount)</strong>@PostsWord(profile.PostCount)</span>
-                        <span><strong>@UiText.Number(profile.CommentCount)</strong>@CommentsWord(profile.CommentCount)</span>
+                        <span><Icon Name="@Icons.Calendar" Size="15" Class="inline-icon subtle" /> @L["Na SansPost od"] @UiText.MonthYear(L, profile.JoinedAt)</span>
+                        <span><strong>@UiText.Number(L, profile.PostCount)</strong>@PostsWord(profile.PostCount)</span>
+                        <span><strong>@UiText.Number(L, profile.CommentCount)</strong>@CommentsWord(profile.CommentCount)</span>
                     </div>
                 </div>
             </div>
         </section>
 
+        @* Sprint 21 — pojedynki przy Stole gry: gwiazdki prestiżu (= zwycięstwa PvP) i bilans, bez wykresów. *@
+        <section class="card profile-duels" aria-labelledby="profile-duels-title">
+            <div class="card-body">
+                <h2 id="profile-duels-title" class="section-title">@L["Pojedynki"]</h2>
+                <dl class="profile-duel-stats">
+                    <div class="profile-duel-stat is-stars"><dt><span aria-hidden="true">★</span><span class="visually-hidden">@L["Gwiazdki prestiżu"]</span></dt><dd>@UiText.Number(L, profile.Duels.PrestigeStars)</dd></div>
+                    <div class="profile-duel-stat"><dt>@L["Wygrane"]</dt><dd>@UiText.Number(L, profile.Duels.Wins)</dd></div>
+                    <div class="profile-duel-stat"><dt>@L["Przegrane"]</dt><dd>@UiText.Number(L, profile.Duels.Losses)</dd></div>
+                    <div class="profile-duel-stat"><dt>@L["Remisy"]</dt><dd>@UiText.Number(L, profile.Duels.Draws)</dd></div>
+                </dl>
+            </div>
+        </section>
+
         <div class="layout-with-aside">
             <section aria-labelledby="recent-posts">
-                <h2 id="recent-posts" class="section-title" style="margin-bottom: var(--space-3)">Ostatnie posty</h2>
+                <h2 id="recent-posts" class="section-title" style="margin-bottom: var(--space-3)">@L["Ostatnie posty"]</h2>
                 @if (profile.RecentPosts.Count == 0)
                 {
-                    <EmptyState Title="Brak postów" Text="@($"{profile.Username} nie opublikował(a) jeszcze żadnego posta.")" />
+                    <EmptyState Title="Brak postów" Text="@L.Format("{0} nie opublikował(a) jeszcze żadnego posta.", profile.Username)" />
                 }
                 else
                 {
@@ -61,10 +74,10 @@ else
             <aside class="aside" aria-labelledby="recent-comments">
                 <div class="card">
                     <div class="card-body">
-                        <h2 id="recent-comments" class="section-title">Ostatnie komentarze</h2>
+                        <h2 id="recent-comments" class="section-title">@L["Ostatnie komentarze"]</h2>
                         @if (profile.RecentComments.Count == 0)
                         {
-                            <p class="muted text-sm" style="margin-top: var(--space-3)">Brak komentarzy.</p>
+                            <p class="muted text-sm" style="margin-top: var(--space-3)">@L["Brak komentarzy."]</p>
                         }
                         else
                         {
@@ -74,7 +87,7 @@ else
                                     <li @key="comment.Id" class="stack-sm">
                                         <p class="text-sm" style="white-space: pre-line">@comment.ContentPreview</p>
                                         <span class="text-xs subtle">
-                                            pod <a href="@($"{UiText.PostUrl(comment.PostId)}#comment-{comment.Id}")">@comment.PostTitle</a>
+                                            @L["pod"] <a href="@($"{UiText.PostUrl(comment.PostId)}#comment-{comment.Id}")">@comment.PostTitle</a>
                                             · <TimeAgo Value="comment.CreatedAt" />
                                         </span>
                                     </li>
@@ -131,6 +144,6 @@ else
     }
 
     // Liczba jest wyróżniona osobno — tu tylko forma słowa.
-    private static string PostsWord(int count) => UiText.Posts(count)[UiText.Number(count).Length..];
-    private static string CommentsWord(int count) => UiText.Comments(count)[UiText.Number(count).Length..];
+    private string PostsWord(int count) => UiText.Posts(L, count)[UiText.Number(L, count).Length..];
+    private string CommentsWord(int count) => UiText.Comments(L, count)[UiText.Number(L, count).Length..];
 }

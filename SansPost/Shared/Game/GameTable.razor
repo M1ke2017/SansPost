@@ -13,26 +13,26 @@
    może grać, rozstrzyga serwer (wspólna polityka konta); ViewerContext służy tu tylko prezentacji. *@
 <div class="game-table">
     <section class="game-intro" aria-labelledby="game-rules-title">
-        <p class="game-lede">The Gunslinger's Draw — pojedynek jeden na jeden, 3–5 minut. Bez hazardu i nagród — liczy się przewidywanie przeciwnika.</p>
+        <p class="game-lede">@L["The Gunslinger's Draw — pojedynek jeden na jeden, 3–5 minut. Bez hazardu i nagród — liczy się przewidywanie przeciwnika."]</p>
         <details class="game-rules" open="@(duel is null)">
-            <summary id="game-rules-title">Zasady w skrócie</summary>
+            <summary id="game-rules-title">@L["Zasady w skrócie"]</summary>
             <ul>
-                <li>Obaj gracze wybierają kartę w ukryciu; karty odsłaniają się jednocześnie.</li>
-                <li>Na start: <strong>3 prestiżu</strong> i <strong>1 nabój</strong> (bęben mieści 2).</li>
-                <li>Kto straci cały prestiż — przegrywa. Po 12 rundach wygrywa więcej prestiżu.</li>
-                <li>Na żywo: runda trwa 15 sekund — brak karty kosztuje 1 prestiżu.</li>
+                <li>@L["Obaj gracze wybierają kartę w ukryciu; karty odsłaniają się jednocześnie."]</li>
+                <li>@L["Na start:"] <strong>@L["3 prestiżu"]</strong> @L["i"] <strong>@L["1 nabój"]</strong> @L["(bęben mieści 2)."]</li>
+                <li>@L["Kto straci cały prestiż — przegrywa. Po 12 rundach wygrywa więcej prestiżu."]</li>
+                <li>@L["Na żywo: runda trwa 15 sekund — brak karty kosztuje 1 prestiżu."]</li>
             </ul>
         </details>
-        <p class="game-engine"><Icon Name="@Icons.Cpu" Size="14" /> Silnik: SansPost.Game.Core (F#) — każdą rundę rozstrzyga serwer.</p>
+        <p class="game-engine"><Icon Name="@Icons.Cpu" Size="14" /> @L["Silnik: SansPost.Game.Core (F#) — każdą rundę rozstrzyga serwer."]</p>
     </section>
 
     @if (Viewer is null)
     {
         <div class="game-guest">
-            <p>Pojedynek jest przypisany do konta. Zaloguj się, żeby zagrać z innym graczem albo z manekinem treningowym.</p>
+            <p>@L["Pojedynek jest przypisany do konta. Zaloguj się, żeby zagrać z innym graczem albo z manekinem treningowym."]</p>
             <div class="cluster">
-                <a class="btn btn-primary" href="@UiText.LoginUrl(BarState.Game.Url)">Zaloguj się, aby zagrać</a>
-                <a class="btn" href="@($"/register?returnUrl={Uri.EscapeDataString(BarState.Game.Url)}")">Załóż konto</a>
+                <a class="btn btn-primary" href="@UiText.LoginUrl(BarState.Game.Url)">@L["Zaloguj się, aby zagrać"]</a>
+                <a class="btn" href="@($"/register?returnUrl={Uri.EscapeDataString(BarState.Game.Url)}")">@L["Załóż konto"]</a>
             </div>
         </div>
         <GameDeck />
@@ -43,7 +43,7 @@
         {
             <p class="game-connection" role="status">
                 <Icon Name="@Icons.Refresh" Size="16" />
-                @(connection == "reconnecting" ? "Połączenie ze stołem przerwane — wznawiam…" : "Brak połączenia ze stołem gry — ponawiam próbę…")
+                @(connection == "reconnecting" ? L["Połączenie ze stołem przerwane — wznawiam…"] : L["Brak połączenia ze stołem gry — ponawiam próbę…"])
             </p>
         }
 
@@ -53,13 +53,13 @@
             {
                 @Restricted
             }
-            <GameLobby Players="players" Challenges="challenges" CanPlay="CanPlay" Busy="busy" Note="@note" Error="@error"
+            <GameLobby Players="players" Challenges="challenges" CanPlay="CanPlay" Busy="busy" Note="@note" Error="@error" Standings="standings"
                        OnChallenge="Challenge" OnAccept="Accept" OnReject="Reject" OnCancel="Cancel" OnTraining="StartTraining" />
             <GameDeck />
         }
         else
         {
-            <GameBoard Duel="duel" Reveal="reveal" CanPlay="CanPlay" Busy="busy" Pending="@pending" Error="@error"
+            <GameBoard Duel="duel" Reveal="reveal" CanPlay="CanPlay" Busy="busy" Pending="@pending" Error="@error" YourStars="@standings?.You.PrestigeStars"
                        RoundDeadline="roundDeadline" GraceDeadline="graceDeadline" ConfirmSurrender="confirmSurrender" Restricted="Restricted"
                        OnPlay="Play" OnReady="Ready" OnSurrender="Surrender" OnSurrenderCancel="() => confirmSurrender = false"
                        OnRematch="Rematch" OnLeave="Leave" OnNewTraining="StartTraining" />
@@ -75,6 +75,7 @@
     private DotNetObjectReference<GameTable>? self;
     private string connection = "connecting";
     private IReadOnlyList<OnlinePlayer> players = Array.Empty<OnlinePlayer>();
+    private StandingsView? standings;
     private readonly List<ChallengeView> challenges = new();
     private DuelSnapshot? duel;
     private RoundResult? reveal;
@@ -143,10 +144,13 @@
             case DuelEvents.PresenceChanged:
                 await RefreshPlayersAsync();
                 break;
+            case DuelEvents.StandingsChanged:
+                await RefreshStandingsAsync();
+                break;
             case DuelEvents.ChallengeReceived:
                 var alias = payload.GetProperty("challengerAlias").GetString()!;
                 Upsert(new ChallengeView(payload.GetProperty("challengeId").GetString()!, "incoming", alias, "pending", Number(payload, "localDeadline")));
-                note = $"{alias} wyzywa Cię na pojedynek!";
+                note = L.Format("{0} wyzywa Cię na pojedynek!", alias);
                 break;
             case DuelEvents.ChallengeUpdated:
                 OnChallengeUpdated(ChallengeOf(payload));
@@ -182,6 +186,8 @@
     private void ApplyState(JsonElement state)
     {
         players = state.GetProperty("players").Deserialize<List<OnlinePlayer>>(Web) ?? new();
+        if (state.TryGetProperty("standings", out var ranking) && ranking.ValueKind == JsonValueKind.Object)
+            standings = ranking.Deserialize<StandingsView>(Web);
         challenges.Clear();
         foreach (var challenge in state.GetProperty("challenges").EnumerateArray())
             challenges.Add(ChallengeOf(challenge));
@@ -246,12 +252,12 @@
         var alias = challenge.OpponentAlias;
         note = (challenge.Status, challenge.Direction) switch
         {
-            ("accepted", "outgoing") => $"{alias} przyjmuje wyzwanie!",
-            ("rejected", "outgoing") => $"{alias} odrzuca wyzwanie.",
-            ("expired", "outgoing") => $"Wyzwanie do {alias} wygasło bez odpowiedzi.",
-            ("cancelled", "incoming") => $"{alias} wycofuje wyzwanie.",
-            ("expired", "incoming") => $"Wyzwanie od {alias} wygasło.",
-            ("unavailable", _) => $"Pojedynek z {alias} nie doszedł do skutku — gracz jest już niedostępny.",
+            ("accepted", "outgoing") => L.Format("{0} przyjmuje wyzwanie!", alias),
+            ("rejected", "outgoing") => L.Format("{0} odrzuca wyzwanie.", alias),
+            ("expired", "outgoing") => L.Format("Wyzwanie do {0} wygasło bez odpowiedzi.", alias),
+            ("cancelled", "incoming") => L.Format("{0} wycofuje wyzwanie.", alias),
+            ("expired", "incoming") => L.Format("Wyzwanie od {0} wygasło.", alias),
+            ("unavailable", _) => L.Format("Pojedynek z {0} nie doszedł do skutku — gracz jest już niedostępny.", alias),
             _ => note
         };
     }
@@ -285,6 +291,20 @@
         }
     }
 
+    // Ranking po zapisanym wyniku PvP (zdarzenie StandingsChanged) — Top 10, Mistrz Stołu, własne gwiazdki.
+    private async Task RefreshStandingsAsync()
+    {
+        try
+        {
+            var view = await JS.InvokeAsync<JsonElement>("sansPostDuel.invoke", "GetStandings");
+            if (view.ValueKind == JsonValueKind.Object && view.TryGetProperty("top", out _))
+                standings = view.Deserialize<StandingsView>(Web);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
     // ---- Akcje gracza (komponent → duel.js → DuelHub) ----------------------------------------------------------------
 
     // Wywołanie huba w kontrakcie HubResult: sukces → wartość; błąd → bezpieczny komunikat (albo cicha resynchronizacja
@@ -309,7 +329,7 @@
             else if (lastCode is "duel-move-already-submitted" or "duel-stale-round" or "duel-not-started")
                 await ResyncAsync();
             else
-                error = message ?? "Nie udało się — spróbuj ponownie.";
+                error = message is null ? L["Nie udało się — spróbuj ponownie."] : L.Error(lastCode, message);
             return (false, default);
         }
         catch (JSDisconnectedException)
@@ -466,6 +486,6 @@
     private RenderFragment Restricted =>
         @<p class="game-restricted" role="status">
             <Icon Name="@Icons.Lock" Size="16" />
-            <span>Możesz przeglądać Stół gry, ale udział w pojedynkach jest obecnie niedostępny.</span>
+            <span>@L["Możesz przeglądać Stół gry, ale udział w pojedynkach jest obecnie niedostępny."]</span>
         </p>;
 }

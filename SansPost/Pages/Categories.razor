@@ -2,19 +2,19 @@
 @inject UiServices Ui
 @inject ILogger<Categories> Logger
 
-<PageTitle>Kategorie · SansPost</PageTitle>
+<PageTitle>@L["Kategorie · SansPost"]</PageTitle>
 
 <div class="page-header">
     <div>
-        <h1>Kategorie</h1>
-        <p>Każda kategoria to osobne miejsce w miasteczku — i nie wszystkie są o IT. Wybierz, dokąd idziesz.</p>
+        <h1>@L["Kategorie"]</h1>
+        <p>@L["Każda kategoria to osobne miejsce w miasteczku — i nie wszystkie są o IT. Wybierz, dokąd idziesz."]</p>
     </div>
 </div>
 
 @if (failed)
 {
     <EmptyState Title="Nie udało się wczytać kategorii" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger" Text="@UiErrors.Generic">
-        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> @L["Spróbuj ponownie"]</button>
     </EmptyState>
 }
 else
@@ -26,9 +26,9 @@ else
             <li>
                 <a class="category-tile @CategoryMeta.CssClass(category)" href="@CategoryMeta.Url(category)">
                     <span class="tile-icon"><Icon Name="@CategoryMeta.Icon(category)" Size="20" /></span>
-                    <span class="tile-place">@CategoryMeta.Place(category)</span>
-                    <span class="tile-name">@category.DisplayName()</span>
-                    <span class="tile-desc">@CategoryMeta.Description(category)</span>
+                    <span class="tile-place">@L[CategoryMeta.Place(category)]</span>
+                    <span class="tile-name">@L[category.DisplayName()]</span>
+                    <span class="tile-desc">@L[CategoryMeta.Description(category)]</span>
                     <span class="tile-meta">
                         @if (summary is null)
                         {
@@ -36,14 +36,14 @@ else
                         }
                         else if (summary.PostCount == 0)
                         {
-                            <span>Jeszcze bez postów</span>
+                            <span>@L["Jeszcze bez postów"]</span>
                         }
                         else
                         {
-                            <span>@UiText.Posts(summary.PostCount)</span>
+                            <span>@UiText.Posts(L, summary.PostCount)</span>
                             @if (summary.LatestPostAt is DateTime latest)
                             {
-                                <span> · ostatni <TimeAgo Value="latest" /></span>
+                                <span> · @L["ostatni"] <TimeAgo Value="latest" /></span>
                             }
                         }
                     </span>

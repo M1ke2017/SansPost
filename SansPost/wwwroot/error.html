@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <title>Coś poszło nie tak · SansPost</title>
+    <title data-en="Something went wrong · SansPost">Coś poszło nie tak · SansPost</title>
     <script>
         (function () {
             var theme = null;
@@ -23,13 +23,21 @@
     <main class="app-main">
         <div class="state">
             <span class="state-icon">!</span>
-            <h1 class="state-title">Coś poszło nie tak</h1>
-            <p class="state-text">Nie udało się wyświetlić tej strony. Spróbuj ponownie za chwilę.</p>
+            <h1 class="state-title" data-en="Something went wrong">Coś poszło nie tak</h1>
+            <p class="state-text" data-en="This page couldn't be displayed. Try again in a moment.">Nie udało się wyświetlić tej strony. Spróbuj ponownie za chwilę.</p>
             <div class="state-actions">
-                <button type="button" class="btn btn-primary" onclick="location.reload()">Spróbuj ponownie</button>
-                <a class="btn" href="/">Wróć do SansPost</a>
+                <button type="button" class="btn btn-primary" onclick="location.reload()" data-en="Try again">Spróbuj ponownie</button>
+                <a class="btn" href="/" data-en="Back to SansPost">Wróć do SansPost</a>
             </div>
         </div>
     </main>
+    <script>
+        // Język interfejsu z cookie wyboru (Sprint 22) — strona statyczna, więc teksty EN podmieniane w miejscu.
+        (function () {
+            if (!/(?:^|;\s*)sp-lang=en(?:;|$)/.test(document.cookie)) return;
+            document.documentElement.lang = "en";
+            document.querySelectorAll("[data-en]").forEach(function (el) { el.textContent = el.getAttribute("data-en"); });
+        })();
+    </script>
 </body>
 </html>

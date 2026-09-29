@@ -7,7 +7,18 @@
 	<UseTopLevelStatements>false</UseTopLevelStatements>
 	<StartupObject>SansPost.Program</StartupObject>
     <UserSecretsId>7c6f3c2e-5d0b-4d8e-9a41-2b7f0e5c9a13</UserSecretsId>
+    <!-- Sprint 23: w publikacji tylko satelity zasobów języków interfejsu (EN; PL jest neutralny) — bez 13 katalogów
+         komunikatów FSharp.Core (cs, de, ja, …), których aplikacja nie pokazuje. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Server GC z dynamiczną adaptacją (DATAS, .NET 8): liczba stert GC rośnie z obciążeniem zamiast jednej na rdzeń —
+         mniejszy working set małej instancji przy tej samej przepustowości. -->
+    <GarbageCollectionAdaptationMode>1</GarbageCollectionAdaptationMode>
   </PropertyGroup>
+
+  <!-- Ustawienia deweloperskie (DetailedErrors, seed) nie trafiają do katalogu publikacji ani obrazu. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />

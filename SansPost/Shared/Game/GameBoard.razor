@@ -1,7 +1,8 @@
 @* Plansza pojedynku (trening albo na żywo). Góra: przeciwnik (prestiż, naboje, połączenie); środek: runda, czas na ruch
    i status; dół: karty. Wszystko z DuelSnapshot serwera — plansza niczego nie liczy (wynik, kary i zwycięzcę zna silnik F#).
    Czas rundy rysuje przeglądarka od lokalnego terminu (data-deadline) — bez ticków z serwera.
-   Odsłonięcie rundy: dwie zakryte karty obracają się (~1 s), potem efekty i zmiany; przy reduced motion — od razu wynik. *@
+   Odsłonięcie rundy: dwie zakryte karty obracają się (~1 s), potem efekty i zmiany; przy reduced motion — od razu wynik.
+   Teksty w języku interfejsu (L); nazwy kart, efekty i powody z mappera to stałe teksty tłumaczone po kluczu. *@
 @{
     var you = Duel.You;
     var opponent = Duel.Opponent;
@@ -11,20 +12,20 @@
 }
 <section class="game-board @(live ? "is-live" : "")" aria-labelledby="game-board-title">
     <h3 class="game-board-title" id="game-board-title" tabindex="-1">
-        @(finished ? "Pojedynek zakończony" : readyCheck ? "Przygotowanie do pojedynku" : $"Runda {Duel.Round} z {Duel.MaxRounds}")
-        <span class="game-mode">@(Duel.Mode switch { "training" => "trening", "live" => "na żywo", _ => "wyzwanie" })</span>
+        @(finished ? L["Pojedynek zakończony"] : readyCheck ? L["Przygotowanie do pojedynku"] : L.Format("Runda {0} z {1}", Duel.Round, Duel.MaxRounds))
+        <span class="game-mode">@(Duel.Mode switch { "training" => L["trening"], "live" => L["na żywo"], _ => L["wyzwanie"] })</span>
     </h3>
 
     <div class="game-players">
         @if (opponent is not null)
         {
-            @Player(opponent, "Przeciwnik", "game-opponent")
+            @Player(opponent, L["Przeciwnik"], "game-opponent", isOpponent: true)
         }
         else
         {
-            <p class="game-player is-waiting">Czekamy na przeciwnika…</p>
+            <p class="game-player is-waiting">@L["Czekamy na przeciwnika…"]</p>
         }
-        @Player(you, "Ty", "game-you")
+        @Player(you, L["Ty"], "game-you", isOpponent: false)
     </div>
 
     <div class="game-center">
@@ -32,8 +33,8 @@
         {
             <p class="game-clock" @key="@($"clock-{Duel.Round}-{RoundDeadline}")">
                 <Icon Name="@Icons.Clock" Size="16" />
-                <span>Czas na ruch:</span>
-                <span class="game-timer" role="timer" aria-label="Czas na ruch" data-deadline="@Ms(RoundDeadline)"></span>
+                <span>@L["Czas na ruch:"]</span>
+                <span class="game-timer" role="timer" aria-label="@L["Czas na ruch"]" data-deadline="@Ms(RoundDeadline)"></span>
             </p>
         }
         <p class="game-status @(finished ? "is-final" : "")" role="status">@StatusText</p>
@@ -41,7 +42,7 @@
         {
             <p class="game-grace">
                 <Icon Name="@Icons.AlertTriangle" Size="16" />
-                <span>Walkower za <span class="game-countdown" data-deadline="@Ms(GraceDeadline)"></span>, jeśli przeciwnik nie wróci.</span>
+                <span>@L["Walkower za"] <span class="game-countdown" data-deadline="@Ms(GraceDeadline)"></span>@L[", jeśli przeciwnik nie wróci."]</span>
             </p>
         }
     </div>
@@ -50,9 +51,9 @@
     {
         <div class="game-reveal" @key="@($"reveal-{Duel.DuelId}-{Reveal.Round}")">
             <p class="game-reveal-cards">
-                @Flip($"Ty: ", Reveal.YourCard, "is-you")
+                @Flip(L["Ty:"] + " ", Reveal.YourCard, "is-you")
                 <span class="game-reveal-vs" aria-hidden="true">vs</span>
-                @Flip($"Przeciwnik: ", Reveal.OpponentCard, "is-opponent")
+                @Flip(L["Przeciwnik:"] + " ", Reveal.OpponentCard, "is-opponent")
             </p>
             <div class="game-reveal-after">
                 @if (Reveal.Effects.Count > 0)
@@ -60,13 +61,13 @@
                     <ul class="game-effects">
                         @foreach (var effect in Reveal.Effects)
                         {
-                            <li>@effect</li>
+                            <li>@L[effect]</li>
                         }
                     </ul>
                 }
                 else
                 {
-                    <p class="game-effects-none">Bez efektu — obaj stoją.</p>
+                    <p class="game-effects-none">@L["Bez efektu — obaj stoją."]</p>
                 }
                 <p class="game-reveal-delta">@Delta</p>
             </div>
@@ -81,12 +82,12 @@
     {
         <div class="game-readycheck">
             <p class="game-readycheck-state">
-                <span>Ty: <strong>@(you.StartReady ? "gotowy" : "czekasz")</strong></span>
+                <span>@L["Ty:"] <strong>@(you.StartReady ? L["gotowy"] : L["czekasz"])</strong></span>
                 <span aria-hidden="true">·</span>
-                <span>@(opponent?.Alias ?? "Przeciwnik"): <strong>@(opponent?.StartReady == true ? "gotowy" : "jeszcze nie")</strong></span>
+                <span>@(opponent?.Alias ?? L["Przeciwnik"]): <strong>@(opponent?.StartReady == true ? L["gotowy"] : L["jeszcze nie"])</strong></span>
             </p>
             <button type="button" class="btn btn-primary game-ready-button" disabled="@(Busy || you.StartReady)" @onclick="OnReady">
-                <Icon Name="@Icons.CheckCircle" Size="18" /> @(you.StartReady ? "Gotowy — czekamy" : "GOTOWY")
+                <Icon Name="@Icons.CheckCircle" Size="18" /> @(you.StartReady ? L["Gotowy — czekamy"] : L["GOTOWY"])
             </button>
         </div>
     }
@@ -94,7 +95,11 @@
     @if (finished)
     {
         <section class="game-over is-@(Duel.Result)" aria-labelledby="game-over-title">
-            <h4 class="game-over-title" id="game-over-title">@(Duel.Result switch { "win" => "ZWYCIĘSTWO", "loss" => "PORAŻKA", _ => "REMIS" })</h4>
+            <h4 class="game-over-title" id="game-over-title">@(Duel.Result switch { "win" => L["ZWYCIĘSTWO"], "loss" => L["PORAŻKA"], _ => L["REMIS"] })</h4>
+            @if (Duel.Result == "win" && Duel.Mode != "training")
+            {
+                <p class="game-over-star">+1 <span aria-hidden="true">★</span><span class="visually-hidden">@L["gwiazdka"]</span> @L["prestiżu"]@(YourStars is { } stars ? L.Format(" — masz teraz {0}", stars) : "")</p>
+            }
             <p class="game-over-summary">@Summary</p>
             <div class="cluster game-over-actions">
                 @if (!CanPlay)
@@ -105,31 +110,31 @@
                     @switch (Duel.Rematch)
                     {
                         case "you":
-                            <p class="game-note" role="status">Czekamy, aż przeciwnik zgodzi się na rewanż…</p>
+                            <p class="game-note" role="status">@L["Czekamy, aż przeciwnik zgodzi się na rewanż…"]</p>
                             break;
                         case "opponent":
-                            <p class="game-note" role="status">Przeciwnik proponuje rewanż.</p>
-                            <button type="button" class="btn btn-primary game-rematch" disabled="@Busy" @onclick="OnRematch">Przyjmij rewanż</button>
+                            <p class="game-note" role="status">@L["Przeciwnik proponuje rewanż."]</p>
+                            <button type="button" class="btn btn-primary game-rematch" disabled="@Busy" @onclick="OnRematch">@L["Przyjmij rewanż"]</button>
                             break;
                         case "started":
                             break;
                         default:
                             if (Duel.OpponentLeft)
                             {
-                                <p class="game-note">Przeciwnik opuścił stół.</p>
+                                <p class="game-note">@L["Przeciwnik opuścił stół."]</p>
                             }
                             else
                             {
-                                <button type="button" class="btn btn-primary game-rematch" disabled="@Busy" @onclick="OnRematch">Rewanż</button>
+                                <button type="button" class="btn btn-primary game-rematch" disabled="@Busy" @onclick="OnRematch">@L["Rewanż"]</button>
                             }
                             break;
                     }
                 }
                 else
                 {
-                    <button type="button" class="btn btn-primary game-start" disabled="@Busy" @onclick="OnNewTraining">Nowy pojedynek treningowy</button>
+                    <button type="button" class="btn btn-primary game-start" disabled="@Busy" @onclick="OnNewTraining">@L["Nowy pojedynek treningowy"]</button>
                 }
-                <button type="button" class="btn game-leave" disabled="@Busy" @onclick="OnLeave">Wróć do sali</button>
+                <button type="button" class="btn game-leave" disabled="@Busy" @onclick="OnLeave">@L["Wróć do sali"]</button>
             </div>
         </section>
     }
@@ -138,16 +143,16 @@
         <div class="game-surrender-row">
             @if (ConfirmSurrender)
             {
-                <p class="game-note" id="game-surrender-question">Oddać pojedynek? Wygra przeciwnik.</p>
+                <p class="game-note" id="game-surrender-question">@L["Oddać pojedynek? Wygra przeciwnik."]</p>
                 <div class="cluster">
-                    <button type="button" class="btn btn-danger game-surrender-confirm" aria-describedby="game-surrender-question" disabled="@Busy" @onclick="OnSurrender">Tak, poddaję pojedynek</button>
-                    <button type="button" class="btn game-surrender-cancel" @onclick="OnSurrenderCancel">Graj dalej</button>
+                    <button type="button" class="btn btn-danger game-surrender-confirm" aria-describedby="game-surrender-question" disabled="@Busy" @onclick="OnSurrender">@L["Tak, poddaję pojedynek"]</button>
+                    <button type="button" class="btn game-surrender-cancel" @onclick="OnSurrenderCancel">@L["Graj dalej"]</button>
                 </div>
             }
             else
             {
                 <button type="button" class="btn btn-ghost game-surrender" disabled="@Busy" @onclick="OnSurrender">
-                    <Icon Name="@Icons.Flag" Size="16" /> Poddaj pojedynek
+                    <Icon Name="@Icons.Flag" Size="16" /> @L["Poddaj pojedynek"]
                 </button>
             }
         </div>
@@ -164,13 +169,13 @@
 @if (Duel.History.Count > 0)
 {
     <section class="game-history" aria-labelledby="game-history-title">
-        <h3 class="game-history-title" id="game-history-title">Przebieg</h3>
+        <h3 class="game-history-title" id="game-history-title">@L["Przebieg"]</h3>
         <ol class="game-history-list" reversed>
             @foreach (var round in Duel.History.Reverse())
             {
                 <li>
-                    <span class="game-history-round">Runda @round.Round</span>
-                    <span>@DuelMapper.CardName(round.YourCard) — @DuelMapper.CardName(round.OpponentCard)</span>
+                    <span class="game-history-round">@L.Format("Runda {0}", round.Round)</span>
+                    <span>@L[DuelMapper.CardName(round.YourCard)] — @L[DuelMapper.CardName(round.OpponentCard)]</span>
                     <span class="game-history-score">@round.YourPrestige : @round.OpponentPrestige</span>
                 </li>
             }
@@ -185,6 +190,7 @@
     [Parameter] public bool Busy { get; set; }
     [Parameter] public string? Pending { get; set; }
     [Parameter] public string? Error { get; set; }
+    [Parameter] public int? YourStars { get; set; }
     [Parameter] public double RoundDeadline { get; set; }
     [Parameter] public double GraceDeadline { get; set; }
     [Parameter] public bool ConfirmSurrender { get; set; }
@@ -202,40 +208,33 @@
     private string StatusText => Duel switch
     {
         { Status: "finished" } => FinalText,
-        { Status: "waiting-for-opponent" } => "Czekamy, aż przeciwnik dołączy.",
-        { Status: "ready-check", You.StartReady: true } => "Czekamy, aż przeciwnik będzie gotowy.",
-        { Status: "ready-check", Opponent.StartReady: true } => "Przeciwnik jest gotowy — kliknij „GOTOWY”.",
-        { Status: "ready-check" } => "Pojedynek zacznie się, gdy obaj będziecie gotowi.",
-        { Mode: "live", Opponent.Online: false } => "Przeciwnik utracił połączenie. Czekamy na powrót…",
-        _ when Pending is not null && Duel.YourMove is null => "Rozstrzygnięcie…",
-        { YourMove: not null, OpponentReady: false } => "Karta wybrana — czekamy na przeciwnika.",
-        { Mode: "live", YourMove: null, OpponentReady: true } => "Przeciwnik wybrał — Twój ruch.",
-        { Mode: "live", YourMove: null } when Reveal is null => "Wybierz ruch — przeciwnik wybiera w tym samym czasie.",
-        { Mode: "live", YourMove: null } => $"Runda {Reveal!.Round} rozstrzygnięta. Wybierz ruch na rundę {Duel.Round}.",
-        _ when Reveal is not null => $"Runda {Reveal.Round} rozstrzygnięta. Wybierz kartę na rundę {Duel.Round}.",
-        _ => "Wybierz kartę — przeciwnik wybiera w tym samym czasie."
+        { Status: "waiting-for-opponent" } => L["Czekamy, aż przeciwnik dołączy."],
+        { Status: "ready-check", You.StartReady: true } => L["Czekamy, aż przeciwnik będzie gotowy."],
+        { Status: "ready-check", Opponent.StartReady: true } => L["Przeciwnik jest gotowy — kliknij „GOTOWY”."],
+        { Status: "ready-check" } => L["Pojedynek zacznie się, gdy obaj będziecie gotowi."],
+        { Mode: "live", Opponent.Online: false } => L["Przeciwnik utracił połączenie. Czekamy na powrót…"],
+        _ when Pending is not null && Duel.YourMove is null => L["Rozstrzygnięcie…"],
+        { YourMove: not null, OpponentReady: false } => L["Karta wybrana — czekamy na przeciwnika."],
+        { Mode: "live", YourMove: null, OpponentReady: true } => L["Przeciwnik wybrał — Twój ruch."],
+        { Mode: "live", YourMove: null } when Reveal is null => L["Wybierz ruch — przeciwnik wybiera w tym samym czasie."],
+        { Mode: "live", YourMove: null } => L.Format("Runda {0} rozstrzygnięta. Wybierz ruch na rundę {1}.", Reveal!.Round, Duel.Round),
+        _ when Reveal is not null => L.Format("Runda {0} rozstrzygnięta. Wybierz kartę na rundę {1}.", Reveal.Round, Duel.Round),
+        _ => L["Wybierz kartę — przeciwnik wybiera w tym samym czasie."]
     };
 
     private string FinalText => (Duel.Result, Duel.Ending) switch
     {
-        ("win", "surrender") => "Przeciwnik poddał pojedynek — wygrana walkowerem.",
-        ("win", "disconnect") => "Przeciwnik nie wrócił do stołu — wygrana walkowerem.",
-        ("loss", "surrender") => "Pojedynek oddany — wygrywa przeciwnik.",
-        ("loss", "disconnect") => "Brak powrotu do stołu — pojedynek oddany.",
-        ("win", _) => "Wygrana! Przeciwnik schodzi ze sceny.",
-        ("loss", _) => "Przegrana — tym razem to Ty schodzisz ze sceny.",
-        _ => "Remis — obaj rewolwerowcy zostają w grze."
+        ("win", "surrender") => L["Przeciwnik poddał pojedynek — wygrana walkowerem."],
+        ("win", "disconnect") => L["Przeciwnik nie wrócił do stołu — wygrana walkowerem."],
+        ("loss", "surrender") => L["Pojedynek oddany — wygrywa przeciwnik."],
+        ("loss", "disconnect") => L["Brak powrotu do stołu — pojedynek oddany."],
+        ("win", _) => L["Wygrana! Przeciwnik schodzi ze sceny."],
+        ("loss", _) => L["Przegrana — tym razem to Ty schodzisz ze sceny."],
+        _ => L["Remis — obaj rewolwerowcy zostają w grze."]
     };
 
-    private string Summary
-    {
-        get
-        {
-            var rounds = Duel.History.Count;
-            var played = rounds switch { 1 => "1 runda", >= 2 and <= 4 => $"{rounds} rundy", _ => $"{rounds} rund" };
-            return $"Rozegrane: {played}. Prestiż {Duel.You.Prestige} : {Duel.Opponent?.Prestige ?? 0}.";
-        }
-    }
+    private string Summary =>
+        L.Format("Rozegrane: {0}. Prestiż {1} : {2}.", L.Plural(Duel.History.Count, "runda", "rundy", "rund"), Duel.You.Prestige, Duel.Opponent?.Prestige ?? 0);
 
     // Zmiany po odsłoniętej rundzie (z historii serwera — stan przed rundą to poprzedni zapis albo start pojedynku).
     private string Delta
@@ -245,18 +244,19 @@
             var before = Duel.History.LastOrDefault(r => r.Round < Reveal!.Round);
             var (youPrestige, youAmmo, oppPrestige, oppAmmo) = before is null ? (3, 1, 3, 1)
                 : (before.YourPrestige, before.YourAmmo, before.OpponentPrestige, before.OpponentAmmo);
-            return $"Ty: {Change(Reveal!.YourPrestige - youPrestige, Reveal.YourAmmo - youAmmo)}. Przeciwnik: {Change(Reveal.OpponentPrestige - oppPrestige, Reveal.OpponentAmmo - oppAmmo)}.";
+            return L.Format("Ty: {0}. Przeciwnik: {1}.", Change(Reveal!.YourPrestige - youPrestige, Reveal.YourAmmo - youAmmo),
+                Change(Reveal.OpponentPrestige - oppPrestige, Reveal.OpponentAmmo - oppAmmo));
         }
     }
 
-    private static string Change(int prestige, int ammo)
+    private string Change(int prestige, int ammo)
     {
         var parts = new List<string>();
         if (prestige != 0)
-            parts.Add($"prestiż {(prestige > 0 ? "+" : "−")}{Math.Abs(prestige)}");
+            parts.Add($"{L["prestiż"]} {(prestige > 0 ? "+" : "−")}{Math.Abs(prestige)}");
         if (ammo != 0)
-            parts.Add($"naboje {(ammo > 0 ? "+" : "−")}{Math.Abs(ammo)}");
-        return parts.Count == 0 ? "bez zmian" : string.Join(", ", parts);
+            parts.Add($"{L["naboje"]} {(ammo > 0 ? "+" : "−")}{Math.Abs(ammo)}");
+        return parts.Count == 0 ? L["bez zmian"] : string.Join(", ", parts);
     }
 
     private static string Stars(int count, int max) => new string('★', Math.Max(0, count)) + new string('☆', Math.Max(0, max - Math.Max(0, count)));
@@ -267,30 +267,30 @@
                 <span class="game-flip-back" aria-hidden="true"><Icon Name="@Icons.Cards" Size="22" /></span>
                 <span class="game-flip-face">
                     <Icon Name="@GameDeck.IconFor(card)" Size="18" />
-                    <span>@label<strong>@DuelMapper.CardName(card)</strong></span>
+                    <span>@label<strong>@L[DuelMapper.CardName(card)]</strong></span>
                 </span>
             </span>
         </span>;
 
-    private RenderFragment Player(PlayerSnapshot player, string role, string css) =>
+    private RenderFragment Player(PlayerSnapshot player, string role, string css, bool isOpponent) =>
         @<div class="game-player @css @(player.Online ? "" : "is-offline")">
             <p class="game-player-role">@role</p>
             <p class="game-player-alias">@player.Alias</p>
             <p class="game-player-stat">
-                <span class="visually-hidden">Prestiż: @player.Prestige.</span>
-                <span class="game-stars" aria-hidden="true" title="Prestiż">@Stars(player.Prestige, 3)</span>
+                <span class="visually-hidden">@L.Format("Prestiż: {0}.", player.Prestige)</span>
+                <span class="game-stars" aria-hidden="true" title="@L["Prestiż"]">@Stars(player.Prestige, 3)</span>
             </p>
             <p class="game-player-stat">
-                <span class="visually-hidden">Naboje: @player.Ammo z 2.</span>
-                <span class="game-bullets" aria-hidden="true" title="Naboje">@(new string('●', player.Ammo))@(new string('○', Math.Max(0, 2 - player.Ammo)))</span>
+                <span class="visually-hidden">@L.Format("Naboje: {0} z 2.", player.Ammo)</span>
+                <span class="game-bullets" aria-hidden="true" title="@L["Naboje"]">@(new string('●', player.Ammo))@(new string('○', Math.Max(0, 2 - player.Ammo)))</span>
             </p>
-            @if (role == "Przeciwnik" && Duel.Mode == "live" && Duel.Status != "finished")
+            @if (isOpponent && Duel.Mode == "live" && Duel.Status != "finished")
             {
-                <p class="game-connection-state @(player.Online ? "is-online" : "is-lost")">@(player.Online ? "połączony" : "utracił połączenie")</p>
+                <p class="game-connection-state @(player.Online ? "is-online" : "is-lost")">@(player.Online ? L["połączony"] : L["utracił połączenie"])</p>
             }
-            @if (role == "Przeciwnik" && Duel.Status == "in-progress")
+            @if (isOpponent && Duel.Status == "in-progress")
             {
-                <p class="game-ready @(player.Ready ? "is-ready" : "")">@(player.Ready ? "Karta wybrana" : "Myśli…")</p>
+                <p class="game-ready @(player.Ready ? "is-ready" : "")">@(player.Ready ? L["Karta wybrana"] : L["Myśli…"])</p>
             }
         </div>;
 }

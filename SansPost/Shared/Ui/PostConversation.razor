@@ -18,12 +18,12 @@
 
 @if (isLoading)
 {
-    <p class="muted" role="status">Wczytywanie posta…</p>
+    <p class="muted" role="status">@L["Wczytywanie posta…"]</p>
 }
 else if (loadFailed)
 {
     <EmptyState Title="Nie udało się wczytać posta" HeadingLevel="@StateHeadingLevel" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger" Text="@UiErrors.Generic">
-        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+        <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> @L["Spróbuj ponownie"]</button>
     </EmptyState>
 }
 else if (post is null)
@@ -64,21 +64,21 @@ else
             <LikeButton PostId="post.Id" Liked="post.LikedByCurrentUser" Count="post.LikeCount" GuestLink="true" />
             @if (CommentsLink)
             {
-                <a class="stat" href="@($"{UiText.PostUrl(post.Id)}#comments")"><Icon Name="@Icons.Comment" /> @UiText.Comments(commentCount)</a>
+                <a class="stat" href="@($"{UiText.PostUrl(post.Id)}#comments")"><Icon Name="@Icons.Comment" /> @UiText.Comments(L, commentCount)</a>
             }
             else
             {
-                <span class="stat"><Icon Name="@Icons.Comment" /> @UiText.Comments(commentCount)</span>
+                <span class="stat"><Icon Name="@Icons.Comment" /> @UiText.Comments(L, commentCount)</span>
             }
             <span class="spacer"></span>
             @if (IsOwner)
             {
-                <a class="btn btn-sm" href="@($"/edit-post/{post.Id}")"><Icon Name="@Icons.Pencil" Size="15" /> Edytuj</a>
+                <a class="btn btn-sm" href="@($"/edit-post/{post.Id}")"><Icon Name="@Icons.Pencil" Size="15" /> @L["Edytuj"]</a>
             }
             else if (Viewer is not null && Viewer.CanWrite)
             {
                 <button type="button" class="btn btn-ghost btn-sm" @onclick="() => reportDialog!.OpenAsync(ReportTargetType.Post, post.Id)">
-                    <Icon Name="@Icons.Flag" Size="15" /> Zgłoś
+                    <Icon Name="@Icons.Flag" Size="15" /> @L["Zgłoś"]
                 </button>
             }
         </div>
@@ -87,20 +87,20 @@ else
     <section id="@($"{IdPrefix}comments")" class="stack post-comments" aria-labelledby="@($"{IdPrefix}comments-title")">
         @switch (HeadingLevel)
         {
-            case 1: <h2 id="@($"{IdPrefix}comments-title")" class="section-title">Komentarze · @UiText.Number(commentCount)</h2> break;
-            default: <h4 id="@($"{IdPrefix}comments-title")" class="section-title">Komentarze · @UiText.Number(commentCount)</h4> break;
+            case 1: <h2 id="@($"{IdPrefix}comments-title")" class="section-title">@L["Komentarze"] · @UiText.Number(L, commentCount)</h2> break;
+            default: <h4 id="@($"{IdPrefix}comments-title")" class="section-title">@L["Komentarze"] · @UiText.Number(L, commentCount)</h4> break;
         }
 
         @if (commentsError is not null && comments.Count == 0)
         {
             <Alert Variant="AlertVariant.Danger">
                 <ChildContent>@commentsError</ChildContent>
-                <Actions><button type="button" class="btn btn-sm" @onclick="LoadMoreCommentsAsync">Spróbuj ponownie</button></Actions>
+                <Actions><button type="button" class="btn btn-sm" @onclick="LoadMoreCommentsAsync">@L["Spróbuj ponownie"]</button></Actions>
             </Alert>
         }
         else if (comments.Count == 0)
         {
-            <p class="muted">Nikt jeszcze nie skomentował. @(Viewer is null ? "" : "Zacznij dyskusję.")</p>
+            <p class="muted">@L["Nikt jeszcze nie skomentował."] @(Viewer is null ? "" : L["Zacznij dyskusję."])</p>
         }
         else
         {
@@ -115,7 +115,7 @@ else
                                 <TimeAgo Value="comment.CreatedAt" Class="when" />
                                 @if (comment.UpdatedAt is not null)
                                 {
-                                    <span class="when">· edytowano</span>
+                                    <span class="when">· @L["edytowano"]</span>
                                 }
                             </div>
 
@@ -125,10 +125,10 @@ else
                                     @if (editConflict)
                                     {
                                         <Alert Variant="AlertVariant.Warning" Title="Komentarz zmienił się w międzyczasie">
-                                            <ChildContent>Twoja zmiana nie została zapisana, żeby nie nadpisać nowszej wersji.</ChildContent>
+                                            <ChildContent>@L["Twoja zmiana nie została zapisana, żeby nie nadpisać nowszej wersji."]</ChildContent>
                                             <Actions>
-                                                <button type="button" class="btn btn-sm btn-primary" @onclick="() => ReloadCommentAsync(comment)">Wczytaj aktualną wersję</button>
-                                                <button type="button" class="btn btn-sm" @onclick="CancelEdit">Anuluj</button>
+                                                <button type="button" class="btn btn-sm btn-primary" @onclick="() => ReloadCommentAsync(comment)">@L["Wczytaj aktualną wersję"]</button>
+                                                <button type="button" class="btn btn-sm" @onclick="CancelEdit">@L["Anuluj"]</button>
                                             </Actions>
                                         </Alert>
                                     }
@@ -136,15 +136,15 @@ else
                                     {
                                         <Alert Variant="AlertVariant.Danger">@editError</Alert>
                                     }
-                                    <label class="visually-hidden" for="@($"{IdPrefix}edit-comment-{comment.Id}")">Edytuj komentarz</label>
+                                    <label class="visually-hidden" for="@($"{IdPrefix}edit-comment-{comment.Id}")">@L["Edytuj komentarz"]</label>
                                     <textarea id="@($"{IdPrefix}edit-comment-{comment.Id}")" class="textarea textarea-sm" maxlength="@CommentLimits.ContentMaxLength"
                                               @bind="editContent" disabled="@editConflict" autofocus></textarea>
                                     <div class="spread">
                                         <CharCounter For="@($"{IdPrefix}edit-comment-{comment.Id}")" Value="@editContent" Max="CommentLimits.ContentMaxLength" />
                                         <div class="cluster">
-                                            <button type="button" class="btn btn-sm btn-ghost" @onclick="CancelEdit">Anuluj</button>
+                                            <button type="button" class="btn btn-sm btn-ghost" @onclick="CancelEdit">@L["Anuluj"]</button>
                                             <button type="button" class="btn btn-sm btn-primary" disabled="@(isBusy || editConflict)"
-                                                    @onclick="() => SaveEditAsync(comment)">Zapisz</button>
+                                                    @onclick="() => SaveEditAsync(comment)">@L["Zapisz"]</button>
                                         </div>
                                     </div>
                                 </div>
@@ -156,16 +156,16 @@ else
                                     @if (comment.AuthorId == Viewer?.UserId)
                                     {
                                         <button type="button" class="btn btn-ghost btn-sm" disabled="@(!Viewer.CanWrite)" @onclick="() => StartEdit(comment)">
-                                            <Icon Name="@Icons.Pencil" Size="14" /> Edytuj
+                                            <Icon Name="@Icons.Pencil" Size="14" /> @L["Edytuj"]
                                         </button>
                                         <button type="button" class="btn btn-ghost btn-sm" disabled="@(!Viewer.CanWrite)" @onclick="() => AskDeleteAsync(comment)">
-                                            <Icon Name="@Icons.Trash" Size="14" /> Usuń
+                                            <Icon Name="@Icons.Trash" Size="14" /> @L["Usuń"]
                                         </button>
                                     }
                                     else if (Viewer is not null && Viewer.CanWrite)
                                     {
                                         <button type="button" class="btn btn-ghost btn-sm" @onclick="() => reportDialog!.OpenAsync(ReportTargetType.Comment, comment.Id)">
-                                            <Icon Name="@Icons.Flag" Size="14" /> Zgłoś
+                                            <Icon Name="@Icons.Flag" Size="14" /> @L["Zgłoś"]
                                         </button>
                                     }
                                 </div>
@@ -182,10 +182,10 @@ else
         @if (Viewer is null)
         {
             <div class="composer">
-                <p class="muted">Zaloguj się, aby dołączyć do dyskusji.</p>
+                <p class="muted">@L["Zaloguj się, aby dołączyć do dyskusji."]</p>
                 <div class="cluster">
-                    <a class="btn btn-primary" href="@UiText.LoginUrl(LoginReturnUrl ?? UiText.PostUrl(PostId))">Zaloguj się</a>
-                    <a class="btn" href="/register">Załóż konto</a>
+                    <a class="btn btn-primary" href="@UiText.LoginUrl(LoginReturnUrl ?? UiText.PostUrl(PostId))">@L["Zaloguj się"]</a>
+                    <a class="btn" href="/register">@L["Załóż konto"]</a>
                 </div>
             </div>
         }
@@ -197,13 +197,13 @@ else
         {
             <form @onsubmit="AddCommentAsync">
                 <FormGate Class="composer">
-                <label class="field-label" for="@($"{IdPrefix}new-comment")">Dodaj komentarz</label>
+                <label class="field-label" for="@($"{IdPrefix}new-comment")">@L["Dodaj komentarz"]</label>
                 @if (addError is not null)
                 {
                     <Alert Variant="@addErrorVariant">@addError</Alert>
                 }
                 <textarea id="@($"{IdPrefix}new-comment")" class="textarea textarea-sm" maxlength="@CommentLimits.ContentMaxLength"
-                          placeholder="Co o tym myślisz?" @bind="newComment"></textarea>
+                          placeholder="@L["Co o tym myślisz?"]" @bind="newComment"></textarea>
                 <div class="spread">
                     @* @key: po wysłaniu licznik powstaje od nowa — liczbę w trakcie pisania ustawia JS, więc sam diff Blazora
                        ("0" → "0") nie wyzerowałby widocznej wartości. *@
@@ -235,17 +235,17 @@ else
         {
             <Alert Variant="@deleteErrorVariant">@deleteError</Alert>
         }
-        <p>Komentarz zniknie z dyskusji. Tej operacji nie można cofnąć z poziomu aplikacji.</p>
+        <p>@L["Komentarz zniknie z dyskusji. Tej operacji nie można cofnąć z poziomu aplikacji."]</p>
     </ChildContent>
     <Footer>
-        <button type="button" class="btn" autofocus @onclick="() => deleteDialog!.CloseAsync()">Anuluj</button>
+        <button type="button" class="btn" autofocus @onclick="() => deleteDialog!.CloseAsync()">@L["Anuluj"]</button>
         @if (deleteConflict && pendingDelete is not null)
         {
-            <button type="button" class="btn btn-primary" @onclick="ReloadAfterDeleteConflictAsync">Wczytaj aktualną wersję</button>
+            <button type="button" class="btn btn-primary" @onclick="ReloadAfterDeleteConflictAsync">@L["Wczytaj aktualną wersję"]</button>
         }
         else
         {
-            <button type="button" class="btn btn-danger-solid" disabled="@isBusy" @onclick="ConfirmDeleteAsync">Usuń komentarz</button>
+            <button type="button" class="btn btn-danger-solid" disabled="@isBusy" @onclick="ConfirmDeleteAsync">@L["Usuń komentarz"]</button>
         }
     </Footer>
 </Modal>
@@ -386,12 +386,12 @@ else
             comments.AddRange(result.Value!.Items.Where(c => comments.All(existing => existing.Id != c.Id)).ToList());
             commentsCursor = result.Value.NextCursor;
             if (before > 0)
-                commentsStatus = $"Wczytano {UiText.Comments(comments.Count - before)}.";
+                commentsStatus = $"Wczytano {UiText.Comments(L, comments.Count - before)}.";
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Błąd wczytywania komentarzy posta {PostId}.", PostId);
-            commentsError = "Nie udało się wczytać komentarzy.";
+            commentsError = L["Nie udało się wczytać komentarzy."];
         }
         finally
         {
@@ -407,7 +407,7 @@ else
         // Pole wiązane zdarzeniem "change" (bez round-tripu na każdy znak) — przycisk jest zawsze aktywny, pusta treść daje komunikat.
         if (string.IsNullOrWhiteSpace(newComment))
         {
-            addError = "Napisz treść komentarza.";
+            addError = L["Napisz treść komentarza."];
             addErrorVariant = AlertVariant.Warning;
             return;
         }
@@ -425,7 +425,7 @@ else
                     return;
                 }
 
-                addError = UiErrors.Describe(result, notFound: "Ten post nie jest już dostępny.");
+                addError = UiErrors.Describe(result, notFound: L["Ten post nie jest już dostępny."]);
                 addErrorVariant = UiErrors.Variant(result);
                 return;
             }
@@ -493,7 +493,7 @@ else
             if (result.Error == ServiceError.PreconditionFailed)
                 editConflict = true;
             else
-                editError = UiErrors.Describe(result, notFound: "Ten komentarz nie jest już dostępny.");
+                editError = UiErrors.Describe(result, notFound: L["Ten komentarz nie jest już dostępny."]);
         }
         catch (Exception ex)
         {
@@ -516,7 +516,7 @@ else
         {
             comments.Remove(comment);
             commentCount = Math.Max(0, commentCount - 1);
-            Toasts.Show("Ten komentarz został w międzyczasie usunięty.", AlertVariant.Info);
+            Toasts.Show(L["Ten komentarz został w międzyczasie usunięty."], AlertVariant.Info);
             return;
         }
 
@@ -546,7 +546,7 @@ else
                 commentCount = Math.Max(0, commentCount - 1);
                 pendingDelete = null;
                 await deleteDialog!.CloseAsync();
-                Toasts.Success("Komentarz usunięty.");
+                Toasts.Success(L["Komentarz usunięty."]);
                 return;
             }
 
@@ -557,8 +557,8 @@ else
             }
 
             deleteConflict = result.Error == ServiceError.PreconditionFailed;
-            deleteError = UiErrors.Describe(result, notFound: "Ten komentarz nie jest już dostępny.",
-                stale: "Komentarz zmienił się od chwili wczytania. Wczytaj aktualną wersję przed usunięciem.");
+            deleteError = UiErrors.Describe(result, notFound: L["Ten komentarz nie jest już dostępny."],
+                stale: L["Komentarz zmienił się od chwili wczytania. Wczytaj aktualną wersję przed usunięciem."]);
             deleteErrorVariant = UiErrors.Variant(result);
         }
         catch (Exception ex)

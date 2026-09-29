@@ -20,13 +20,16 @@ namespace SansPost.Hubs
         private readonly DuelChallengeService _challenges;
         private readonly DuelConnectionRegistry _registry;
         private readonly IDuelNotifier _notifier;
+        private readonly DuelStandingsService _standings;
 
-        public DuelHub(GameSessionService sessions, DuelChallengeService challenges, DuelConnectionRegistry registry, IDuelNotifier notifier)
+        public DuelHub(GameSessionService sessions, DuelChallengeService challenges, DuelConnectionRegistry registry, IDuelNotifier notifier,
+            DuelStandingsService standings)
         {
             _sessions = sessions;
             _challenges = challenges;
             _registry = registry;
             _notifier = notifier;
+            _standings = standings;
         }
 
         private int UserId => Context.User!.GetUserId()!.Value;
@@ -62,7 +65,15 @@ namespace SansPost.Hubs
                 Alias,
                 await _challenges.AvailablePlayersAsync(UserId, Context.ConnectionAborted),
                 _challenges.PendingFor(UserId),
-                duel.Succeeded ? duel.Value : null);
+                duel.Succeeded ? duel.Value : null,
+                await GetStandings());
+        }
+
+        // Ranking stołu i własne statystyki — po wejściu i po zdarzeniu StandingsChanged (zapisany wynik PvP).
+        public async Task<StandingsView> GetStandings()
+        {
+            var standings = await _standings.GetStandingsAsync(Context.ConnectionAborted);
+            return new StandingsView(standings.Top, standings.Champion, await _standings.GetStatsAsync(UserId, Context.ConnectionAborted));
         }
 
         public Task<IReadOnlyList<OnlinePlayer>> GetPlayers() => _challenges.AvailablePlayersAsync(UserId, Context.ConnectionAborted);

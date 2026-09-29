@@ -7,11 +7,11 @@
     <label class="bar-search-label" for="bar-search-input">@Label</label>
     <div class="input-with-action search-input">
         <Icon Name="@Icons.Search" Size="18" Class="search-input-icon" />
-        <input id="bar-search-input" class="input" type="search" placeholder="Szukaj rozmowy…" autocomplete="off"
+        <input id="bar-search-input" class="input" type="search" placeholder="@L["Szukaj rozmowy…"]" autocomplete="off"
                maxlength="@SearchLimits.QueryMaxLength" value="@text" @oninput="OnInput" aria-describedby="@DescribedBy" />
         @if (!string.IsNullOrEmpty(text))
         {
-            <button type="button" class="btn btn-ghost btn-icon btn-sm input-action" aria-label="Wyczyść wyszukiwanie" @onclick="ClearAsync">
+            <button type="button" class="btn btn-ghost btn-icon btn-sm input-action" aria-label="@L["Wyczyść wyszukiwanie"]" @onclick="ClearAsync">
                 <Icon Name="@Icons.X" Size="16" />
             </button>
         }

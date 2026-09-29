@@ -5,7 +5,7 @@
 @inject ScenePreference Preference
 @inject ILogger<Saloon> Logger
 
-<PageTitle>SansPost — rozmowy, które mają sens</PageTitle>
+<PageTitle>@L["SansPost — rozmowy, które mają sens"]</PageTitle>
 
 @* Saloon — główna przestrzeń SansPost (dawniej "/"). "/posts" to dawny alias feedu — zostaje. Główny plac: baner z pejzażem pogranicza. Gość dostaje wyjaśnienie i wejście; zalogowany — krótkie powitanie. *@
 @* Sprint 15: na urządzeniach, które wybrały renderer 3D (ta sama decyzja co Entrance), /saloon to Main Hall 3D (SaloonHall),
@@ -23,12 +23,12 @@
 @if (Viewer is null)
 {
     <section class="frontier-banner" aria-labelledby="intro-title">
-        <span class="eyebrow"><Icon Name="@Icons.Signpost" Size="14" StrokeWidth="2" /> Główny plac</span>
-        <h1 id="intro-title">Rozmowy, które mają sens.</h1>
-        <p>SansPost to miejsce, gdzie ludzie zostawiają wiadomości, opinie i historie — o technologii, grach, podróżach, pomysłach i projektach. Czytasz bez konta; z kontem publikujesz, komentujesz i reagujesz.</p>
+        <span class="eyebrow"><Icon Name="@Icons.Signpost" Size="14" StrokeWidth="2" /> @L["Główny plac"]</span>
+        <h1 id="intro-title">@L["Rozmowy, które mają sens."]</h1>
+        <p>@L["SansPost to miejsce, gdzie ludzie zostawiają wiadomości, opinie i historie — o technologii, grach, podróżach, pomysłach i projektach. Czytasz bez konta; z kontem publikujesz, komentujesz i reagujesz."]</p>
         <div class="cluster">
-            <a class="btn btn-primary" href="/register">Dołącz do rozmowy</a>
-            <a class="btn" href="#feed-title">Przeglądaj posty</a>
+            <a class="btn btn-primary" href="/register">@L["Dołącz do rozmowy"]</a>
+            <a class="btn" href="#feed-title">@L["Przeglądaj posty"]</a>
         </div>
         <FrontierScene Variant="town" />
     </section>
@@ -36,25 +36,25 @@
 else
 {
     <section class="frontier-banner is-compact" aria-labelledby="feed-title">
-        <span class="eyebrow"><Icon Name="@Icons.Signpost" Size="14" StrokeWidth="2" /> Główny plac</span>
-        <h1 id="feed-title">Odkrywaj</h1>
-        <p>Świeże wiadomości ze wszystkich zakątków SansPost.</p>
+        <span class="eyebrow"><Icon Name="@Icons.Signpost" Size="14" StrokeWidth="2" /> @L["Główny plac"]</span>
+        <h1 id="feed-title">@L["Odkrywaj"]</h1>
+        <p>@L["Świeże wiadomości ze wszystkich zakątków SansPost."]</p>
         <FrontierScene Variant="town" />
     </section>
 }
 
 <div class="layout-with-aside">
     <SaloonFeed Sort="SortValue" Featured="featured" HeadingId="@(Viewer is null ? "feed-title" : "feed-list-title")"
-                Heading="@(Viewer is null ? "Odkrywaj" : "Posty")" HeadingHidden="Viewer is not null" />
+                Heading="@(Viewer is null ? L["Odkrywaj"] : L["Posty"])" HeadingHidden="Viewer is not null" />
 
-    <aside class="aside" aria-label="Kategorie i informacje">
+    <aside class="aside" aria-label="@L["Kategorie i informacje"]">
         @if (categories is not null)
         {
             <div class="card aside-categories">
                 <div class="card-body">
                     <div class="spread" style="margin-bottom: var(--space-2)">
-                        <h2 class="section-title">Kategorie</h2>
-                        <a class="text-sm" href="/categories">Wszystkie</a>
+                        <h2 class="section-title">@L["Kategorie"]</h2>
+                        <a class="text-sm" href="/categories">@L["Wszystkie"]</a>
                     </div>
                     <ul class="list-plain category-list">
                         @foreach (var item in categories)
@@ -62,8 +62,8 @@ else
                             <li class="@CategoryMeta.CssClass(item.Category)">
                                 <a href="@CategoryMeta.Url(item.Category)">
                                     <Icon Name="@CategoryMeta.Icon(item.Category)" Size="16" />
-                                    <span class="name">@item.Category.DisplayName()</span>
-                                    <span class="count" aria-label="@UiText.Posts(item.PostCount)">@UiText.Number(item.PostCount)</span>
+                                    <span class="name">@L[item.Category.DisplayName()]</span>
+                                    <span class="count" aria-label="@UiText.Posts(L, item.PostCount)">@UiText.Number(L, item.PostCount)</span>
                                 </a>
                             </li>
                         }
@@ -76,17 +76,17 @@ else
         <div class="card cat-feedback">
             <div class="card-body stack-sm">
                 <h2 class="section-title"><Icon Name="@Icons.Megaphone" Size="15" Class="inline-icon" /> Feedback</h2>
-                <p class="text-sm">Co działa, co przeszkadza, czego brakuje? Uwagi o SansPost trafiają do kategorii Feedback — jak każda inna rozmowa.</p>
+                <p class="text-sm">@L["Co działa, co przeszkadza, czego brakuje? Uwagi o SansPost trafiają do kategorii Feedback — jak każda inna rozmowa."]</p>
                 <div class="cluster">
-                    <a class="btn btn-sm" href="@CategoryMeta.Url(PostCategory.Feedback)">Czytaj opinie</a>
-                    <a class="btn btn-sm btn-ghost" href="@($"/new?category={CategoryMeta.Slug(PostCategory.Feedback)}")">Zostaw opinię</a>
+                    <a class="btn btn-sm" href="@CategoryMeta.Url(PostCategory.Feedback)">@L["Czytaj opinie"]</a>
+                    <a class="btn btn-sm btn-ghost" href="@($"/new?category={CategoryMeta.Slug(PostCategory.Feedback)}")">@L["Zostaw opinię"]</a>
                 </div>
             </div>
         </div>
 
         <p class="demo-note">
             <Icon Name="@Icons.Info" Size="16" />
-            <span>SansPost to projekt portfolio działający na żywo. Treści są prawdziwe, a liczba kont w tej wersji jest ograniczona.</span>
+            <span>@L["SansPost to projekt portfolio działający na żywo. Treści są prawdziwe, a liczba kont w tej wersji jest ograniczona."]</span>
         </p>
     </aside>
 </div>

@@ -5,7 +5,7 @@
 <article class="post-card @(Featured ? "is-featured" : "") @(Compact ? "is-compact" : "")" aria-labelledby="@TitleId">
     @if (Featured)
     {
-        <span class="featured-label"><Icon Name="@Icons.Pin" Size="14" StrokeWidth="2" /> Przypięte</span>
+        <span class="featured-label"><Icon Name="@Icons.Pin" Size="14" StrokeWidth="2" /> @L["Przypięte"]</span>
     }
 
     <div class="post-card-meta">
@@ -39,17 +39,17 @@
     @if (Compact)
     {
         <p class="post-card-stats">
-            <span class="stat"><Icon Name="@Icons.Comment" Size="15" /><span aria-hidden="true">@UiText.Number(Post.CommentCount)</span><span class="visually-hidden">@UiText.Comments(Post.CommentCount)</span></span>
-            <span class="stat"><Icon Name="@Icons.Heart" Size="15" /><span aria-hidden="true">@UiText.Number(Post.LikeCount)</span><span class="visually-hidden">@UiText.Plural(Post.LikeCount, "reakcja", "reakcje", "reakcji")</span></span>
+            <span class="stat"><Icon Name="@Icons.Comment" Size="15" /><span aria-hidden="true">@UiText.Number(L, Post.CommentCount)</span><span class="visually-hidden">@UiText.Comments(L, Post.CommentCount)</span></span>
+            <span class="stat"><Icon Name="@Icons.Heart" Size="15" /><span aria-hidden="true">@UiText.Number(L, Post.LikeCount)</span><span class="visually-hidden">@UiText.Plural(L, Post.LikeCount, "reakcja", "reakcje", "reakcji")</span></span>
         </p>
     }
     else
     {
         <div class="post-card-footer">
             <LikeButton PostId="Post.Id" Liked="Post.LikedByCurrentUser" Count="Post.LikeCount" />
-            <a class="stat" href="@($"{UiText.PostUrl(Post.Id)}#comments")" aria-label="@UiText.Comments(Post.CommentCount) — przejdź do dyskusji">
+            <a class="stat" href="@($"{UiText.PostUrl(Post.Id)}#comments")" aria-label="@L.Format("{0} — przejdź do dyskusji", UiText.Comments(L, Post.CommentCount))">
                 <Icon Name="@Icons.Comment" />
-                <span aria-hidden="true">@UiText.Number(Post.CommentCount)</span>
+                <span aria-hidden="true">@UiText.Number(L, Post.CommentCount)</span>
             </a>
         </div>
     }

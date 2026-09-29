@@ -5,7 +5,7 @@ namespace SansPost.Shared.Music
 {
     // Komponent rysujący stan radia: subskrypcja właściciela audio (js/music.js) po pierwszym renderze, odpięcie przy
     // usunięciu komponentu — Kącik muzyczny otwierany wiele razy nie zostawia nasłuchów ani referencji.
-    public abstract class MusicStateComponent : ComponentBase, IAsyncDisposable
+    public abstract class MusicStateComponent : SansPost.Localization.LocalizedComponentBase, IAsyncDisposable
     {
         [Inject] protected IJSRuntime JS { get; set; } = default!;
 

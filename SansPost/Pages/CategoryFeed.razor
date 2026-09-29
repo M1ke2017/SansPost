@@ -1,31 +1,31 @@
 @page "/c/{Slug}"
 @inject NavigationManager Navigation
 
-<PageTitle>@(category?.DisplayName() ?? "Kategoria") · SansPost</PageTitle>
+<PageTitle>@(category is { } named ? L[named.DisplayName()] : L["Kategoria"]) · SansPost</PageTitle>
 
 @if (category is not PostCategory current)
 {
     <EmptyState Title="Nie ma takiej kategorii" HeadingLevel="1" IconName="@Icons.Grid" Text="Sprawdź listę dostępnych kategorii.">
-        <a class="btn btn-primary" href="/categories">Wszystkie kategorie</a>
+        <a class="btn btn-primary" href="/categories">@L["Wszystkie kategorie"]</a>
     </EmptyState>
 }
 else
 {
     @* @key: zmiana kategorii odtwarza blok — krótkie "wejście do kolejnego miejsca" (fade + przesunięcie, szyld, linia kurzu). *@
     <div class="stack place-enter @CategoryMeta.CssClass(current)" @key="current">
-        <a class="back-link" href="/categories" style="margin-bottom: 0"><Icon Name="@Icons.ArrowLeft" Size="16" /> Kategorie</a>
+        <a class="back-link" href="/categories" style="margin-bottom: 0"><Icon Name="@Icons.ArrowLeft" Size="16" /> @L["Kategorie"]</a>
 
         <header class="place-header">
             <div class="spread" style="align-items: flex-start">
                 <div class="stack-sm" style="min-width: 0">
                     <span class="place-sign">
                         <span class="category-hero-icon"><Icon Name="@CategoryMeta.Icon(current)" Size="24" /></span>
-                        <span class="place-name">@CategoryMeta.Place(current)</span>
+                        <span class="place-name">@L[CategoryMeta.Place(current)]</span>
                     </span>
-                    <h1>@current.DisplayName()</h1>
-                    <p class="muted">@CategoryMeta.Description(current)</p>
+                    <h1>@L[current.DisplayName()]</h1>
+                    <p class="muted">@L[CategoryMeta.Description(current)]</p>
                 </div>
-                <a class="btn btn-primary" href="@($"/new?category={CategoryMeta.Slug(current)}")"><Icon Name="@Icons.Cactus" /> Napisz w tej kategorii</a>
+                <a class="btn btn-primary" href="@($"/new?category={CategoryMeta.Slug(current)}")"><Icon Name="@Icons.Cactus" /> @L["Napisz w tej kategorii"]</a>
             </div>
             <div class="dust-line" aria-hidden="true"></div>
             <FrontierScene Variant="signpost" />
@@ -33,22 +33,22 @@ else
 
         <div class="spread">
             <div style="flex: 1; min-width: 0"><CategoryStrip Current="current" /></div>
-            <div class="segmented" role="group" aria-label="Sortowanie postów">
+            <div class="segmented" role="group" aria-label="@L["Sortowanie postów"]">
                 <button type="button" aria-pressed="@(SortValue == PostSort.Newest ? "true" : "false")" @onclick="() => SetSort(PostSort.Newest)">
-                    <Icon Name="@Icons.Clock" Size="16" /> Najnowsze
+                    <Icon Name="@Icons.Clock" Size="16" /> @L["Najnowsze"]
                 </button>
                 <button type="button" aria-pressed="@(SortValue == PostSort.Popular ? "true" : "false")" @onclick="() => SetSort(PostSort.Popular)">
-                    <Icon Name="@Icons.Trending" Size="16" /> Popularne
+                    <Icon Name="@Icons.Trending" Size="16" /> @L["Popularne"]
                 </button>
             </div>
         </div>
 
         <div class="feed-column">
-            <FeedList Category="current" Sort="SortValue" Label="@($"Posty w kategorii {current.DisplayName()}")">
+            <FeedList Category="current" Sort="SortValue" Label="@L.Format("Posty w kategorii {0}", L[current.DisplayName()])">
                 <Empty>
-                    <EmptyState Title="@($"Brak postów w kategorii {current.DisplayName()}")" Text="@CategoryMeta.EmptyText(current)">
+                    <EmptyState Title="@L.Format("Brak postów w kategorii {0}", L[current.DisplayName()])" Text="@CategoryMeta.EmptyText(current)">
                         <a class="btn btn-primary" href="@($"/new?category={CategoryMeta.Slug(current)}")">
-                            <Icon Name="@Icons.Cactus" /> @(current == PostCategory.Feedback ? "Zostaw opinię" : "Napisz pierwszy post")
+                            <Icon Name="@Icons.Cactus" /> @(current == PostCategory.Feedback ? L["Zostaw opinię"] : L["Napisz pierwszy post"])
                         </a>
                     </EmptyState>
                 </Empty>

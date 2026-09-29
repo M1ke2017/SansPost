@@ -86,6 +86,9 @@ namespace SansPost.Features.Duels
             public Guid? RematchId { get; set; }
             public bool[] Left { get; } = new bool[2];
 
+            // Wynik PvP do zapisania (Sprint 21) — przygotowany pod blokadą przy zakończeniu, zapisany po jej zwolnieniu.
+            public DuelResultRecord? PendingResult;
+
             public bool OpponentJoined => Mode == DuelMode.Training || PlayerTwoId is not null;
             public bool Finished => Duel.isFinished(State);
             public bool Live => Mode == DuelMode.Live;
@@ -267,6 +270,7 @@ namespace SansPost.Features.Duels
                 response = ServiceResult<MoveResponse>.Success(new MoveResponse(true, roundResult is not null, snapshot.OpponentReady, roundResult, snapshot));
             }
 
+            await PersistResultAsync(session, outbox);
             await PublishAsync(outbox);
             return response;
         }

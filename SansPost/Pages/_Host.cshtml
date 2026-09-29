@@ -10,6 +10,8 @@
     var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
     // Renderer przestrzeni wybrany wcześniej przez przeglądarkę (3D albo CSS) — prerender /saloon od razu w tym trybie.
     var sceneHint = SansPost.Shared.ScenePreference.Parse(HttpContext.Request.Cookies[SansPost.Shared.ScenePreference.CookieName]);
+    // Język interfejsu (cookie "sp-lang" albo Accept-Language) — prerender i circuit startują w tym samym języku.
+    var language = SansPost.Localization.Loc.FromRequest(HttpContext);
     // Moduł sceny 3D strony (Entrance albo Main Hall) — tylko te strony dostają wczesny start renderera.
     var scenePage = HttpContext.Request.Path.Value?.ToLowerInvariant() switch
     {
@@ -20,13 +22,13 @@
 }
 
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="@language">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#ece2d0" />
-    <meta name="description" content="SansPost — publiczna przestrzeń rozmów o technologii, grach, podróżach, pomysłach i projektach." />
+    <meta name="description" content="@SansPost.Localization.Loc.Translate("SansPost — publiczna przestrzeń rozmów o technologii, grach, podróżach, pomysłach i projektach.", language)" />
     <base href="~/" />
     @* Motyw ustawiany przed pierwszym malowaniem (bez mignięcia). Wyłącznie preferencja wyglądu. *@
     <script>
@@ -71,27 +73,27 @@
 </head>
 <body>
     <component type="typeof(App)" render-mode="ServerPrerendered" param-AntiforgeryToken="antiforgeryToken"
-               param-ClientAddress="clientAddress" param-SceneHint="sceneHint" />
+               param-ClientAddress="clientAddress" param-SceneHint="sceneHint" param-Language="language" />
 
     <div id="blazor-error-ui" role="alert">
         <div class="blazor-error-inner">
-            <span>Coś poszło nie tak. Odśwież stronę, aby kontynuować.</span>
-            <a href="" class="btn btn-sm reload">Odśwież</a>
-            <a class="dismiss" aria-label="Zamknij">✕</a>
+            <span>@SansPost.Localization.Loc.Translate("Coś poszło nie tak. Odśwież stronę, aby kontynuować.", language)</span>
+            <a href="" class="btn btn-sm reload">@SansPost.Localization.Loc.Translate("Odśwież", language)</a>
+            <a class="dismiss" aria-label="@SansPost.Localization.Loc.Translate("Zamknij", language)">✕</a>
         </div>
     </div>
 
     <div id="components-reconnect-modal" role="alertdialog" aria-labelledby="reconnect-title">
         <div class="reconnect-card">
-            <strong id="reconnect-title">Łączenie z SansPost…</strong>
-            <p class="muted text-sm when-show">Połączenie zostało przerwane. Próbujemy je przywrócić.</p>
+            <strong id="reconnect-title">@SansPost.Localization.Loc.Translate("Łączenie z SansPost…", language)</strong>
+            <p class="muted text-sm when-show">@SansPost.Localization.Loc.Translate("Połączenie zostało przerwane. Próbujemy je przywrócić.", language)</p>
             <div class="stack-sm when-failed">
-                <p class="muted text-sm">Nie udało się połączyć ponownie.</p>
-                <button type="button" class="btn btn-primary" onclick="location.reload()">Odśwież stronę</button>
+                <p class="muted text-sm">@SansPost.Localization.Loc.Translate("Nie udało się połączyć ponownie.", language)</p>
+                <button type="button" class="btn btn-primary" onclick="location.reload()">@SansPost.Localization.Loc.Translate("Odśwież stronę", language)</button>
             </div>
             <div class="stack-sm when-rejected">
-                <p class="muted text-sm">Sesja strony wygasła.</p>
-                <button type="button" class="btn btn-primary" onclick="location.reload()">Odśwież stronę</button>
+                <p class="muted text-sm">@SansPost.Localization.Loc.Translate("Sesja strony wygasła.", language)</p>
+                <button type="button" class="btn btn-primary" onclick="location.reload()">@SansPost.Localization.Loc.Translate("Odśwież stronę", language)</button>
             </div>
         </div>
     </div>

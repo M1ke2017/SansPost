@@ -1,0 +1,61 @@
+@* Ranking stołu (Sprint 21): Mistrz Stołu, własne statystyki i Top 10 — przydomki i liczby, bez UserId i e-maili.
+   Gwiazdki prestiżu = zwycięstwa PvP. Dane z serwera (DuelStandingsService), odświeżane po zapisie wyniku pojedynku. *@
+<section class="game-standings" aria-labelledby="game-standings-title">
+    <h3 class="game-deck-title" id="game-standings-title">@L["Ranking stołu"]</h3>
+    @if (Standings.Champion is { } champion)
+    {
+        <p class="game-champion">
+            <span class="game-champion-title">@L["Mistrz Stołu"]</span>
+            <strong class="game-champion-alias">@champion.Alias</strong>
+            <span class="game-champion-stars"><span aria-hidden="true">★</span> @champion.Stars<span class="visually-hidden"> @StarsWord(champion.Stars)</span></span>
+        </p>
+    }
+    else
+    {
+        <p class="game-champion is-empty">@L["Stół czeka na pierwszego mistrza."]</p>
+    }
+
+    <p class="game-you-stats">
+        @L["Twoje pojedynki:"] <strong><span aria-hidden="true">★</span> @Standings.You.PrestigeStars</strong><span class="visually-hidden"> @StarsWord(Standings.You.PrestigeStars)</span>
+        · @L["wygrane"] @Standings.You.Wins · @L["przegrane"] @Standings.You.Losses · @L["remisy"] @Standings.You.Draws
+    </p>
+
+    @if (Standings.Top.Count == 0)
+    {
+        <p class="game-note">@L["Ranking pojawi się po pierwszym pojedynku z innym graczem."]</p>
+    }
+    else
+    {
+        <table class="game-leaderboard">
+            <caption class="visually-hidden">@L["Top 10 graczy stołu"]</caption>
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">@L["Gracz"]</th>
+                    <th scope="col"><span aria-hidden="true">★</span><span class="visually-hidden">@L["Gwiazdki"]</span></th>
+                    <th scope="col">@L["Gry"]</th>
+                    <th scope="col"><abbr title="@L["wygrane / przegrane / remisy"]">@L["W/P/R"]</abbr></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Standings.Top)
+                {
+                    <tr class="@(row.Rank == 1 && row.Stars > 0 ? "is-champion" : "")">
+                        <td>@row.Rank</td>
+                        <th scope="row">@row.Alias</th>
+                        <td>@row.Stars</td>
+                        <td>@row.GamesPlayed</td>
+                        <td>@row.Wins/@row.Losses/@row.Draws</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public StandingsView Standings { get; set; } = null!;
+
+    // Sama forma słowa (liczba stoi obok): 1 gwiazdka, 2–4 gwiazdki, 5+ gwiazdek / star, stars.
+    private string StarsWord(int count) => L.Plural(count, "gwiazdka", "gwiazdki", "gwiazdek")[L.Number(count).Length..].Trim();
+}

@@ -10,12 +10,38 @@
 // API (JS interop): init(host, options) → { renderer, reason }, focusArea(zone) → Promise, resetView() → Promise, dispose().
 
 import {
-    THREE, startScene, theme, reducedMotion, easeInOutCubic, createRenderer, disposeScene, canvasTexture,
+    THREE, startScene, theme, reducedMotion, easeInOutCubic, createRenderer, disposeScene, canvasTexture, renderOnDemand,
     noiseTexture, headingFont, Batch, mergeGeometries, worldUv, random
 } from "./scene3d-common.js";
 
 let state = null;
 let generation = 0;
+
+// Napisy malowane w scenie (Sprint 22): domyślnie polskie, tłumaczenia przychodzą z serwera (init options.labels,
+// setLanguage). Zmiana języka przerysowuje te same tekstury canvas — bez przebudowy sceny i bez nowych materiałów.
+const LABELS_PL = {
+    bar: "BAR", game: "STÓŁ GRY", music: "MUZYKA",
+    wantedFor: "za rozmowę, która rozpaliła Saloon", wantedEmpty: "Tablica czeka na pierwszą rozmowę.",
+    round: "RUNDA", rulesTitle: "ŚLADEM|REWOLWEROWCA", rules: "3 prestiżu · 1 nabój · 12 rund",
+    shoot: "Strzał", dodge: "Unik", reload: "Przeładuj", block: "Blok", taunt: "Prowokacja"
+};
+let labels = { ...LABELS_PL };
+let relabel = [];          // przerysowania tekstur z napisami (wypełniane przy budowie sceny)
+const label = key => String(labels[key] ?? LABELS_PL[key] ?? "");
+
+// Tekstura z napisem, którą można przerysować po zmianie języka (ten sam canvas, needsUpdate).
+function labelTexture(width, height, draw) {
+    const texture = canvasTexture(width, height, draw, false);
+    relabel.push(() => {
+        // Czysty canvas i stan kontekstu jak przy pierwszym rysowaniu (font, wyrównanie, odstępy liter).
+        const canvas = texture.image, ctx = canvas.getContext("2d");
+        if (ctx.reset) ctx.reset();
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+        draw(ctx, canvas.width, canvas.height);
+        texture.needsUpdate = true;
+    });
+    return texture;
+}
 
 // ---- Układ sali ---------------------------------------------------------------------------------------------------
 // Wejście w z = 0 (za kamerą), bar pod tylną ścianą (z = -12.5), Wanted na lewej ścianie, kącik muzyczny w prawym
@@ -298,43 +324,72 @@ function runnerTexture() {
 }
 
 // Szyld strefy: ciemna deska ze słojami, złota podwójna rama, złocone litery z cieniem (styl ręcznie malowanego szyldu).
-function plaqueTexture(text, font, { width = 768, height = 224, size = 0.5 } = {}) {
-    return canvasTexture(width, height, (ctx, w, h) => {
-        const rnd = random(text.length * 13);
-        const wood = ctx.createLinearGradient(0, 0, 0, h);
-        wood.addColorStop(0, "#2c1a0e");
-        wood.addColorStop(1, "#1a0e07");
-        ctx.fillStyle = wood;
-        ctx.fillRect(0, 0, w, h);
-        for (let g = 0; g < 26; g++) {
-            ctx.strokeStyle = `rgba(0,0,0,${0.12 + rnd() * 0.14})`;
-            ctx.lineWidth = 1 + rnd() * 2;
-            const y = rnd() * h;
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(w * 0.3, y + 6, w * 0.6, y - 6, w, y + 3); ctx.stroke();
-        }
-        const gold = ctx.createLinearGradient(0, 0, 0, h);
-        gold.addColorStop(0, "#f7e0a3");
-        gold.addColorStop(0.5, "#c4923f");
-        gold.addColorStop(1, "#f0cf86");
-        ctx.strokeStyle = gold;
-        ctx.lineWidth = h * 0.05;
-        ctx.strokeRect(h * 0.07, h * 0.07, w - h * 0.14, h - h * 0.14);
-        ctx.lineWidth = 2;
-        ctx.strokeRect(h * 0.15, h * 0.15, w - h * 0.3, h - h * 0.3);
-        for (const [x, y] of [[h * 0.15, h * 0.15], [w - h * 0.15, h * 0.15], [h * 0.15, h - h * 0.15], [w - h * 0.15, h - h * 0.15]]) {
-            ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = gold; ctx.fillRect(-5, -5, 10, 10); ctx.restore();
-        }
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        let fontSize = h * size;
-        ctx.letterSpacing = `${Math.round(h * 0.04)}px`;
-        ctx.font = `700 ${Math.round(fontSize)}px ${font}`;
-        while (ctx.measureText(text).width > w * 0.78 && fontSize > 12) ctx.font = `700 ${Math.round(fontSize -= 2)}px ${font}`;
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillText(text, w / 2 + 3, h * 0.54 + 4);
-        ctx.fillStyle = gold;
-        ctx.fillText(text, w / 2, h * 0.54);
-    }, false);
+function plaqueTexture(key, font, { width = 768, height = 224, size = 0.5 } = {}) {
+    const seed = LABELS_PL[key].length * 13;
+    return labelTexture(width, height, (ctx, w, h) => {
+        ctx.letterSpacing = "0px";
+        const gold = drawPlaqueBoard(ctx, w, h, seed);
+        plaqueText(ctx, label(key), w, h, h * 0.54, h * size, w * 0.78, font, gold);
+    });
+}
+
+// Tło szyldu (deska, słoje, złota rama z narożnikami) — wspólne dla szyldów stref i plakietki Mistrza Stołu.
+function drawPlaqueBoard(ctx, w, h, seed) {
+    const rnd = random(seed);
+    const wood = ctx.createLinearGradient(0, 0, 0, h);
+    wood.addColorStop(0, "#2c1a0e");
+    wood.addColorStop(1, "#1a0e07");
+    ctx.fillStyle = wood;
+    ctx.fillRect(0, 0, w, h);
+    for (let g = 0; g < 26; g++) {
+        ctx.strokeStyle = `rgba(0,0,0,${0.12 + rnd() * 0.14})`;
+        ctx.lineWidth = 1 + rnd() * 2;
+        const y = rnd() * h;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(w * 0.3, y + 6, w * 0.6, y - 6, w, y + 3); ctx.stroke();
+    }
+    const gold = ctx.createLinearGradient(0, 0, 0, h);
+    gold.addColorStop(0, "#f7e0a3");
+    gold.addColorStop(0.5, "#c4923f");
+    gold.addColorStop(1, "#f0cf86");
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = h * 0.05;
+    ctx.strokeRect(h * 0.07, h * 0.07, w - h * 0.14, h - h * 0.14);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(h * 0.15, h * 0.15, w - h * 0.3, h - h * 0.3);
+    for (const [x, y] of [[h * 0.15, h * 0.15], [w - h * 0.15, h * 0.15], [h * 0.15, h - h * 0.15], [w - h * 0.15, h - h * 0.15]]) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = gold; ctx.fillRect(-5, -5, 10, 10); ctx.restore();
+    }
+    return gold;
+}
+
+// Złocony napis z cieniem, zmniejszany, aż zmieści się w maxWidth.
+function plaqueText(ctx, text, w, h, y, size, maxWidth, font, gold, weight = 700) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    let fontSize = size;
+    ctx.letterSpacing = `${Math.round(h * 0.04)}px`;
+    ctx.font = `${weight} ${Math.round(fontSize)}px ${font}`;
+    while (ctx.measureText(text).width > maxWidth && fontSize > 12) ctx.font = `${weight} ${Math.round(fontSize -= 2)}px ${font}`;
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillText(text, w / 2 + 3, y + 4);
+    ctx.fillStyle = gold;
+    ctx.fillText(text, w / 2, y);
+}
+
+// Plakietka Mistrza Stołu (Sprint 21) pod szyldem stołu: tytuł i przydomek z gwiazdkami, albo "stół czeka".
+// Teksty przychodzą z serwera (lokalizacja), rysunek w tym samym stylu co szyldy stref; przerysowanie tylko przy zmianie.
+const CHAMPION_CANVAS = [640, 176];
+function drawChampion(ctx, font, champion) {
+    const [w, h] = CHAMPION_CANVAS;
+    ctx.clearRect(0, 0, w, h);
+    ctx.letterSpacing = "0px";
+    const gold = drawPlaqueBoard(ctx, w, h, 71);
+    if (champion?.alias) {
+        plaqueText(ctx, String(champion.title ?? ""), w, h, h * 0.36, h * 0.2, w * 0.7, font, gold);
+        plaqueText(ctx, `${champion.alias}  ★ ${champion.stars ?? 0}`, w, h, h * 0.66, h * 0.27, w * 0.78, font, gold);
+    } else {
+        plaqueText(ctx, String(champion?.empty ?? ""), w, h, h * 0.53, h * 0.19, w * 0.76, font, gold, 600);
+    }
 }
 
 // Tablica Wanted: jedna tekstura (canvas 1024×664) dla całej tablicy — nagłówek, główny list gończy "MOST WANTED"
@@ -348,12 +403,15 @@ const WANTED_SERIF = "Georgia, 'Times New Roman', serif";
 
 function wantedTexture(font) {
     const [width, height] = WANTED_CANVAS;
+    let shown = null;
     const texture = canvasTexture(width, height, (ctx, w, h) => drawWanted(ctx, w, h, font, null), false);
     texture.userData.redraw = posters => {
+        shown = posters;
         const canvas = texture.image;
         drawWanted(canvas.getContext("2d"), canvas.width, canvas.height, font, posters);
         texture.needsUpdate = true;
     };
+    relabel.push(() => texture.userData.redraw(shown));
     return texture;
 }
 
@@ -490,7 +548,7 @@ function drawWanted(ctx, w, h, font, posters) {
             ctx.fillStyle = "#2c180b";
             ctx.fillText(fitText(ctx, main.alias, inner, 52, 24, "700", font), 0, top + 262);
             ctx.fillStyle = "rgba(60,36,18,0.85)";
-            ctx.fillText(fitText(ctx, "za rozmowę, która rozpaliła Saloon", inner, 22, 14, "italic 400", WANTED_SERIF), 0, top + 300);
+            ctx.fillText(fitText(ctx, label("wantedFor"), inner, 22, 14, "italic 400", WANTED_SERIF), 0, top + 300);
             rule(top + 322, inner / 2 - 40);
             ctx.fillStyle = "#2c180b";
             ctx.font = `700 27px ${WANTED_SERIF}`;
@@ -499,7 +557,7 @@ function drawWanted(ctx, w, h, font, posters) {
         } else {
             ctx.fillStyle = "rgba(60,36,18,0.8)";
             ctx.font = `italic 700 28px ${WANTED_SERIF}`;
-            const message = list ? "Tablica czeka na pierwszą rozmowę." : "";
+            const message = list ? label("wantedEmpty") : "";
             wrapText(ctx, message, inner, 3).forEach((text, i) => ctx.fillText(text, 0, top + 280 + i * 36));
         }
     });
@@ -542,8 +600,7 @@ const ATLAS = {
 };
 
 function propsTexture(font) {
-    const subtitles = { SHOOT: "Strzał", DODGE: "Unik", RELOAD: "Przeładuj", BLOCK: "Blok", TAUNT: "Prowokacja" };
-    return canvasTexture(1024, 1024, (ctx) => {
+    return labelTexture(1024, 1024, (ctx) => {
         const rounded = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
         const icon = (title, cx, cy, s) => {
             ctx.strokeStyle = "#5a2a16";
@@ -571,7 +628,7 @@ function propsTexture(font) {
                 ctx.font = `700 ${Math.round(s * 0.5)}px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", cx, cy - s * 0.06);
             }
         };
-        // Karty akcji: kremowy papier, podwójna ramka, tytuł, ikona, podpis po polsku.
+        // Karty akcji: kremowy papier, podwójna ramka, tytuł, ikona, podpis w języku interfejsu (pomijany, gdy powtarza tytuł).
         for (const card of ATLAS.cards) {
             const { x, y, w, h, title } = card;
             ctx.fillStyle = "#3a2213";
@@ -592,7 +649,8 @@ function propsTexture(font) {
             icon(title, x + w / 2, y + 140, 100);
             ctx.fillStyle = "#7a4a26";
             ctx.font = `italic 600 22px ${font}`;
-            ctx.fillText(subtitles[title], x + w / 2, y + h - 40);
+            const subtitle = label(title.toLowerCase());
+            if (subtitle.toUpperCase() !== title) ctx.fillText(subtitle, x + w / 2, y + h - 40);
         }
         // Rewers: bordo z romboidalnym wzorem i gwiazdą.
         {
@@ -612,7 +670,7 @@ function propsTexture(font) {
             ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(x + r, y + r, r - 2, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#f0d08a"; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x + r, y + r, r - 16, 0, Math.PI * 2); ctx.stroke();
             ctx.fillStyle = "#f0d08a"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.font = `700 34px ${font}`; ctx.fillText("RUNDA", x + r, y + r - 44);
+            ctx.font = `700 34px ${font}`; ctx.fillText(label("round"), x + r, y + r - 44);
             ctx.font = `700 96px ${font}`; ctx.fillText("I", x + r, y + r + 26);
         }
         // Notatka pojedynku: podstawowe zasady (3 prestiżu, 1 nabój, 12 rund).
@@ -621,9 +679,10 @@ function propsTexture(font) {
             ctx.fillStyle = "#eadbb6"; ctx.fillRect(x, y, w, h);
             ctx.fillStyle = "rgba(120,80,40,0.25)"; ctx.fillRect(x, y + h - 30, w, 30);
             ctx.fillStyle = "#4a2614"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.font = `700 28px ${font}`; ctx.fillText("ŚLADEM", x + w / 2, y + 44);
-            ctx.fillText("REWOLWEROWCA", x + w / 2, y + 80);
-            ctx.font = `italic 600 24px ${font}`; ctx.fillStyle = "#7a4a26"; ctx.fillText("3 prestiżu · 1 nabój · 12 rund", x + w / 2, y + 124);
+            const [first, second = ""] = label("rulesTitle").split("|");
+            ctx.font = `700 28px ${font}`; ctx.fillText(first, x + w / 2, y + 44);
+            ctx.fillText(second, x + w / 2, y + 80);
+            ctx.font = `italic 600 24px ${font}`; ctx.fillStyle = "#7a4a26"; ctx.fillText(label("rules"), x + w / 2, y + 124);
             ctx.fillStyle = "rgba(74,38,20,0.55)";
             for (let l = 0; l < 4; l++) ctx.fillRect(x + 40, y + 160 + l * 22, w - 80 - (l % 2) * 60, 3);
         }
@@ -1005,7 +1064,7 @@ function buildBar(root, b, M, font) {
 
     // Szyld BAR na fryzie: złocona deska z dwiema lampkami obrazowymi nad nim.
     const { w: signW, h: signH, center: signAt } = ZONES.bar.sign;
-    const sign = plaque(plaqueTexture("BAR", font, { size: 0.62, height: 176 }), signW, signH);
+    const sign = plaque(plaqueTexture("bar", font, { size: 0.62, height: 176 }), signW, signH);
     sign.position.set(...signAt);
     root.add(sign);
     plaqueFrame(b, M.trim, signW + 0.16, signH + 0.16, 0, signAt[1], signAt[2] - 0.065);
@@ -1138,15 +1197,29 @@ function buildGame(root, b, M, font) {
 
     // Szyld "STÓŁ GRY" na łańcuchach (rama z fazą). Od Sprintu 19 stół działa — bez kredowej tabliczki "wkrótce".
     const { center, w, h } = ZONES.game.sign;
-    const sign = plaque(plaqueTexture("STÓŁ GRY", font, { size: 0.46 }), w, h);
+    const sign = plaque(plaqueTexture("game", font, { size: 0.46 }), w, h);
     sign.position.set(...center);
     root.add(sign);
     plaqueFrame(b, M.trim, w + 0.12, h + 0.12, center[0], center[1], center[2] - 0.065);
     for (const dx of [-0.42, 0.42]) b.add(M.iron, cylinder(0.008, 0.008, HEIGHT - center[1] - h / 2, 4), center[0] + dx, (HEIGHT + center[1] + h / 2) / 2, center[2] - 0.03);
 
+    // Plakietka Mistrza Stołu zawieszona pod szyldem (dwa krótkie łańcuszki). Rysowana od razu jako "stół czeka",
+    // setChampion przerysowuje ten sam canvas wynikiem z serwera. Mała — nie zasłania stołu ani sceny.
+    const [cw, ch] = [0.86, 0.236];
+    const championTexture = canvasTexture(...CHAMPION_CANVAS, ctx => drawChampion(ctx, font, null), false);
+    const championPlaque = plaque(championTexture, cw, ch);
+    const championY = center[1] - h / 2 - 0.1 - ch / 2;
+    championPlaque.position.set(center[0], championY, center[2] + 0.005);
+    root.add(championPlaque);
+    for (const dx of [-0.3, 0.3]) b.add(M.iron, cylinder(0.005, 0.005, 0.1, 4), center[0] + dx, center[1] - h / 2 - 0.05, center[2]);
+    const redrawChampion = champion => {
+        drawChampion(championTexture.image.getContext("2d"), font, champion);
+        championTexture.needsUpdate = true;
+    };
+
     // Dwa krzesła naprzeciw siebie — pojedynek jeden na jeden.
     const chairs = [[x - 1.3, 0, z + wobble(0.06), Math.PI / 2 + wobble(0.12)], [x + 1.3, 0, z + wobble(0.06), -Math.PI / 2 + wobble(0.12)]];
-    return { glows: [M.gameBulb, sign.material], lights: [light], chairs, halos: [[x, 2.36, z, 0.6]] };
+    return { glows: [M.gameBulb, sign.material, championPlaque.material], lights: [light], chairs, halos: [[x, 2.36, z, 0.6]], redrawChampion };
 }
 
 function buildMusic(root, b, M, font) {
@@ -1231,7 +1304,7 @@ function buildMusic(root, b, M, font) {
 
     // Szyld "MUZYKA" (rama z fazą). Od Sprintu 18 strefa działa — bez kredowej tabliczki "wkrótce".
     const { center, w, h } = ZONES.music.sign;
-    const sign = plaque(plaqueTexture("MUZYKA", font, { size: 0.5 }), w, h);
+    const sign = plaque(plaqueTexture("music", font, { size: 0.5 }), w, h);
     sign.position.set(...center);
     sign.rotation.y = -Math.PI / 2;
     root.add(sign);
@@ -1284,13 +1357,25 @@ function buildFurniture(root, b, M, gameChairs) {
     root.add(chandelier);
 
     // Obrazy w ramach, beczki i skrzynie w rogu, kaktus w donicy przy wejściu (znak SansPost).
-    for (const [x, y, z, ry, seed, night] of [[-4.95, 2.35, -12.34, 0, 3, false], [6.34, 2.3, -4.6, -Math.PI / 2, 8, true]]) {
-        const painting = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.76), new THREE.MeshStandardMaterial({ map: paintingTexture(seed, night), roughness: 0.7 }));
-        painting.position.set(x, y, z);
+    // Warstwy obrazu wzdłuż normalnej ściany (do wnętrza sali): ściana → rama (6 cm, przylega do ściany) → płótno 2 cm
+    // przed frontem ramy. Płótno nie może leżeć w płaszczyźnie frontu ramy — wspólna płaszczyzna dawała z-fighting
+    // (ciemne pasy i migotanie zależne od kąta kamery, zwłaszcza w ruchu). Płótno matowe, nieprzezroczyste, bez cieni.
+    const WALL_FACE = 0.1, FRAME_DEPTH = 0.06, CANVAS_GAP = 0.02;
+    const canvasAt = FRAME_DEPTH + CANVAS_GAP;
+    for (const [x, y, z, ry, seed, night] of [[-4.95, 2.35, -DEPTH + WALL_FACE, 0, 3, false], [HALF_W - WALL_FACE, 2.3, -4.6, -Math.PI / 2, 8, true]]) {
+        const [nx, nz] = ry ? [-1, 0] : [0, 1];   // normalna ściany: tylna → +z, prawa → −x
+        // Sonda testów wizualnych (tylko z flagą ustawioną przez test): płótno jednolitą magentą — każdy inny piksel
+        // w jego wnętrzu oznacza, że rama albo ściana przebiła się przez obraz (z-fighting).
+        const material = window.__sansPostHallProbe
+            ? new THREE.MeshBasicMaterial({ color: "#ff00ff", toneMapped: false, fog: false })
+            : new THREE.MeshStandardMaterial({ map: paintingTexture(seed, night), roughness: 0.7 });
+        const painting = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.76), material);
+        painting.position.set(x + nx * canvasAt, y, z + nz * canvasAt);
         painting.rotation.y = ry;
+        painting.userData.painting = { wallFace: ry ? x : z, frameFront: ry ? x + nx * FRAME_DEPTH : z + nz * FRAME_DEPTH, axis: ry ? "x" : "z", inward: ry ? nx : nz };
         root.add(painting);
-        const frame = ry ? [0.06, 0.92, 1.26] : [1.26, 0.92, 0.06];
-        b.box(M.brass, ...frame, x + (ry ? 0.03 : 0), y, z + (ry ? 0 : -0.03));
+        const frame = ry ? [FRAME_DEPTH, 0.92, 1.26] : [1.26, 0.92, FRAME_DEPTH];
+        b.box(M.brass, ...frame, x + nx * FRAME_DEPTH / 2, y, z + nz * FRAME_DEPTH / 2);
     }
     for (const [x, z, r] of [[-5.85, -11.85, 0.2], [-5.1, -11.95, -0.3], [-5.6, -11.1, 0.5]]) {
         b.add(M.wood, cylinder(0.36, 0.33, 0.95, 14), x, 0.475, z, 0, r);
@@ -1553,6 +1638,8 @@ export async function init(host, options) {
 }
 
 function setup(host, options, force) {
+    relabel = [];
+    labels = { ...LABELS_PL, ...(options.labels ?? {}) };
     const renderer = createRenderer(host, force);
     try {
         const width = host.clientWidth || 1, height = host.clientHeight || 1;
@@ -1578,9 +1665,26 @@ function setup(host, options, force) {
             pointer: new THREE.Vector2(),
             area: options.area ?? null, hover: null, move: null, dirty: true,
             debug: { frames: 0, area: options.area ?? null, hover: null, moving: false, disposed: false,
-                     buildMs: 0, initMs: 0, drawCalls: 0, triangles: 0, geometries: 0, textures: 0 }
+                     buildMs: 0, initMs: 0, drawCalls: 0, triangles: 0, geometries: 0, textures: 0,
+                     labels: { game: label("game"), music: label("music"), round: label("round") }, relabels: 0 }
         };
         window.__sansPostHall = state.debug;
+        // Pomiary (Sprint 23): liczba unikalnych materiałów i siatek sceny.
+        const materials = new Set();
+        let meshes = 0;
+        world.scene.traverse(obj => {
+            if (!obj.isMesh && !obj.isInstancedMesh) return;
+            meshes++;
+            for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) if (m) materials.add(m);
+        });
+        state.debug.materials = materials.size;
+        state.debug.meshes = meshes;
+        // Geometria obrazów (regresja z-fighting): odstęp płótna od frontu ramy i ramy od ściany, wzdłuż normalnej ściany.
+        state.debug.paintings = world.scene.children.filter(o => o.userData.painting).map(o => {
+            const p = o.userData.painting, canvas = o.position[p.axis];
+            return { canvasGap: Math.round((canvas - p.frameFront) * p.inward * 1000) / 1000, frameDepth: Math.round((p.frameFront - p.wallFace) * p.inward * 1000) / 1000,
+                     transparent: o.material.transparent, castShadow: o.castShadow, receiveShadow: o.receiveShadow };
+        });
         applyTheme(state, PALETTE[theme()]);
 
         // Gramofon kręci się, gdy radio (js/music.js) naprawdę gra; stan radia przetrwał wejście do sali.
@@ -1614,7 +1718,7 @@ function setup(host, options, force) {
         state.themeObserver = new MutationObserver(() => state && applyTheme(state, PALETTE[theme()]));
         state.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
-        renderer.setAnimationLoop(tick);
+        renderOnDemand(state, tick, () => state !== null && state.renderer === renderer);
     } catch (e) {
         if (!state) disposeScene(new THREE.Scene(), renderer);
         throw e;
@@ -1652,7 +1756,10 @@ function tick(time) {
     const s = state;
     if (!s) return;
     const spin = spinVisible(s);
-    if (!s.dirty && !s.move && !spin) return;
+    if (!s.dirty && !s.move && !spin) {
+        s.sleep();
+        return;
+    }
     if (spin) {
         // Sam gramofon nie potrzebuje 60 kl./s — rzadsze klatki, gdy nic innego się nie zmienia.
         if (!s.dirty && !s.move && time - s.lastSpinFrame < SPIN_FRAME_MS) return;
@@ -1693,12 +1800,32 @@ function tick(time) {
     }
 
     s.renderer.render(s.scene, s.camera);
+    if (window.__sansPostHallProbe) s.debug.paintingRects = paintingRects(s);
     const info = s.renderer.info;
     Object.assign(s.debug, {
         frames: s.debug.frames + 1,
         cameraX: s.camera.position.x, cameraY: s.camera.position.y, cameraZ: s.camera.position.z,
         drawCalls: info.render.calls, triangles: info.render.triangles,
-        geometries: info.memory.geometries, textures: info.memory.textures
+        geometries: info.memory.geometries, textures: info.memory.textures, programs: info.programs?.length ?? 0
+    });
+}
+
+// Sonda testów: ekranowe prostokąty wnętrza płócien (20% marginesu od krawędzi) w pikselach CSS dla bieżącej klatki.
+// Wektor tworzony przy pierwszym użyciu — THREE jest ładowany leniwie (na poziomie modułu jeszcze go nie ma,
+// np. w ścieżce CSS, gdzie moduł sali jest importowany bez Three.js).
+let probeCorner = null;
+function paintingRects(s) {
+    probeCorner ??= new THREE.Vector3();
+    const rect = s.renderer.domElement.getBoundingClientRect();
+    return s.scene.children.filter(o => o.userData.painting).map(o => {
+        const xs = [], ys = [];
+        for (const [u, v] of [[-0.3, -0.3], [0.3, -0.3], [0.3, 0.3], [-0.3, 0.3]]) {
+            probeCorner.set(u * 1.1, v * 0.76, 0).applyMatrix4(o.matrixWorld).project(s.camera);
+            if (probeCorner.z > 1) return null;   // za kamerą
+            xs.push(rect.left + (probeCorner.x + 1) / 2 * rect.width);
+            ys.push(rect.top + (1 - probeCorner.y) / 2 * rect.height);
+        }
+        return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
     });
 }
 
@@ -1724,6 +1851,26 @@ export function setWanted(posters) {
     s.dirty = true;
 }
 
+// Mistrz Stołu na plakietce pod szyldem stołu: { title, alias, stars } albo { empty } (teksty z serwera).
+export function setChampion(champion) {
+    const s = state;
+    if (!s || !champion) return;
+    s.zones.game.redrawChampion(champion);
+    s.debug.champion = champion.alias ? `${champion.alias} ${champion.stars}` : "";
+    s.dirty = true;
+}
+
+// Zmiana języka (Sprint 22): nowe napisy w tych samych teksturach — scena, kamera, strefa i stan zostają.
+export function setLanguage(next) {
+    labels = { ...LABELS_PL, ...(next ?? {}) };
+    const s = state;
+    if (!s) return;
+    for (const redraw of relabel) redraw();
+    s.debug.labels = { game: label("game"), music: label("music"), round: label("round") };
+    s.debug.relabels++;
+    s.dirty = true;
+}
+
 // Powrót do kadru głównego Main Hall.
 export function resetView() {
     const s = state;
@@ -1742,6 +1889,7 @@ export function dispose() {
     const s = state;
     if (!s) return;
     state = null;
+    relabel = [];
     s.move?.resolve();
     s.resize?.disconnect();
     s.themeObserver?.disconnect();

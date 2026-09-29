@@ -2,19 +2,19 @@
    Fraza i temat są w adresie; zmiana tematu to ten sam poziom (bez nowego wpisu historii). *@
 <div class="bar-search-view stack">
     <div class="bar-search-filter">
-        <label for="bar-search-topic">Temat</label>
+        <label for="bar-search-topic">@L["Temat"]</label>
         <select id="bar-search-topic" class="select" value="@(State.Category is PostCategory c ? CategoryMeta.Slug(c) : "")" @onchange="OnTopicChanged">
-            <option value="">Wszystkie tematy</option>
+            <option value="">@L["Wszystkie tematy"]</option>
             @foreach (var topic in CategoryMeta.All)
             {
-                <option value="@CategoryMeta.Slug(topic)">@topic.DisplayName()</option>
+                <option value="@CategoryMeta.Slug(topic)">@L[topic.DisplayName()]</option>
             }
         </select>
     </div>
 
     @if (State.Query.Length == 0)
     {
-        <p id="bar-search-hint" class="text-sm subtle search-hint" role="status">Wpisz, czego szukasz — tytuły, treść rozmów i przydomki autorów.</p>
+        <p id="bar-search-hint" class="text-sm subtle search-hint" role="status">@L["Wpisz, czego szukasz — tytuły, treść rozmów i przydomki autorów."]</p>
     }
     else
     {

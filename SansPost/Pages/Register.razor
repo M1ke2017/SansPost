@@ -7,42 +7,42 @@
 @inject UiServices Ui
 @inject IOptions<PublicDemoOptions> DemoOptions
 
-<PageTitle>Załóż konto · SansPost</PageTitle>
+<PageTitle>@L["Załóż konto · SansPost"]</PageTitle>
 
 <div class="auth-shell stack">
     <div class="page-header" style="margin-bottom: 0">
         <div>
-            <h1>Załóż konto</h1>
-            <p>Konto pozwala publikować posty, komentować, reagować i zgłaszać treści.</p>
+            <h1>@L["Załóż konto"]</h1>
+            <p>@L["Konto pozwala publikować posty, komentować, reagować i zgłaszać treści."]</p>
         </div>
     </div>
 
     @if (availability == Availability.Checking)
     {
-        <p class="muted" role="status">Sprawdzanie dostępności rejestracji…</p>
+        <p class="muted" role="status">@L["Sprawdzanie dostępności rejestracji…"]</p>
     }
     else if (availability == Availability.Disabled)
     {
         @* Formularz nie udaje, że działa — pokazujemy stan i alternatywę. *@
         <EmptyState Title="Rejestracja jest obecnie wyłączona" IconName="@Icons.Lock" Variant="AlertVariant.Warning"
                     Text="Nowe konta są chwilowo niedostępne. Nadal możesz przeglądać wszystkie posty i dyskusje.">
-            <a class="btn btn-primary" href="@SaloonRoutes.Hub">Przeglądaj posty</a>
-            <a class="btn" href="/login">Mam już konto</a>
+            <a class="btn btn-primary" href="@SaloonRoutes.Hub">@L["Przeglądaj posty"]</a>
+            <a class="btn" href="/login">@L["Mam już konto"]</a>
         </EmptyState>
     }
     else if (availability == Availability.CapacityReached)
     {
         <EmptyState Title="Limit kont został osiągnięty" IconName="@Icons.Users" Variant="AlertVariant.Warning"
                     Text="Publiczna wersja SansPost ma ograniczoną liczbę kont i wszystkie miejsca są zajęte. Wszystkie treści możesz czytać bez konta.">
-            <a class="btn btn-primary" href="@SaloonRoutes.Hub">Przeglądaj posty</a>
-            <a class="btn" href="/login">Mam już konto</a>
+            <a class="btn btn-primary" href="@SaloonRoutes.Hub">@L["Przeglądaj posty"]</a>
+            <a class="btn" href="/login">@L["Mam już konto"]</a>
         </EmptyState>
     }
     else
     {
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <Alert Variant="@errorVariant">@errorMessage</Alert>
+            <Alert Variant="@errorVariant">@L.Text(errorMessage)</Alert>
         }
 
         <div class="card">
@@ -55,38 +55,38 @@
                     <AliasPicker @bind-Alias="alias" />
 
                     <div class="field">
-                        <label class="field-label" for="email">Email</label>
-                        <input class="input" type="email" id="email" name="Email" maxlength="254" autocomplete="email" required
+                        <label class="field-label" for="email">@L["Email"]</label>
+                        <input class="input" type="email" id="email" name="@L["Email"]" maxlength="254" autocomplete="email" required
                                aria-describedby="email-hint" aria-invalid="@(identityTaken ? "true" : null)" />
-                        <span class="field-hint" id="email-hint">Nie jest nigdzie wyświetlany.</span>
+                        <span class="field-hint" id="email-hint">@L["Nie jest nigdzie wyświetlany."]</span>
                     </div>
 
                     <div class="field">
-                        <label class="field-label" for="password">Hasło</label>
+                        <label class="field-label" for="password">@L["Hasło"]</label>
                         <PasswordInput Id="password" Name="Password" Autocomplete="new-password" DescribedBy="password-hint"
                                        MinLength="PasswordPolicy.MinLength" MaxLength="PasswordPolicy.MaxLength" />
-                        <span class="field-hint" id="password-hint">@PasswordPolicy.MinLength–@PasswordPolicy.MaxLength znaków.</span>
+                        <span class="field-hint" id="password-hint">@L.Format("{0}–{1} znaków.", PasswordPolicy.MinLength, PasswordPolicy.MaxLength)</span>
                     </div>
 
                     <div class="field">
-                        <label class="field-label" for="confirmPassword">Powtórz hasło</label>
+                        <label class="field-label" for="confirmPassword">@L["Powtórz hasło"]</label>
                         <PasswordInput Id="confirmPassword" Name="ConfirmPassword" Autocomplete="new-password"
                                        MaxLength="PasswordPolicy.MaxLength" Invalid="passwordMismatch"
                                        DescribedBy="@(passwordMismatch ? "confirm-error" : null)" />
                         @if (passwordMismatch)
                         {
-                            <span class="field-error" id="confirm-error"><Icon Name="@Icons.AlertCircle" Size="16" /> Hasła nie są identyczne.</span>
+                            <span class="field-error" id="confirm-error"><Icon Name="@Icons.AlertCircle" Size="16" /> @L["Hasła nie są identyczne."]</span>
                         }
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-lg btn-block" data-loading-text="Tworzenie konta…">Załóż konto</button>
+                    <button type="submit" class="btn btn-primary btn-lg btn-block" data-loading-text="Tworzenie konta…">@L["Załóż konto"]</button>
                     </FormGate>
                 </form>
             </div>
         </div>
     }
 
-    <p class="muted text-sm" style="text-align: center">Masz już konto? <a href="/login">Zaloguj się</a></p>
+    <p class="muted text-sm" style="text-align: center">@L["Masz już konto?"] <a href="/login">@L["Zaloguj się"]</a></p>
 </div>
 
 @code {

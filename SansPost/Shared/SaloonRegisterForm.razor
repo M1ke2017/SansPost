@@ -9,23 +9,23 @@
    Zasady (limit kont, wyłączona rejestracja, unikalność przydomka i emaila) rozstrzyga serwer, jak na stronie /register. *@
 @if (availability == Availability.Checking)
 {
-    <p class="muted" role="status">Sprawdzanie wolnych miejsc w Saloonie…</p>
+    <p class="muted" role="status">@L["Sprawdzanie wolnych miejsc w Saloonie…"]</p>
 }
 else if (availability != Availability.Open)
 {
     <Alert Variant="AlertVariant.Warning" Title="@(availability == Availability.Disabled ? "Rejestracja jest obecnie wyłączona" : "Limit kont został osiągnięty")">
-        Wszystkie treści możesz czytać bez konta.
+        @L["Wszystkie treści możesz czytać bez konta."]
     </Alert>
     @if (OnGuest.HasDelegate)
     {
-        <button type="button" class="btn btn-primary btn-lg btn-block card-submit" @onclick="OnGuest">Wejdź jako gość</button>
+        <button type="button" class="btn btn-primary btn-lg btn-block card-submit" @onclick="OnGuest">@L["Wejdź jako gość"]</button>
     }
 }
 else
 {
     @if (error is not null)
     {
-        <Alert Variant="@errorVariant">@error</Alert>
+        <Alert Variant="@errorVariant">@L.Text(error)</Alert>
     }
 
     <form class="card-form stack" method="post" action="auth/register" data-return-url="@ReturnUrl" @ref="form" @onsubmit="SubmitAsync">
@@ -33,32 +33,32 @@ else
         <AliasPicker @ref="picker" @bind-Alias="alias" />
 
         <div class="field">
-            <label class="field-label" for="@($"{IdPrefix}-email")">Email</label>
-            <input class="input" type="email" id="@($"{IdPrefix}-email")" name="Email" maxlength="254" autocomplete="email" required autofocus
+            <label class="field-label" for="@($"{IdPrefix}-email")">@L["Email"]</label>
+            <input class="input" type="email" id="@($"{IdPrefix}-email")" name="@L["Email"]" maxlength="254" autocomplete="email" required autofocus
                    aria-describedby="@($"{IdPrefix}-email-hint")" aria-invalid="@(identityTaken ? "true" : null)" />
-            <span class="field-hint" id="@($"{IdPrefix}-email-hint")">Nie jest nigdzie wyświetlany.</span>
+            <span class="field-hint" id="@($"{IdPrefix}-email-hint")">@L["Nie jest nigdzie wyświetlany."]</span>
         </div>
 
         <div class="field">
-            <label class="field-label" for="@($"{IdPrefix}-password")">Hasło</label>
+            <label class="field-label" for="@($"{IdPrefix}-password")">@L["Hasło"]</label>
             <PasswordInput Id="@($"{IdPrefix}-password")" Name="Password" Autocomplete="new-password" DescribedBy="@($"{IdPrefix}-password-hint")"
                            MinLength="PasswordPolicy.MinLength" MaxLength="PasswordPolicy.MaxLength" />
-            <span class="field-hint" id="@($"{IdPrefix}-password-hint")">@PasswordPolicy.MinLength–@PasswordPolicy.MaxLength znaków.</span>
+            <span class="field-hint" id="@($"{IdPrefix}-password-hint")">@L.Format("{0}–{1} znaków.", PasswordPolicy.MinLength, PasswordPolicy.MaxLength)</span>
         </div>
 
         <div class="field">
-            <label class="field-label" for="@($"{IdPrefix}-confirm")">Powtórz hasło</label>
+            <label class="field-label" for="@($"{IdPrefix}-confirm")">@L["Powtórz hasło"]</label>
             <PasswordInput Id="@($"{IdPrefix}-confirm")" Name="ConfirmPassword" Autocomplete="new-password"
                            MaxLength="PasswordPolicy.MaxLength" Invalid="passwordMismatch" />
         </div>
 
         <button type="submit" class="btn btn-primary btn-lg btn-block card-submit" aria-busy="@(busy ? "true" : "false")">
-            @(busy ? "Otwieranie drzwi…" : "Dołącz do Saloonu")
+            @(busy ? L["Otwieranie drzwi…"] : L["Dołącz do Saloonu"])
         </button>
     </form>
 }
 
-<p class="card-switch">Masz już konto? <button type="button" class="card-link" @onclick="OnSwitchToLogin">Zaloguj się</button></p>
+<p class="card-switch">@L["Masz już konto?"] <button type="button" class="card-link" @onclick="OnSwitchToLogin">@L["Zaloguj się"]</button></p>
 
 @code {
     private enum Availability { Checking, Open, Disabled, CapacityReached }

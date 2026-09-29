@@ -5,28 +5,29 @@
 @inject UiServices Ui
 @inject IJSRuntime JS
 @inject ILogger<MainLayout> Logger
+@inject Loc L
 
-<a class="skip-link" href="#main">Przejdź do treści</a>
+<a class="skip-link" href="#main">@L["Przejdź do treści"]</a>
 
 <div class="app">
     <header class="app-header">
         <div class="app-header-inner">
             <Logo />
 
-            <nav class="primary-nav" aria-label="Główna nawigacja">
-                <NavLink class="nav-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.Compass" /> Odkrywaj</NavLink>
-                <NavLink class="nav-link" href="/categories"><Icon Name="@Icons.Grid" /> Kategorie</NavLink>
+            <nav class="primary-nav" aria-label="@L["Główna nawigacja"]">
+                <NavLink class="nav-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.Compass" /> @L["Odkrywaj"]</NavLink>
+                <NavLink class="nav-link" href="/categories"><Icon Name="@Icons.Grid" /> @L["Kategorie"]</NavLink>
             </nav>
 
             <div class="header-actions">
                 <form class="header-search" role="search" @onsubmit="SubmitSearchAsync">
                     <Icon Name="@Icons.Search" Size="16" />
-                    <label class="visually-hidden" for="header-search">Szukaj postów</label>
-                    <input id="header-search" class="input" type="search" placeholder="Szukaj postów…" maxlength="100"
+                    <label class="visually-hidden" for="header-search">@L["Szukaj postów"]</label>
+                    <input id="header-search" class="input" type="search" placeholder="@L["Szukaj postów…"]" maxlength="100"
                            autocomplete="off" @bind="headerQuery" />
                 </form>
 
-                <a class="btn btn-ghost btn-icon header-search-icon" href="/search" aria-label="Szukaj" title="Szukaj">
+                <a class="btn btn-ghost btn-icon header-search-icon" href="/search" aria-label="@L["Szukaj"]" title="@L["Szukaj"]">
                     <Icon Name="@Icons.Search" />
                 </a>
 
@@ -35,16 +36,16 @@
                     <CascadingValue Value="viewer"><NotificationBell /></CascadingValue>
                 }
 
-                <ThemeToggle />
+                <LanguageToggle /><ThemeToggle />
 
                 @if (viewer is null)
                 {
-                    <a class="btn btn-ghost header-desktop-only" href="@LoginHref">Zaloguj się</a>
-                    <a class="btn btn-primary" href="/register">Załóż konto</a>
+                    <a class="btn btn-ghost header-desktop-only" href="@LoginHref">@L["Zaloguj się"]</a>
+                    <a class="btn btn-primary" href="/register">@L["Załóż konto"]</a>
                 }
                 else
                 {
-                    <a class="btn btn-primary header-desktop-only" href="/new"><Icon Name="@Icons.Cactus" /> Nowy post</a>
+                    <a class="btn btn-primary header-desktop-only" href="/new"><Icon Name="@Icons.Cactus" /> @L["Nowy post"]</a>
 
                     <div class="menu header-desktop-only">
                         <button type="button" class="menu-trigger" id="user-menu-trigger" aria-haspopup="true"
@@ -58,16 +59,16 @@
                         {
                             <button type="button" class="menu-backdrop" tabindex="-1" aria-hidden="true" @onclick="CloseMenu"></button>
                             <div class="menu-panel" id="user-menu" @onkeydown="MenuKeyDown">
-                                <div class="menu-heading truncate">Zalogowano jako <strong>@viewer.Username</strong></div>
-                                <a class="menu-item" href="@UiText.ProfileUrl(viewer.Username)"><Icon Name="@Icons.User" /> Mój profil</a>
-                                <a class="menu-item" href="/me"><Icon Name="@Icons.FileText" /> Moje konto i posty</a>
+                                <div class="menu-heading truncate">@L["Zalogowano jako"] <strong>@viewer.Username</strong></div>
+                                <a class="menu-item" href="@UiText.ProfileUrl(viewer.Username)"><Icon Name="@Icons.User" /> @L["Mój profil"]</a>
+                                <a class="menu-item" href="/me"><Icon Name="@Icons.FileText" /> @L["Moje konto i posty"]</a>
                                 @if (viewer.IsAdmin)
                                 {
-                                    <a class="menu-item" href="/admin/moderation"><Icon Name="@Icons.Shield" /> Moderacja</a>
+                                    <a class="menu-item" href="/admin/moderation"><Icon Name="@Icons.Shield" /> @L["Moderacja"]</a>
                                 }
                                 <form method="post" action="auth/logout">
                                     <AntiforgeryField />
-                                    <button type="submit" class="menu-item"><Icon Name="@Icons.LogOut" /> Wyloguj się</button>
+                                    <button type="submit" class="menu-item"><Icon Name="@Icons.LogOut" /> @L["Wyloguj się"]</button>
                                 </form>
                             </div>
                         }
@@ -82,7 +83,7 @@
         <div class="account-banner" role="status">
             <div class="account-banner-inner">
                 <Icon Name="@Icons.Pause" />
-                <span><strong>Konto zawieszone.</strong> Możesz przeglądać SansPost, ale publikowanie jest obecnie niedostępne (posty, komentarze, reakcje i zgłoszenia).</span>
+                <span><strong>@L["Konto zawieszone."]</strong> @L["Możesz przeglądać SansPost, ale publikowanie jest obecnie niedostępne (posty, komentarze, reakcje i zgłoszenia)."]</span>
             </div>
         </div>
     }
@@ -92,10 +93,10 @@
             <ErrorBoundary @ref="errorBoundary">
                 <ChildContent>@Body</ChildContent>
                 <ErrorContent>
-                    <EmptyState Title="Coś poszło nie tak" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger"
-                                Text="Nie udało się wyświetlić tej strony. Spróbuj ponownie — jeśli problem się powtarza, wróć za chwilę.">
-                        <button type="button" class="btn btn-primary" @onclick="Recover"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
-                        <a class="btn" href="@SaloonRoutes.Hub">Wróć do odkrywania</a>
+                    <EmptyState Title="@L["Coś poszło nie tak"]" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger"
+                                Text="@L["Nie udało się wyświetlić tej strony. Spróbuj ponownie — jeśli problem się powtarza, wróć za chwilę."]">
+                        <button type="button" class="btn btn-primary" @onclick="Recover"><Icon Name="@Icons.Refresh" /> @L["Spróbuj ponownie"]</button>
+                        <a class="btn" href="@SaloonRoutes.Hub">@L["Wróć do odkrywania"]</a>
                     </EmptyState>
                 </ErrorContent>
             </ErrorBoundary>
@@ -107,25 +108,25 @@
 
     <footer class="app-footer">
         <div class="app-footer-inner">
-            <span>SansPost · otwarta przestrzeń rozmów · projekt portfolio działający na żywo</span>
-            <span>Masz uwagi? <a href="@CategoryMeta.Url(PostCategory.Feedback)">Napisz w kategorii Feedback</a></span>
+            <span>@L["SansPost · otwarta przestrzeń rozmów · projekt portfolio działający na żywo"]</span>
+            <span>@L["Masz uwagi?"] <a href="@CategoryMeta.Url(PostCategory.Feedback)">@L["Napisz w kategorii Feedback"]</a></span>
         </div>
     </footer>
 
-    <nav class="bottom-nav" aria-label="Nawigacja">
-        <NavLink href="@SaloonRoutes.Hub"><Icon Name="@Icons.Compass" Size="22" /><span>Odkrywaj</span></NavLink>
-        <NavLink href="/search"><Icon Name="@Icons.Search" Size="22" /><span>Szukaj</span></NavLink>
+    <nav class="bottom-nav" aria-label="@L["Nawigacja"]">
+        <NavLink href="@SaloonRoutes.Hub"><Icon Name="@Icons.Compass" Size="22" /><span>@L["Odkrywaj"]</span></NavLink>
+        <NavLink href="/search"><Icon Name="@Icons.Search" Size="22" /><span>@L["Szukaj"]</span></NavLink>
         <NavLink href="@(viewer is null ? "/login?returnUrl=%2Fnew" : "/new")" class="bottom-nav-primary">
-            <span class="bubble"><Icon Name="@Icons.Plus" Size="20" StrokeWidth="2.2" /></span><span>Nowy post</span>
+            <span class="bubble"><Icon Name="@Icons.Plus" Size="20" StrokeWidth="2.2" /></span><span>@L["Nowy post"]</span>
         </NavLink>
-        <NavLink href="/categories"><Icon Name="@Icons.Grid" Size="22" /><span>Kategorie</span></NavLink>
+        <NavLink href="/categories"><Icon Name="@Icons.Grid" Size="22" /><span>@L["Kategorie"]</span></NavLink>
         @if (viewer is null)
         {
-            <NavLink href="/login"><Icon Name="@Icons.LogIn" Size="22" /><span>Zaloguj</span></NavLink>
+            <NavLink href="/login"><Icon Name="@Icons.LogIn" Size="22" /><span>@L["Zaloguj"]</span></NavLink>
         }
         else
         {
-            <NavLink href="/me"><Icon Name="@Icons.User" Size="22" /><span>Konto</span></NavLink>
+            <NavLink href="/me"><Icon Name="@Icons.User" Size="22" /><span>@L["Konto"]</span></NavLink>
         }
     </nav>
 
@@ -153,6 +154,7 @@
     {
         Navigation.LocationChanged += OnLocationChanged;
         AuthProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        L.Changed += OnLanguageChanged;
         await LoadViewerAsync(AuthProvider.GetAuthenticationStateAsync());
     }
 
@@ -262,5 +264,9 @@
     {
         Navigation.LocationChanged -= OnLocationChanged;
         AuthProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        L.Changed -= OnLanguageChanged;
     }
+
+    // Layout nie dziedziczy LocalizedComponentBase (LayoutComponentBase) — odświeża się sam po zmianie języka.
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
 }

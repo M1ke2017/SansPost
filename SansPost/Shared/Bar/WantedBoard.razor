@@ -10,23 +10,23 @@
    na tablicy 3D pokazuje ten sam przydomek. *@
 <div class="wanted-board">
     <p class="wanted-intro">
-        Najgłośniejsze rozmowy Saloonu z ostatnich 7 dni. Ich autorzy są poszukiwani — za rozmowy, które poruszyły salę.
+        @L["Najgłośniejsze rozmowy Saloonu z ostatnich 7 dni. Ich autorzy są poszukiwani — za rozmowy, które poruszyły salę."]
     </p>
 
     @if (failed)
     {
-        <Alert Variant="AlertVariant.Warning">Nie udało się przybić listów gończych. Spróbuj ponownie za chwilę.</Alert>
-        <button type="button" class="btn btn-sm wanted-retry" @onclick="LoadAsync">Spróbuj ponownie</button>
+        <Alert Variant="AlertVariant.Warning">@L["Nie udało się przybić listów gończych. Spróbuj ponownie za chwilę."]</Alert>
+        <button type="button" class="btn btn-sm wanted-retry" @onclick="LoadAsync">@L["Spróbuj ponownie"]</button>
     }
     else if (posters is null)
     {
-        <p class="wanted-loading" role="status">Przybijamy listy gończe…</p>
+        <p class="wanted-loading" role="status">@L["Przybijamy listy gończe…"]</p>
     }
     else if (posters.Count == 0)
     {
         <div class="wanted-empty" role="status">
-            <p class="wanted-empty-title">Tablica czeka na pierwszą rozmowę.</p>
-            <p class="wanted-empty-text">Gdy w barze zacznie się rozmowa, jej autor zawiśnie tu jako pierwszy poszukiwany.</p>
+            <p class="wanted-empty-title">@L["Tablica czeka na pierwszą rozmowę."]</p>
+            <p class="wanted-empty-text">@L["Gdy w barze zacznie się rozmowa, jej autor zawiśnie tu jako pierwszy poszukiwany."]</p>
         </div>
     }
     else
@@ -35,7 +35,7 @@
         <article @key="main.PostId" class="wanted-poster is-featured" aria-labelledby="wanted-title-@main.PostId" aria-describedby="wanted-alias-@main.PostId">
             <p class="wanted-poster-kicker">Most Wanted</p>
             <p class="wanted-poster-alias" id="wanted-alias-@main.PostId">@main.Alias</p>
-            <p class="wanted-poster-reason">za rozmowę, która rozpaliła Saloon</p>
+            <p class="wanted-poster-reason">@L["za rozmowę, która rozpaliła Saloon"]</p>
             <h3 class="wanted-poster-title" id="wanted-title-@main.PostId">
                 <button type="button" class="wanted-open" data-wanted-post="@main.PostId" @onclick="() => OnOpen.InvokeAsync(main.PostId)">@main.Title</button>
             </h3>
@@ -46,12 +46,12 @@
         @if (posters.Count > 1)
         {
             <section class="wanted-others" aria-labelledby="wanted-others-title">
-                <h3 class="wanted-others-title" id="wanted-others-title">Pozostali poszukiwani</h3>
+                <h3 class="wanted-others-title" id="wanted-others-title">@L["Pozostali poszukiwani"]</h3>
                 <ol class="wanted-list">
                     @foreach (var poster in posters.Skip(1))
                     {
                         <li @key="poster.PostId" class="wanted-poster is-small">
-                            <p class="wanted-rank"><span class="visually-hidden">Miejsce </span><span aria-hidden="true">#</span>@poster.Rank</p>
+                            <p class="wanted-rank"><span class="visually-hidden">@(L["Miejsce"] + " ")</span><span aria-hidden="true">#</span>@poster.Rank</p>
                             <p class="wanted-poster-alias" id="wanted-alias-@poster.PostId">@poster.Alias</p>
                             <h4 class="wanted-poster-title" id="wanted-title-@poster.PostId">
                                 <button type="button" class="wanted-open" data-wanted-post="@poster.PostId" @onclick="() => OnOpen.InvokeAsync(poster.PostId)">@poster.Title</button>
@@ -66,9 +66,9 @@
         <p class="wanted-rule">
             @if (posters.Any(p => !p.InWindow))
             {
-                <span>W ostatnich 7 dniach było mniej rozmów — tablicę uzupełniają najnowsze wcześniejsze. </span>
+                <span>@(L["W ostatnich 7 dniach było mniej rozmów — tablicę uzupełniają najnowsze wcześniejsze."] + " ")</span>
             }
-            Kolejność: reakcje + komentarze. Przy remisie wyżej wisi rozmowa z większą liczbą reakcji, potem komentarzy, potem nowsza.
+            @L["Kolejność: reakcje + komentarze. Przy remisie wyżej wisi rozmowa z większą liczbą reakcji, potem komentarzy, potem nowsza."]
         </p>
     }
 </div>
@@ -150,12 +150,12 @@
         await OnLoaded.InvokeAsync(posters);
     }
 
-    private static RenderFragment Meta(WantedPosterResponse poster) =>
+    private RenderFragment Meta(WantedPosterResponse poster) =>
         @<p class="wanted-poster-meta">
-            <span class="wanted-category @CategoryMeta.CssClass(poster.Category)"><Icon Name="@CategoryMeta.Icon(poster.Category)" Size="13" StrokeWidth="2" /> @poster.Category.DisplayName()</span>
+            <span class="wanted-category @CategoryMeta.CssClass(poster.Category)"><Icon Name="@CategoryMeta.Icon(poster.Category)" Size="13" StrokeWidth="2" /> @L[poster.Category.DisplayName()]</span>
             <TimeAgo Value="poster.CreatedAt" />
-            <span>@UiText.Reactions(poster.ReactionCount)</span>
-            <span>@UiText.Comments(poster.CommentCount)</span>
+            <span>@UiText.Reactions(L, poster.ReactionCount)</span>
+            <span>@UiText.Comments(L, poster.CommentCount)</span>
             @if (!poster.InWindow)
             {
                 <span class="wanted-older">sprzed tygodnia</span>

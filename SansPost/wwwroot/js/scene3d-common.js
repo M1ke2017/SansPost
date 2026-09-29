@@ -227,6 +227,36 @@ export function createRenderer(host, force) {
     return renderer;
 }
 
+// Render na żądanie (Sprint 23): pętla animacji (requestAnimationFrame) działa tylko wtedy, gdy jest co rysować.
+// view.dirty = true budzi pętlę; tick woła view.sleep(), gdy nic się nie zmienia — w spoczynku zero wywołań rAF
+// (wcześniej pętla kręciła się 60×/s tylko po to, żeby stwierdzić, że nie ma nic do narysowania).
+export function renderOnDemand(view, tick, isCurrent) {
+    let dirty = !!view.dirty;
+    view.looping = false;
+    const wake = () => {
+        if (view.looping || !isCurrent()) return;
+        view.looping = true;
+        if (view.debug) view.debug.looping = true;
+        view.renderer.setAnimationLoop(tick);
+    };
+    Object.defineProperty(view, "dirty", {
+        get: () => dirty,
+        set: value => { dirty = value; if (value) wake(); },
+        enumerable: true, configurable: true
+    });
+    view.wake = wake;
+    // Zatrzymanie po zakończeniu bieżącej klatki: WebGLRenderer (r170) po wywołaniu naszego ticka zamawia następną
+    // klatkę, więc setAnimationLoop(null) z wnętrza ticka nic by nie dało — pętla kręciłaby się dalej z pustym callbackiem.
+    view.sleep = () => {
+        view.looping = false;
+        if (view.debug) view.debug.looping = false;
+        queueMicrotask(() => {
+            if (!view.looping && isCurrent()) view.renderer.setAnimationLoop(null);
+        });
+    };
+    wake();
+}
+
 // Zwolnienie wszystkiego, co scena trzyma na GPU: geometrie, materiały, tekstury, renderer, kontekst WebGL, canvas.
 export function disposeScene(scene, renderer) {
     scene.traverse(obj => {

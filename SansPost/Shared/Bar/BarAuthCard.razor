@@ -9,14 +9,14 @@
     <button type="button" class="bar-back" @onclick="OnBack">
         <Icon Name="@Icons.ArrowLeft" Size="16" /> @BackLabel
     </button>
-    <h3 id="bar-auth-title" class="bar-level-title" tabindex="-1">@State.Title</h3>
+    <h3 id="bar-auth-title" class="bar-level-title" tabindex="-1">@State.TitleFor(L)</h3>
     <p class="bar-level-intro">@Intro</p>
 
     @if (Viewer is not null)
     {
         @* Wpis historii karty po zalogowaniu (np. "wstecz" z innej strony) — bez ponownego formularza. *@
-        <p class="text-sm">Jesteś już zalogowany jako <strong>@Viewer.Username</strong>.</p>
-        <a class="btn btn-primary btn-lg btn-block" href="@State.Next">Przejdź dalej</a>
+        <p class="text-sm">@L["Jesteś już zalogowany jako"] <strong>@Viewer.Username</strong>.</p>
+        <a class="btn btn-primary btn-lg btn-block" href="@State.Next">@L["Przejdź dalej"]</a>
     }
     else if (State.View == BarView.Login)
     {
@@ -39,15 +39,15 @@
     [Parameter] public EventCallback<BarView> OnSwitch { get; set; }
     [Parameter] public EventCallback OnRegisteredWithoutSignIn { get; set; }
 
-    private string BackLabel => State.Origin is { } origin ? (origin.View == BarView.Conversation ? "Wróć do rozmowy" : $"Wróć: {origin.Title}") : "Wróć do sali";
+    private string BackLabel => State.Origin is { } origin ? (origin.View == BarView.Conversation ? L["Wróć do rozmowy"] : L.Format("Wróć: {0}", origin.TitleFor(L))) : L["Wróć do sali"];
 
     private string Intro => (State.Next ?? "").StartsWith("/new", StringComparison.OrdinalIgnoreCase)
-        ? "Po zalogowaniu od razu przejdziesz do formularza nowej rozmowy."
+        ? L["Po zalogowaniu od razu przejdziesz do formularza nowej rozmowy."]
         : State.Origin?.View == BarView.Conversation
-            ? "Po zalogowaniu wrócisz do tej rozmowy — z reakcjami i komentarzami."
+            ? L["Po zalogowaniu wrócisz do tej rozmowy — z reakcjami i komentarzami."]
             : State.IsGame
-                ? "Po zalogowaniu wrócisz do stołu gry i zaczniesz pojedynek treningowy."
-                : "Po zalogowaniu wrócisz w to samo miejsce w Saloonie.";
+                ? L["Po zalogowaniu wrócisz do stołu gry i zaczniesz pojedynek treningowy."]
+                : L["Po zalogowaniu wrócisz w to samo miejsce w Saloonie."];
 
     // Nowe cookie wymaga nowego circuitu: pełne przeładowanie pod zweryfikowany przez serwer adres, zamiast wpisu karty.
     private void SignedIn(AuthPostResult result) => Navigation.NavigateTo(result.ReturnTo, forceLoad: true, replace: true);

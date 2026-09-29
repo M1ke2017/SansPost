@@ -1,12 +1,14 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject IJSRuntime JS
+@inject Loc L
 
 @* Entrance to samodzielna scena: bez nagłówka aplikacji, nawigacji, wyszukiwarki, dolnego paska i stopki.
    Zostaje tylko to, co potrzebne każdej stronie: skip link, <main> (cel skip linku) i przełącznik motywu. *@
-<a class="skip-link" href="#main">Przejdź do treści</a>
+<a class="skip-link" href="#main">@L["Przejdź do treści"]</a>
 
 <main id="main" class="entrance-main" tabindex="-1">
-    <div class="entrance-theme"><ThemeToggle /></div>
+    <div class="entrance-theme"><LanguageToggle /><ThemeToggle /></div>
     @Body
 </main>
 
@@ -14,6 +16,13 @@
 <MiniPlayer />
 
 @code {
+    // Layout nie dziedziczy LocalizedComponentBase — odświeża się sam po zmianie języka.
+    protected override void OnInitialized() => L.Changed += OnLanguageChanged;
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Znacznik "circuit podłączony" — ten sam co w MainLayout (E2E i diagnostyka).

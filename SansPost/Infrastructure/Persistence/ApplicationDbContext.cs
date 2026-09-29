@@ -25,6 +25,7 @@ namespace SansPost.Infrastructure.Persistence
         public DbSet<ModerationAction> ModerationActions { get; set; }
         public DbSet<RegistrationGate> RegistrationGates { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<SansPost.Features.Duels.DuelResultRecord> DuelResults { get; set; }
 
         private const string PublishedOnly = "status = 'Published'";
 
@@ -279,6 +280,32 @@ namespace SansPost.Infrastructure.Persistence
                 notification.HasIndex(n => n.UserId)
                     .HasFilter("readat IS NULL")
                     .HasDatabaseName("IX_notifications_unread");
+            });
+
+            modelBuilder.Entity<SansPost.Features.Duels.DuelResultRecord>(result =>
+            {
+                EnumAsText(result, r => r.ResultType, "resulttype", "duelresults");
+                EnumAsText(result, r => r.FinishReason, "finishreason", "duelresults");
+
+                // Historia wyników zostaje — konta nie są usuwane fizycznie, a gdyby były, baza tego nie pozwoli po cichu.
+                result.HasOne(r => r.PlayerOne).WithMany().HasForeignKey(r => r.PlayerOneId).OnDelete(DeleteBehavior.Restrict);
+                result.HasOne(r => r.PlayerTwo).WithMany().HasForeignKey(r => r.PlayerTwoId).OnDelete(DeleteBehavior.Restrict);
+                result.HasOne(r => r.Winner).WithMany().HasForeignKey(r => r.WinnerId).OnDelete(DeleteBehavior.Restrict);
+
+                // Idempotencja: jeden wynik na pojedynek (drugi zapis tego samego DuelId kończy się naruszeniem UNIQUE).
+                result.HasIndex(r => r.DuelId).IsUnique().HasDatabaseName("UX_duelresults_duel");
+                // Statystyki gracza i ranking: udział po stronie jednego albo drugiego gracza, zwycięstwa.
+                result.HasIndex(r => r.PlayerOneId).HasDatabaseName("IX_duelresults_playerone");
+                result.HasIndex(r => r.PlayerTwoId).HasDatabaseName("IX_duelresults_playertwo");
+                result.HasIndex(r => r.WinnerId).HasDatabaseName("IX_duelresults_winner");
+
+                result.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_duelresults_players", "playeroneid <> playertwoid");
+                    t.HasCheckConstraint("CK_duelresults_winner",
+                        "(resulttype = 'Draw' AND winnerid IS NULL) OR (resulttype = 'Win' AND winnerid IN (playeroneid, playertwoid))");
+                    t.HasCheckConstraint("CK_duelresults_rounds", "roundcount >= 0");
+                });
             });
 
             if (Database.IsNpgsql())

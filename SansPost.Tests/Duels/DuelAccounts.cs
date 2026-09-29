@@ -28,6 +28,8 @@ namespace SansPost.Tests.Duels
             var services = new ServiceCollection();
             services.AddScoped(_ => CreateContext());
             services.AddScoped(provider => TestServices.Guard(provider.GetRequiredService<ApplicationDbContext>()));
+            services.AddMemoryCache();
+            services.AddScoped<DuelStandingsService>();
             _services = services.BuildServiceProvider();
         }
 
@@ -36,10 +38,10 @@ namespace SansPost.Tests.Duels
         public ApplicationDbContext CreateContext() =>
             new(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(_connectionString).Options);
 
-        public int Add()
+        public int Add(string? username = null)
         {
             using var context = CreateContext();
-            var name = TestUsers.RawName("gs");
+            var name = username ?? TestUsers.RawName("gs");
             var user = new User
             {
                 Username = name,
@@ -59,6 +61,18 @@ namespace SansPost.Tests.Duels
             using var context = CreateContext();
             context.Users.Single(u => u.Id == userId).Status = status;
             context.SaveChanges();
+        }
+
+        public T WithScope<T>(Func<IServiceProvider, T> use)
+        {
+            using var scope = _services.CreateScope();
+            return use(scope.ServiceProvider);
+        }
+
+        public async Task<T> WithScopeAsync<T>(Func<IServiceProvider, Task<T>> use)
+        {
+            await using var scope = _services.CreateAsyncScope();
+            return await use(scope.ServiceProvider);
         }
 
         public GameSessionService Sessions(TimeProvider time, IDuelNotifier notifier, DuelOptions? options = null) =>

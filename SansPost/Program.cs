@@ -61,6 +61,11 @@ public class Program
         builder.Services.AddServerSideBlazor();
         builder.Services.AddHttpContextAccessor();   // prerender: status 404 dla nieznanych adresów (NotFoundStatus)
         builder.Services.AddScoped<ToastService>();
+        builder.Services.AddScoped<SansPost.Localization.Loc>();   // język interfejsu PL/EN (Sprint 22) — jeden na circuit
+        // Teksty z zasobów trafiają do HTML przez enkoder: polskie litery i typografia („…”) jako zwykłe znaki UTF-8,
+        // nie encje (&#x119;). Znaki HTML (<, >, &, ", ') są kodowane jak dotąd.
+        builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(options =>
+            options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
         builder.Services.AddScoped<SansPost.Shared.ScenePreference>();   // renderer przestrzeni (3D/CSS) w obrębie circuitu
         builder.Services.AddSingleton<UiServices>();   // osobny scope DI (DbContext) na każdą operację UI
 
@@ -106,6 +111,7 @@ public class Program
         builder.Services.AddOptions<DuelOptions>().BindConfiguration(DuelOptions.Section)
             .Validate(o => o.IsValid, "Duels: czasy wyzwania, rundy i powrotu muszą mieścić się w 1–300 s.").ValidateOnStart();
         builder.Services.AddSingleton<GameSessionService>();
+        builder.Services.AddScoped<DuelStandingsService>();   // Sprint 21: wyniki PvP, gwiazdki, Top 10, Mistrz Stołu
         builder.Services.AddSingleton<DuelConnectionRegistry>();
         builder.Services.AddSingleton<DuelChallengeService>();
         builder.Services.AddSingleton<IDuelNotifier, HubDuelNotifier>();
@@ -179,7 +185,14 @@ public class Program
 
         // Sondy health (wewnętrzny HTTP kontenera) bez przekierowania na HTTPS.
         app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"), web => web.UseHttpsRedirection());
-        app.UseStaticFiles();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            // Plik z wersją w adresie (asp-append-version: ?v=<hash treści>) jest niezmienny — cache na rok, bez rewalidacji.
+            // Pozostałe (moduły scen ładowane dynamicznie, Three.js, SignalR) — zawsze rewalidacja (ETag → 304),
+            // żeby po wdrożeniu przeglądarka nie użyła heurystycznie zapamiętanej starej wersji modułu.
+            OnPrepareResponse = context => context.Context.Response.Headers.CacheControl =
+                context.Context.Request.Query.ContainsKey("v") ? "public, max-age=31536000, immutable" : "no-cache"
+        });
         app.UseRouting();
         app.UseRateLimiter();
         app.UseAuthentication();

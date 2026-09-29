@@ -7,19 +7,19 @@
    na sesję, sterowany atrybutami data-music-*). Nic nie gra samo: dźwięk dopiero po "Graj". Zamknięcie okna nie
    zatrzymuje radia — sterowanie przejmuje mini-player. Bez udawanych tytułów utworów: stacja, kraj, LIVE, kodek. *@
 <div class="music-corner">
-    <p class="music-intro">Radio country na żywo, prosto ze stacji. Gra dalej, gdy wrócisz do sali, baru albo tablicy Wanted.</p>
+    <p class="music-intro">@L["Radio country na żywo, prosto ze stacji. Gra dalej, gdy wrócisz do sali, baru albo tablicy Wanted."]</p>
 
     @if (stations is null)
     {
-        <p class="music-loading" role="status">Stroimy radio…</p>
+        <p class="music-loading" role="status">@L["Stroimy radio…"]</p>
     }
     else if (stations.Count == 0)
     {
         <div class="music-unavailable" role="status">
-            <p class="music-unavailable-title">Radio jest chwilowo niedostępne.</p>
-            <p class="music-unavailable-text">Lista stacji nie odpowiada. Saloon działa dalej — spróbuj za chwilę.</p>
+            <p class="music-unavailable-title">@L["Radio jest chwilowo niedostępne."]</p>
+            <p class="music-unavailable-text">@L["Lista stacji nie odpowiada. Saloon działa dalej — spróbuj za chwilę."]</p>
         </div>
-        <button type="button" class="btn btn-sm music-reload" @onclick="LoadAsync">Spróbuj ponownie</button>
+        <button type="button" class="btn btn-sm music-reload" @onclick="LoadAsync">@L["Spróbuj ponownie"]</button>
     }
     else
     {
@@ -34,7 +34,7 @@
                 {
                     <span class="music-live">LIVE</span>
                 }
-                <span>@(active ? "Teraz gra" : "Wybrana stacja")</span>
+                <span>@(active ? L["Teraz gra"] : L["Wybrana stacja"])</span>
             </p>
             <h3 class="music-station-name" id="music-station-name">@selected.Name</h3>
             <p class="music-station-meta">
@@ -47,14 +47,14 @@
             @if (selected.Homepage is not null)
             {
                 <a class="music-homepage" href="@selected.Homepage" target="_blank" rel="noopener noreferrer"
-                   aria-label="@($"Strona stacji {selected.Name} (otwiera się w nowej karcie)")">Strona stacji</a>
+                   aria-label="@L.Format("Strona stacji {0} (otwiera się w nowej karcie)", selected.Name)">@L["Strona stacji"]</a>
             }
         </section>
 
-        <p class="music-status @(status == "error" ? "is-error" : "")" role="status">@MusicState.TextFor(status)</p>
+        <p class="music-status @(status == "error" ? "is-error" : "")" role="status">@L[MusicState.TextFor(status)]</p>
 
         <div class="music-controls">
-            @{ var toggleText = active ? "Pauza" : status == "error" ? "Spróbuj ponownie" : "Graj"; }
+            @{ var toggleText = active ? L["Pauza"] : status == "error" ? L["Spróbuj ponownie"] : L["Graj"]; }
             <button type="button" class="btn btn-primary music-toggle" data-music-toggle @attributes="MusicState.Attributes(selected)"
                     aria-label="@($"{toggleText}: {selected.Name}")">
                 <span class="music-toggle-icon" aria-hidden="true">@(active ? "❚❚" : "▶")</span>
@@ -63,20 +63,20 @@
             @if (next is not null)
             {
                 <button type="button" class="btn music-next" data-music-station @attributes="MusicState.Attributes(next)"
-                        aria-label="@($"Następna stacja: {next.Name}")">
-                    Następna stacja
+                        aria-label="@L.Format("Następna stacja: {0}", next.Name)">
+                    @L["Następna stacja"]
                 </button>
             }
         </div>
 
         <div class="music-volume">
-            <label for="music-volume">Głośność</label>
+            <label for="music-volume">@L["Głośność"]</label>
             <input id="music-volume" class="music-range" type="range" min="0" max="100" step="5" value="@(State?.Volume ?? 70)"
                    aria-valuetext="@($"{State?.Volume ?? 70}%")" data-music-volume />
         </div>
 
         <section class="music-stations-section" aria-labelledby="music-stations-title">
-            <h3 class="music-stations-title" id="music-stations-title">Wybierz stację</h3>
+            <h3 class="music-stations-title" id="music-stations-title">@L["Wybierz stację"]</h3>
             <ul class="music-stations">
                 @foreach (var station in stations)
                 {

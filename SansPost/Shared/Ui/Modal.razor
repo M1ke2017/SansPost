@@ -10,11 +10,11 @@
             <div class="dialog-heading">
                 @if (Kicker is not null)
                 {
-                    <p class="dialog-kicker">@Kicker</p>
+                    <p class="dialog-kicker">@L[Kicker]</p>
                 }
-                <h2 class="dialog-title" id="@titleId">@Title</h2>
+                <h2 class="dialog-title" id="@titleId">@L[Title]</h2>
             </div>
-            <button type="button" class="btn btn-ghost btn-icon" aria-label="Zamknij okno" @onclick="CloseRequestedAsync">
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="@L["Zamknij okno"]" @onclick="CloseRequestedAsync">
                 <Icon Name="@Icons.X" />
             </button>
         </div>

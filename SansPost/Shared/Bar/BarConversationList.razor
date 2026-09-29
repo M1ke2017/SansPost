@@ -2,16 +2,16 @@
    sortowanie, limity po stronie serwisu) w kompaktowych kartach. "Wszystkie" to discovery feed z przypiętym postem;
    w temacie i we "Wszystkich" sortowanie zmienia tylko parametr adresu (ten sam poziom, bez nowego wpisu historii). *@
 <div class="bar-list stack">
-    <p class="bar-level-intro">@Intro</p>
+    <p class="bar-level-intro">@L[Intro]</p>
 
     @if (State.View is BarView.All or BarView.Topic)
     {
-        <div class="segmented" role="group" aria-label="Sortowanie rozmów">
+        <div class="segmented" role="group" aria-label="@L["Sortowanie rozmów"]">
             <button type="button" aria-pressed="@(State.Sort == PostSort.Newest ? "true" : "false")" @onclick="() => SetSort(PostSort.Newest)">
-                <Icon Name="@Icons.Clock" Size="16" /> Najnowsze
+                <Icon Name="@Icons.Clock" Size="16" /> @L["Najnowsze"]
             </button>
             <button type="button" aria-pressed="@(State.Sort == PostSort.Popular ? "true" : "false")" @onclick="() => SetSort(PostSort.Popular)">
-                <Icon Name="@Icons.Trending" Size="16" /> Popularne
+                <Icon Name="@Icons.Trending" Size="16" /> @L["Popularne"]
             </button>
         </div>
     }
@@ -27,9 +27,9 @@
     }
 
     <FeedList Category="State.Category" Sort="State.Sort" Compact="true" HeadingLevel="4"
-              ExcludePostId="@(State.View == BarView.All ? Featured?.Id : null)" Label="@State.Title">
+              ExcludePostId="@(State.View == BarView.All ? Featured?.Id : null)" Label="@State.TitleFor(L)">
         <Empty>
-            <EmptyState Title="@(State.Category is PostCategory c ? $"Nikt jeszcze nie pisał o temacie {c.DisplayName()}" : "Bar jeszcze czeka na pierwszą rozmowę")"
+            <EmptyState Title="@(State.Category is PostCategory c ? L.Format("Nikt jeszcze nie pisał o temacie {0}", L[c.DisplayName()]) : L["Bar jeszcze czeka na pierwszą rozmowę"])"
                         Text="Zacznij pierwszą rozmowę — pojawi się tutaj.">
                 <BarStartConversation Category="State.Category" />
             </EmptyState>

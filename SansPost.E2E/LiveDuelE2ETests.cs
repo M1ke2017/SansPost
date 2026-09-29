@@ -555,5 +555,46 @@ namespace SansPost.E2E
 
             Assert.True(blocking.Count == 0, "Naruszenia critical/serious:\n" + string.Join("\n", blocking));
         }
+
+        // ---- Sprint 21: gwiazdka za zwycięstwo, ranking stołu, Mistrz Stołu w sali, pojedynki w profilu ------------------
+
+        [Fact]
+        public async Task Prestige_WinnerStar_TableRanking_ChampionPlaque_ProfileDuels()
+        {
+            var (a, b) = await DuelAsync();
+            await using var _a = a;
+            await using var _b = b;
+
+            await Panel(b.Page).Locator(".game-surrender").ClickAsync();
+            await Panel(b.Page).Locator(".game-surrender-confirm").ClickAsync();
+            await Expect(Panel(a.Page).Locator(".game-over-title")).ToHaveTextAsync("ZWYCIĘSTWO");
+            await Expect(Panel(a.Page).Locator(".game-over-star")).ToContainTextAsync("+1");
+            await Expect(Panel(a.Page).Locator(".game-over-star")).ToContainTextAsync("masz teraz 1");   // po zapisie wyniku
+            await Expect(Panel(b.Page).Locator(".game-over-star")).ToHaveCountAsync(0);
+
+            // Lobby po powrocie: własne statystyki i Top 10 z przydomkiem zwycięzcy (bez e-maili).
+            await Panel(a.Page).GetByRole(AriaRole.Button, new() { Name = "Wróć do sali" }).ClickAsync();
+            await Expect(a.Page.Locator("dialog[open]")).ToHaveCountAsync(0);
+            await a.Page.WaitForFunctionAsync("() => window.__sansPostHall && window.__sansPostHall.area === null && window.__sansPostHall.moving === false");
+            await OpenTableAsync(a.Page);
+            await Expect(Panel(a.Page).Locator(".game-you-stats")).ToContainTextAsync("★ 1");
+            await Expect(Panel(a.Page).Locator(".game-you-stats")).ToContainTextAsync("wygrane 1");
+            await Expect(Panel(a.Page).Locator(".game-leaderboard tbody")).ToContainTextAsync(a.User!.Alias);
+            await Expect(Panel(a.Page).Locator(".game-standings")).Not.ToContainTextAsync("@");
+
+            // Sala: plakietka Mistrza Stołu w scenie (canvas) i ten sam tekst dla czytnika przy strefie "Stół gry".
+            await Ui.GotoAsync(b.Page, "/saloon?scene=3d");
+            await Expect(b.Page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = 20_000 });
+            await b.Page.WaitForFunctionAsync("() => !!window.__sansPostHall.champion");
+            await Expect(b.Page.Locator("#hall-champion")).ToContainTextAsync("Mistrz Stołu:");
+            await Expect(b.Page.Locator(".hall-zone[data-zone='game']")).ToHaveAttributeAsync("aria-describedby", "hall-champion");
+
+            // Profil: sekcja "Pojedynki" (gwiazdki = zwycięstwa).
+            await Ui.GotoAsync(b.Page, $"/u/{a.User.Alias}");
+            var duels = b.Page.Locator(".profile-duels");
+            await Expect(duels.Locator("#profile-duels-title")).ToHaveTextAsync("Pojedynki");
+            await Expect(duels.Locator(".profile-duel-stat").Filter(new() { HasText = "Wygrane" }).Locator("dd")).ToHaveTextAsync("1");
+            await Expect(duels.Locator(".profile-duel-stat.is-stars dd")).ToHaveTextAsync("1");
+        }
     }
 }

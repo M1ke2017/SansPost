@@ -20,8 +20,10 @@ namespace SansPost.Controllers
                 _ => StatusCodes.Status500InternalServerError
             };
 
+            // Tekst dla człowieka w języku klienta (cookie / Accept-Language); klient opiera logikę na polu "code".
             var problem = controller.Problem(
-                detail: result.Message,
+                detail: result.Message is null ? null
+                    : SansPost.Localization.Loc.ErrorText(result.Code, result.Message, SansPost.Localization.Loc.FromRequest(controller.HttpContext)),
                 statusCode: statusCode,
                 type: result.Code is null ? null : $"urn:sanspost:problem:{result.Code}");
 

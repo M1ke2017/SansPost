@@ -1,7 +1,7 @@
 @* Czas względny ("3 godziny temu"); pełna data w title i w atrybucie datetime (dla czytników i maszyn).
    Backend i baza: UTC. title z serwera ("… UTC") to tylko wartość awaryjna — przeglądarka podmienia ją na datę
    w swojej strefie (sanspost.js, Intl.DateTimeFormat) na podstawie datetime z jawnym "Z". *@
-<time class="@Class" datetime="@Iso" title="@UiText.FullDate(Utc)">@Prefix@UiText.Relative(Utc)</time>
+<time class="@Class" datetime="@Iso" title="@UiText.FullDate(L, Utc)">@(Prefix is null ? null : L[Prefix])@UiText.Relative(L, Utc)</time>
 
 @code {
     [Parameter, EditorRequired] public DateTime Value { get; set; }

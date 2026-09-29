@@ -30,15 +30,15 @@
                 @if (level.Parent is not null)
                 {
                     <button type="button" class="bar-back" @onclick="UpAsync">
-                        <Icon Name="@Icons.ArrowLeft" Size="16" /> @(level.Parent?.Title ?? "Karta rozmów")
+                        <Icon Name="@Icons.ArrowLeft" Size="16" /> @(level.Parent is { } parent ? parent.TitleFor(L) : L["Karta rozmów"])
                     </button>
-                    <h3 id="bar-level-title" class="bar-level-title" tabindex="-1">@level.Title</h3>
+                    <h3 id="bar-level-title" class="bar-level-title" tabindex="-1">@level.TitleFor(L)</h3>
                 }
 
                 @if (level.View is BarView.Menu or BarView.Topic or BarView.Search)
                 {
                     <BarSearchBox Query="@(level.View == BarView.Search ? level.Query : "")"
-                                  Label="@(level.View == BarView.Topic ? $"Szukaj w temacie {level.Category!.Value.DisplayName()}" : "Szukaj rozmowy")"
+                                  Label="@(level.View == BarView.Topic ? L.Format("Szukaj w temacie {0}", L[level.Category!.Value.DisplayName()]) : L["Szukaj rozmowy"])"
                                   DescribedBy="@(level.View == BarView.Search ? "bar-search-hint" : null)"
                                   OnSearch="SearchAsync" />
                 }
@@ -70,8 +70,8 @@
             @if (conversation is not null)
             {
                 <div class="bar-conversation-slot" hidden="@auth">
-                    <BarConversationDetail @key="conversation.PostId" PostId="conversation.PostId" OriginTitle="@level.Title"
-                                           BackLabel="@(level.View == BarView.Wanted ? "Wróć do tablicy Wanted" : "Wróć do rozmów w barze")"
+                    <BarConversationDetail @key="conversation.PostId" PostId="conversation.PostId" OriginTitle="@level.TitleFor(L)"
+                                           BackLabel="@(level.View == BarView.Wanted ? L["Wróć do tablicy Wanted"] : L["Wróć do rozmów w barze"])"
                                            ReturnUrl="@conversation.Url" OnBack="UpAsync" />
                 </div>
             }

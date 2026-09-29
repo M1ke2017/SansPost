@@ -86,7 +86,8 @@ namespace SansPost.Tests.Duels
                 Connection = connection;
                 foreach (var name in new[] { DuelEvents.ChallengeReceived, DuelEvents.ChallengeUpdated, DuelEvents.DuelUpdated, DuelEvents.RoundStarted, DuelEvents.RoundResolved })
                     connection.On<JsonElement>(name, payload => { _events.Enqueue((name, payload)); _signal.Release(); });
-                connection.On(DuelEvents.PresenceChanged, () => { _events.Enqueue((DuelEvents.PresenceChanged, default)); _signal.Release(); });
+                foreach (var name in new[] { DuelEvents.PresenceChanged, DuelEvents.StandingsChanged })
+                    connection.On(name, () => { _events.Enqueue((name, default)); _signal.Release(); });
             }
 
             public string Alias { get; }
@@ -148,11 +149,28 @@ namespace SansPost.Tests.Duels
             }
             var player = new Player(alias, token, Connect(token));
             await player.Connection.StartAsync();
+            // Handshake wraca przed OnConnectedAsync; pierwsze wywołanie serwer obsłuży dopiero po nim — od tej chwili
+            // połączenie jest zarejestrowane (przy stole i w adresatach zdarzeń gracza).
+            await player.Connection.InvokeAsync<JsonElement>("GetStandings");
             return player;
         }
 
         private static string Handle(JsonElement players, string alias) =>
             players.EnumerateArray().Single(p => p.GetProperty("alias").GetString() == alias).GetProperty("handle").GetString()!;
+
+        // Serwer odsyła handshake przed OnConnectedAsync — świeżo połączony gracz pojawia się przy stole chwilę później
+        // (klient dowiaduje się o tym z PresenceChanged). Czekamy jak UI, zamiast zakładać natychmiastową obecność.
+        private static async Task<string> HandleAsync(Player asking, string alias)
+        {
+            var deadline = DateTime.UtcNow + Wait;
+            while (true)
+            {
+                var players = await asking.InvokeAsync("GetPlayers");
+                if (players.EnumerateArray().Any(p => p.GetProperty("alias").GetString() == alias) || DateTime.UtcNow > deadline)
+                    return Handle(players, alias);
+                await Task.Delay(20);
+            }
+        }
 
         private static void AssertOk(JsonElement result) =>
             Assert.True(result.GetProperty("succeeded").GetBoolean(), result.GetRawText());
@@ -164,7 +182,7 @@ namespace SansPost.Tests.Duels
         // A wyzywa B, B przyjmuje, obaj gotowi — pojedynek w rundzie 1.
         private async Task<string> DuelAsync(Player a, Player b)
         {
-            var challenge = await a.InvokeAsync("ChallengeUser", Handle(await a.InvokeAsync("GetPlayers"), b.Alias));
+            var challenge = await a.InvokeAsync("ChallengeUser", await HandleAsync(a, b.Alias));
             AssertOk(challenge);
             var received = await b.NextAsync(DuelEvents.ChallengeReceived);
             var accepted = await b.InvokeAsync("AcceptChallenge", received.GetProperty("challengeId").GetString());
@@ -197,7 +215,7 @@ namespace SansPost.Tests.Duels
             Assert.DoesNotContain(annaSees.EnumerateArray(), p => p.GetProperty("alias").GetString() == anna.Alias);   // nie sam siebie
             Assert.DoesNotContain("@", annaSees.GetRawText());
 
-            var self = await anna.InvokeAsync("ChallengeUser", Handle(await bart.InvokeAsync("GetPlayers"), anna.Alias));
+            var self = await anna.InvokeAsync("ChallengeUser", await HandleAsync(bart, anna.Alias));
             Assert.Equal("challenge-self", Code(self));
 
             var duelId = await DuelAsync(anna, bart);
@@ -244,7 +262,7 @@ namespace SansPost.Tests.Duels
             await using var anna = await PlayerAsync();
             await using var bart = await PlayerAsync();
 
-            AssertOk(await anna.InvokeAsync("ChallengeUser", Handle(await anna.InvokeAsync("GetPlayers"), bart.Alias)));
+            AssertOk(await anna.InvokeAsync("ChallengeUser", await HandleAsync(anna, bart.Alias)));
             var received = await bart.NextAsync(DuelEvents.ChallengeReceived);
             Assert.Equal(anna.Alias, received.GetProperty("challengerAlias").GetString());
             Assert.True(received.GetProperty("expiresAt").GetDateTimeOffset() > DateTimeOffset.UtcNow);
@@ -254,7 +272,7 @@ namespace SansPost.Tests.Duels
             Assert.Equal(JsonValueKind.Null, (await bart.InvokeAsync("RequestState")).GetProperty("duel").ValueKind);
 
             await using var cole = await PlayerAsync();
-            AssertOk(await cole.InvokeAsync("ChallengeUser", Handle(await cole.InvokeAsync("GetPlayers"), bart.Alias)));
+            AssertOk(await cole.InvokeAsync("ChallengeUser", await HandleAsync(cole, bart.Alias)));
             await bart.NextAsync(DuelEvents.ChallengeReceived, e => e.GetProperty("challengerAlias").GetString() == cole.Alias);
             AssertOk(await cole.InvokeAsync("CancelChallenge"));
             await bart.NextAsync(DuelEvents.ChallengeUpdated, e => e.GetProperty("status").GetString() == "cancelled");
@@ -266,7 +284,7 @@ namespace SansPost.Tests.Duels
         {
             await using var anna = await PlayerAsync();
             await using var bart = await PlayerAsync();
-            var handle = Handle(await anna.InvokeAsync("GetPlayers"), bart.Alias);
+            var handle = await HandleAsync(anna, bart.Alias);
             SetStatus(anna.Alias, AccountStatus.Suspended);
 
             var denied = await anna.InvokeAsync("ChallengeUser", handle);
@@ -291,6 +309,9 @@ namespace SansPost.Tests.Duels
             // Druga karta dostaje ten sam stan (także własną wybraną kartę).
             var tab2 = await annaTab2.NextAsync(DuelEvents.DuelUpdated, e => e.GetProperty("yourMove").GetString() == "block");
             Assert.Equal(duelId, tab2.GetProperty("duelId").GetString());
+            // Przeciwnik też dostał już "przeciwnik gotowy" — dopiero wtedy czyścimy jego zdarzenia (inaczej to spóźnione
+            // zdarzenie ruchu mogłoby zostać wzięte za skutek zamknięcia karty).
+            await bart.NextAsync(DuelEvents.DuelUpdated, e => e.GetProperty("opponentReady").GetBoolean());
 
             bart.Clear();
             await anna.DisposeAsync();                                     // zamknięta jedna karta
@@ -384,7 +405,7 @@ namespace SansPost.Tests.Duels
                 connect.Add(watch.Elapsed.TotalMilliseconds);
                 await using var bart = await PlayerAsync(bartAlias, bartToken);
 
-                var handle = Handle(await anna.InvokeAsync("GetPlayers"), bart.Alias);
+                var handle = await HandleAsync(anna, bart.Alias);
                 watch.Restart();
                 AssertOk(await anna.InvokeAsync("ChallengeUser", handle));
                 var received = await bart.NextAsync(DuelEvents.ChallengeReceived);
@@ -433,6 +454,27 @@ namespace SansPost.Tests.Duels
             Assert.Equal(0, sessions.TimerCount);
             Assert.Equal(0, challenges.PendingCount);
             Assert.Equal(0, registry.ConnectionCount);
+        }
+        // Sprint 21 — stan przy wejściu zawiera ranking; po zapisanym wyniku obaj gracze dostają StandingsChanged,
+        // a GetStandings pokazuje gwiazdkę zwycięzcy.
+        [Fact]
+        public async Task Standings_InRequestState_ChangedEventAfterPvpResult()
+        {
+            await using var anna = await PlayerAsync();
+            await using var bart = await PlayerAsync();
+            var state = await anna.InvokeAsync("RequestState");
+            Assert.Equal(JsonValueKind.Object, state.GetProperty("standings").ValueKind);
+            Assert.Equal(0, state.GetProperty("standings").GetProperty("you").GetProperty("prestigeStars").GetInt32());
+
+            var duelId = await DuelAsync(anna, bart);
+            AssertOk(await bart.InvokeAsync("Surrender", duelId));
+
+            await anna.NextAsync(DuelEvents.StandingsChanged);
+            await bart.NextAsync(DuelEvents.StandingsChanged);
+            var standings = await anna.InvokeAsync("GetStandings");
+            Assert.Equal(1, standings.GetProperty("you").GetProperty("prestigeStars").GetInt32());
+            Assert.Contains(standings.GetProperty("top").EnumerateArray(), e => e.GetProperty("alias").GetString() == anna.Alias && e.GetProperty("stars").GetInt32() == 1);
+            Assert.DoesNotContain("@", standings.GetRawText());
         }
     }
 }

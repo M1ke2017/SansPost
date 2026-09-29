@@ -36,6 +36,16 @@ namespace SansPost.Controllers
                 : this.ToProblem(result);
         }
 
+        // Sprint 21: ranking stołu (Top 10) i Mistrz Stołu — tylko przydomki i liczby (bez UserId i e-maili).
+        [HttpGet("leaderboard")]
+        public async Task<IActionResult> Leaderboard([FromServices] DuelStandingsService standings, CancellationToken cancellationToken) =>
+            Ok(await standings.GetStandingsAsync(cancellationToken));
+
+        // Własne statystyki pojedynków (gwiazdki = zwycięstwa PvP).
+        [HttpGet("stats")]
+        public async Task<IActionResult> Stats([FromServices] DuelStandingsService standings, CancellationToken cancellationToken) =>
+            Ok(await standings.GetStatsAsync(UserId, cancellationToken));
+
         [HttpGet("active")]
         public IActionResult Active()
         {

@@ -5,40 +5,40 @@
 @inject ToastService Toasts
 @inject ILogger<EditPost> Logger
 
-<PageTitle>Edycja posta · SansPost</PageTitle>
+<PageTitle>@L["Edycja posta · SansPost"]</PageTitle>
 
 <div class="narrow">
-    <a class="back-link" href="@UiText.PostUrl(Id)"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do posta</a>
+    <a class="back-link" href="@UiText.PostUrl(Id)"><Icon Name="@Icons.ArrowLeft" Size="16" /> @L["Wróć do posta"]</a>
 
     @if (isLoading)
     {
-        <p class="muted" role="status">Wczytywanie posta…</p>
+        <p class="muted" role="status">@L["Wczytywanie posta…"]</p>
     }
     else if (loadError is not null)
     {
         <EmptyState Title="Nie udało się wczytać posta" HeadingLevel="1" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger" Text="@loadError">
-            <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+            <button type="button" class="btn" @onclick="LoadAsync"><Icon Name="@Icons.Refresh" /> @L["Spróbuj ponownie"]</button>
         </EmptyState>
     }
     else if (post is null)
     {
         <EmptyState Title="Ten post nie jest już dostępny" HeadingLevel="1" IconName="@Icons.FileText"
                     Text="Mógł zostać usunięty albo ukryty przez moderację.">
-            <a class="btn btn-primary" href="/me">Twoje posty</a>
+            <a class="btn btn-primary" href="/me">@L["Twoje posty"]</a>
         </EmptyState>
     }
     else if (!isOwner)
     {
         <EmptyState Title="Możesz edytować tylko własne posty" HeadingLevel="1" IconName="@Icons.Lock">
-            <a class="btn btn-primary" href="@UiText.PostUrl(Id)">Wróć do posta</a>
+            <a class="btn btn-primary" href="@UiText.PostUrl(Id)">@L["Wróć do posta"]</a>
         </EmptyState>
     }
     else
     {
         <div class="page-header">
             <div>
-                <h1>Edytuj post</h1>
-                <p>Zmiany zobaczą wszyscy czytelnicy. Post zostanie oznaczony jako edytowany.</p>
+                <h1>@L["Edytuj post"]</h1>
+                <p>@L["Zmiany zobaczą wszyscy czytelnicy. Post zostanie oznaczony jako edytowany."]</p>
             </div>
         </div>
 
@@ -47,22 +47,22 @@
             {
                 @* 412: nie nadpisujemy cudzej/równoległej zmiany. Decyzja należy do użytkownika. *@
                 <Alert Variant="AlertVariant.Warning" Title="Post zmienił się od czasu otwarcia edytora" Focusable="true" @ref="messageAlert">
-                    <ChildContent>Twoje zmiany nie zostały zapisane, żeby nie nadpisać nowszej wersji. Wczytaj aktualną wersję i wprowadź zmiany ponownie.</ChildContent>
+                    <ChildContent>@L["Twoje zmiany nie zostały zapisane, żeby nie nadpisać nowszej wersji. Wczytaj aktualną wersję i wprowadź zmiany ponownie."]</ChildContent>
                     <Actions>
-                        <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadCurrentAsync"><Icon Name="@Icons.Refresh" Size="16" /> Wczytaj aktualną wersję</button>
-                        <a class="btn btn-sm" href="@UiText.PostUrl(Id)">Anuluj</a>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="ReloadCurrentAsync"><Icon Name="@Icons.Refresh" Size="16" /> @L["Wczytaj aktualną wersję"]</button>
+                        <a class="btn btn-sm" href="@UiText.PostUrl(Id)">@L["Anuluj"]</a>
                     </Actions>
                 </Alert>
             }
             else if (errorMessage is not null)
             {
-                <Alert Variant="@errorVariant" Focusable="true" @ref="messageAlert">@errorMessage</Alert>
+                <Alert Variant="@errorVariant" Focusable="true" @ref="messageAlert">@L.Text(errorMessage)</Alert>
             }
 
             @if (unsavedCopy is not null)
             {
                 <details class="card">
-                    <summary class="card-body" style="cursor: pointer">Twoja niezapisana wersja (do skopiowania)</summary>
+                    <summary class="card-body" style="cursor: pointer">@L["Twoja niezapisana wersja (do skopiowania)"]</summary>
                     <div class="card-body stack-sm" style="padding-top: 0">
                         <strong>@unsavedCopy.Title</strong>
                         <p class="text-sm" style="white-space: pre-line">@unsavedCopy.Content</p>
@@ -75,10 +75,10 @@
                     <PostEditor Draft="draft" OnValidSubmit="SaveAsync" Busy="isSaving" Disabled="@(conflict || Viewer?.CanWrite == false)"
                                 SubmitLabel="Zapisz zmiany" BusyLabel="Zapisywanie…" PublishIcon="false">
                         <Actions>
-                            <a class="btn btn-ghost" href="@UiText.PostUrl(Id)">Anuluj</a>
+                            <a class="btn btn-ghost" href="@UiText.PostUrl(Id)">@L["Anuluj"]</a>
                             <span class="spacer"></span>
                             <button type="button" class="btn btn-danger" @onclick="() => deleteDialog!.ShowAsync()" disabled="@(Viewer?.CanWrite == false)">
-                                <Icon Name="@Icons.Trash" Size="16" /> Usuń post
+                                <Icon Name="@Icons.Trash" Size="16" /> @L["Usuń post"]
                             </button>
                         </Actions>
                     </PostEditor>
@@ -90,16 +90,16 @@
 
 <Modal @ref="deleteDialog" Title="Usunąć ten post?">
     <ChildContent>
-        <p>Post zniknie z feedu, wyszukiwarki i Twojego profilu razem z dyskusją. Tej operacji nie można cofnąć z poziomu aplikacji.</p>
+        <p>@L["Post zniknie z feedu, wyszukiwarki i Twojego profilu razem z dyskusją. Tej operacji nie można cofnąć z poziomu aplikacji."]</p>
     </ChildContent>
     <Footer>
-        <button type="button" class="btn" autofocus @onclick="() => deleteDialog!.CloseAsync()">Anuluj</button>
+        <button type="button" class="btn" autofocus @onclick="() => deleteDialog!.CloseAsync()">@L["Anuluj"]</button>
         <button type="button" class="btn btn-danger-solid" disabled="@isDeleting" @onclick="DeleteAsync">
             @if (isDeleting)
             {
                 <span class="spinner" aria-hidden="true"></span>
             }
-            Usuń post
+            @L["Usuń post"]
         </button>
     </Footer>
 </Modal>
@@ -208,7 +208,7 @@
 
             if (result.Succeeded)
             {
-                Toasts.Success("Post usunięty.");
+                Toasts.Success(L["Post usunięty."]);
                 Navigation.NavigateTo("/me");
                 return;
             }
@@ -242,7 +242,7 @@
         }
         else
         {
-            errorMessage = UiErrors.Describe(result, notFound: "Ten post nie jest już dostępny — mógł zostać usunięty lub ukryty.");
+            errorMessage = UiErrors.Describe(result, notFound: L["Ten post nie jest już dostępny — mógł zostać usunięty lub ukryty."]);
             errorVariant = UiErrors.Variant(result);
         }
 
@@ -254,6 +254,6 @@
         conflict = false;
         await LoadAsync();
         if (post is not null)
-            Toasts.Success("Wczytano aktualną wersję posta.");
+            Toasts.Success(L["Wczytano aktualną wersję posta."]);
     }
 }

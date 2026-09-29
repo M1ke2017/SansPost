@@ -2,27 +2,27 @@
 @using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Navigation
 
-<PageTitle>Logowanie · SansPost</PageTitle>
+<PageTitle>@L["Logowanie · SansPost"]</PageTitle>
 
 <div class="auth-shell stack">
     <div class="page-header" style="margin-bottom: 0">
         <div>
-            <h1>Zaloguj się</h1>
-            <p>Czytać możesz bez konta. Zaloguj się, aby publikować, komentować i reagować.</p>
+            <h1>@L["Zaloguj się"]</h1>
+            <p>@L["Czytać możesz bez konta. Zaloguj się, aby publikować, komentować i reagować."]</p>
         </div>
     </div>
 
     @if (registered)
     {
-        <Alert Variant="AlertVariant.Success" Title="Konto utworzone">Możesz się teraz zalogować.</Alert>
+        <Alert Variant="AlertVariant.Success" Title="Konto utworzone">@L["Możesz się teraz zalogować."]</Alert>
     }
     @if (sessionEnded)
     {
-        <Alert Variant="AlertVariant.Info" Title="Sesja zakończona">Twoja sesja została zakończona. Zaloguj się ponownie, aby kontynuować.</Alert>
+        <Alert Variant="AlertVariant.Info" Title="Sesja zakończona">@L["Twoja sesja została zakończona. Zaloguj się ponownie, aby kontynuować."]</Alert>
     }
     @if (!string.IsNullOrEmpty(errorMessage))
     {
-        <Alert Variant="@errorVariant">@errorMessage</Alert>
+        <Alert Variant="@errorVariant">@L.Text(errorMessage)</Alert>
     }
 
     <div class="card">
@@ -34,25 +34,25 @@
                 <input type="hidden" name="ReturnUrl" value="@returnUrl" />
 
                 <div class="field">
-                    <label class="field-label" for="email">Email</label>
-                    <input class="input" type="email" id="email" name="Email" autocomplete="username" required
+                    <label class="field-label" for="email">@L["Email"]</label>
+                    <input class="input" type="email" id="email" name="@L["Email"]" autocomplete="username" required
                            aria-invalid="@(invalidCredentials ? "true" : null)" />
                 </div>
 
                 <div class="field">
-                    <label class="field-label" for="password">Hasło</label>
+                    <label class="field-label" for="password">@L["Hasło"]</label>
                     <PasswordInput Id="password" Name="Password" Autocomplete="current-password" Invalid="invalidCredentials" />
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-lg btn-block" data-loading-text="Logowanie…">
-                    <Icon Name="@Icons.LogIn" /> Zaloguj się
+                    <Icon Name="@Icons.LogIn" /> @L["Zaloguj się"]
                 </button>
                 </FormGate>
             </form>
         </div>
     </div>
 
-    <p class="muted text-sm" style="text-align: center">Nie masz konta? <a href="/register">Załóż je w minutę</a></p>
+    <p class="muted text-sm" style="text-align: center">@L["Nie masz konta?"] <a href="/register">@L["Załóż je w minutę"]</a></p>
 </div>
 
 @code {

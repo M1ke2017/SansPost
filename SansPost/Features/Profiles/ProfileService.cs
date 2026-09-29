@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SansPost.Features.Comments;
+using SansPost.Features.Duels;
 using SansPost.Features.Identity;
 using SansPost.Features.Posts;
 using SansPost.Infrastructure.Persistence;
@@ -15,7 +16,8 @@ namespace SansPost.Features.Profiles
         int PostCount,
         int CommentCount,
         IReadOnlyList<PostSummaryResponse> RecentPosts,
-        IReadOnlyList<AuthorCommentResponse> RecentComments);
+        IReadOnlyList<AuthorCommentResponse> RecentComments,
+        DuelStats Duels);
 
     public class ProfileService
     {
@@ -52,7 +54,11 @@ namespace SansPost.Features.Profiles
                     // Tylko treści publiczne — ukryte/usunięte nie są liczone ani pokazywane.
                     PostCount = _context.Posts.Count(p => p.UserId == u.Id && p.Status == ContentStatus.Published),
                     CommentCount = _context.Comments.Count(c => c.UserId == u.Id
-                        && c.Status == ContentStatus.Published && c.Post.Status == ContentStatus.Published)
+                        && c.Status == ContentStatus.Published && c.Post.Status == ContentStatus.Published),
+                    // Pojedynki PvP (Sprint 21) — w tym samym zapytaniu; gwiazdki prestiżu = zwycięstwa.
+                    DuelGames = _context.DuelResults.Count(r => r.PlayerOneId == u.Id || r.PlayerTwoId == u.Id),
+                    DuelWins = _context.DuelResults.Count(r => r.WinnerId == u.Id),
+                    DuelDraws = _context.DuelResults.Count(r => (r.PlayerOneId == u.Id || r.PlayerTwoId == u.Id) && r.ResultType == DuelResultType.Draw)
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -70,7 +76,8 @@ namespace SansPost.Features.Profiles
                 user.PostCount,
                 user.CommentCount,
                 recentPosts.Value?.Items ?? Array.Empty<PostSummaryResponse>(),
-                recentComments);
+                recentComments,
+                new DuelStats(user.DuelGames, user.DuelWins, user.DuelGames - user.DuelWins - user.DuelDraws, user.DuelDraws));
         }
     }
 }

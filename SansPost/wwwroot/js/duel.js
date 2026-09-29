@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    const EVENTS = ['DuelChallengeReceived', 'DuelChallengeUpdated', 'DuelUpdated', 'RoundStarted', 'RoundResolved', 'PresenceChanged'];
+    const EVENTS = ['DuelChallengeReceived', 'DuelChallengeUpdated', 'DuelUpdated', 'RoundStarted', 'RoundResolved', 'PresenceChanged', 'StandingsChanged'];
     const RETRY_MS = [0, 1000, 2000, 5000, 5000, 10000];
     let connection = null;
     let starting = null;

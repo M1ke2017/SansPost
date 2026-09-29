@@ -501,7 +501,7 @@ namespace SansPost.E2E
             // Naturalne przewijanie arkusza do ostatniego plakatu, rozmowa i powrót.
             var last = Poster(page, seeded.Posts[4]);
             await last.ScrollIntoViewIfNeededAsync();
-            Assert.True(await Panel(page).EvaluateAsync<double>("d => d.scrollTop") > 0, "Arkusz przewija się w pionie.");
+            Assert.True(await Panel(page).Locator(".dialog-body").EvaluateAsync<double>("b => b.scrollTop") > 0, "Arkusz przewija się w pionie (treść okna).");
             await last.ClickAsync();
             await ExpectConversationAsync(page, seeded.Posts[4], seeded.Titles[4]);
             await Ui.AssertNoHorizontalOverflowAsync(page, $"rozmowa z tablicy {width}");

@@ -445,8 +445,8 @@ namespace SansPost.E2E
                 Assert.True(target.Height >= 44 && target.Width >= 44, $"{name}: cel dotyku {target.Width}x{target.Height}.");
             }
 
-            // Zamknięcie i powrót dostępne także po przewinięciu na dół (przyklejony nagłówek okna).
-            await panel.EvaluateAsync("d => d.scrollTop = d.scrollHeight");
+            // Zamknięcie i powrót dostępne także po przewinięciu na dół (nagłówek okna poza przewijaną treścią).
+            await panel.Locator(".dialog-body").EvaluateAsync("b => b.scrollTop = b.scrollHeight");
             var close = (await panel.GetByRole(AriaRole.Button, new() { Name = "Zamknij okno" }).BoundingBoxAsync())!;
             Assert.True(close.Y >= 0 && close.Y + close.Height <= height, "Zamknięcie widoczne po przewinięciu.");
             Assert.True(await page.EvaluateAsync<double>("() => parseFloat(getComputedStyle(document.querySelector('#bar-conversation-title')).fontSize)") >= 20, "Tytuł czytelny.");

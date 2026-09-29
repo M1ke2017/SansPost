@@ -137,5 +137,36 @@ namespace SansPost.Tests.Duels
             Assert.Empty(annaView.History);
             Assert.Equal("waiting-for-opponent", (await (await host.GetAsync($"/api/duels/{waiting.DuelId}")).ReadAsync<DuelSnapshot>()).Status);
         }
+        // Sprint 21 — wynik PvP przez REST: ranking (bez UserId i e-maili), własne statystyki, pojedynki w profilu.
+        [Fact]
+        public async Task FinishedPvp_Leaderboard_Stats_AndProfileDuels()
+        {
+            var annaName = TestUsers.UniqueName("duel");
+            var bartName = TestUsers.UniqueName("duel");
+            using var anna = await _factory.CreateAuthenticatedApiClientAsync(annaName);
+            using var bart = await _factory.CreateAuthenticatedApiClientAsync(bartName);
+            var duel = await (await anna.PostAsJsonAsync("/api/duels", new { mode = "challenge" })).ReadAsync<DuelSnapshot>();
+            await bart.PostAsync($"/api/duels/{duel.DuelId}/join", null);
+            var moves = new[] { ("shoot", "taunt"), ("reload", "taunt"), ("shoot", "taunt"), ("reload", "taunt"), ("shoot", "taunt") };
+            for (var i = 0; i < moves.Length; i++)
+            {
+                await anna.PostAsJsonAsync($"/api/duels/{duel.DuelId}/moves", new { card = moves[i].Item1, round = i + 1 });
+                await bart.PostAsJsonAsync($"/api/duels/{duel.DuelId}/moves", new { card = moves[i].Item2, round = i + 1 });
+            }
+            Assert.Equal("win", (await (await anna.GetAsync($"/api/duels/{duel.DuelId}")).ReadAsync<DuelSnapshot>()).Result);
+
+            var leaderboard = await anna.GetStringAsync("/api/duels/leaderboard");
+            Assert.Contains($"\"alias\":\"{annaName}\"", leaderboard);
+            Assert.DoesNotContain("@", leaderboard);
+            Assert.DoesNotContain("userId", leaderboard, StringComparison.OrdinalIgnoreCase);
+
+            var stats = await anna.GetStringAsync("/api/duels/stats");
+            Assert.Contains("\"wins\":1", stats);
+            Assert.Contains("\"prestigeStars\":1", stats);
+            Assert.Contains("\"losses\":1", await bart.GetStringAsync("/api/duels/stats"));
+
+            var profile = await _factory.CreateHttpsClient().GetStringAsync($"/api/profiles/{annaName}");
+            Assert.Contains("\"duels\":{\"gamesPlayed\":1,\"wins\":1,\"losses\":0,\"draws\":0,\"prestigeStars\":1}", profile);
+        }
     }
 }

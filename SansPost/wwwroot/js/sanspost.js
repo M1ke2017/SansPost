@@ -333,8 +333,9 @@
     function focusInDialog(selector, top) {
         const el = document.querySelector(selector);
         if (!el) return;
-        const dialog = el.closest("dialog");
-        if (top && dialog) dialog.scrollTop = 0;
+        // Przewija się treść okna (.dialog-body), nie samo okno — zerujemy właściwy kontener.
+        const scroller = el.closest(".dialog-body") || el.closest("dialog");
+        if (top && scroller) scroller.scrollTop = 0;
         el.focus({ preventScroll: !!top });
         if (!top) el.scrollIntoView({ block: "center" });
     }
@@ -418,6 +419,13 @@
         bindBarLinks: bindBarLinks,
         focusInDialog: focusInDialog,
         focusInDialogWhenReady: focusInDialogWhenReady,
+        // Język interfejsu (Sprint 22): cookie na rok (SameSite=Lax) i atrybut lang dokumentu; treść przełącza Blazor w miejscu.
+        setLanguage: function (language) {
+            const value = language === "en" ? "en" : "pl";
+            document.cookie = "sp-lang=" + value + "; path=/; max-age=31536000; samesite=lax";
+            document.documentElement.lang = value;
+            window.dispatchEvent(new CustomEvent("sansPost:language", { detail: { language: value } }));
+        },
         hallOnboarded: hallOnboarded,
         submitAuthForm: submitAuthForm,
         registerAndSignIn: registerAndSignIn,

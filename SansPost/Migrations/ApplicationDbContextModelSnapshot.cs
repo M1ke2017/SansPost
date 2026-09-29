@@ -86,6 +86,80 @@ namespace SansPost.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SansPost.Features.Duels.DuelResultRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid>("DuelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("duelid");
+
+                    b.Property<string>("FinishReason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("finishreason");
+
+                    b.Property<DateTime>("FinishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finishedat");
+
+                    b.Property<int>("PlayerOneId")
+                        .HasColumnType("integer")
+                        .HasColumnName("playeroneid");
+
+                    b.Property<int>("PlayerTwoId")
+                        .HasColumnType("integer")
+                        .HasColumnName("playertwoid");
+
+                    b.Property<string>("ResultType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("resulttype");
+
+                    b.Property<int>("RoundCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("roundcount");
+
+                    b.Property<int?>("WinnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("winnerid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DuelId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_duelresults_duel");
+
+                    b.HasIndex("PlayerOneId")
+                        .HasDatabaseName("IX_duelresults_playerone");
+
+                    b.HasIndex("PlayerTwoId")
+                        .HasDatabaseName("IX_duelresults_playertwo");
+
+                    b.HasIndex("WinnerId")
+                        .HasDatabaseName("IX_duelresults_winner");
+
+                    b.ToTable("duelresults", t =>
+                        {
+                            t.HasCheckConstraint("CK_duelresults_finishreason", "finishreason IN ('Knockout', 'RoundLimit', 'Surrender', 'Disconnect')");
+
+                            t.HasCheckConstraint("CK_duelresults_players", "playeroneid <> playertwoid");
+
+                            t.HasCheckConstraint("CK_duelresults_resulttype", "resulttype IN ('Win', 'Draw')");
+
+                            t.HasCheckConstraint("CK_duelresults_rounds", "roundcount >= 0");
+
+                            t.HasCheckConstraint("CK_duelresults_winner", "(resulttype = 'Draw' AND winnerid IS NULL) OR (resulttype = 'Win' AND winnerid IN (playeroneid, playertwoid))");
+                        });
+                });
+
             modelBuilder.Entity("SansPost.Features.Identity.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -592,6 +666,32 @@ namespace SansPost.Migrations
                     b.Navigation("Post");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SansPost.Features.Duels.DuelResultRecord", b =>
+                {
+                    b.HasOne("SansPost.Features.Identity.User", "PlayerOne")
+                        .WithMany()
+                        .HasForeignKey("PlayerOneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SansPost.Features.Identity.User", "PlayerTwo")
+                        .WithMany()
+                        .HasForeignKey("PlayerTwoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SansPost.Features.Identity.User", "Winner")
+                        .WithMany()
+                        .HasForeignKey("WinnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("PlayerOne");
+
+                    b.Navigation("PlayerTwo");
+
+                    b.Navigation("Winner");
                 });
 
             modelBuilder.Entity("SansPost.Features.Identity.RefreshToken", b =>

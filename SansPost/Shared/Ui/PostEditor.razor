@@ -3,12 +3,12 @@
 <form @onsubmit="SubmitAsync" novalidate>
     <FormGate Class="stack">
     <div class="field">
-        <label class="field-label" for="post-title">Tytuł</label>
+        <label class="field-label" for="post-title">@L["Tytuł"]</label>
         <input @ref="titleRef" id="post-title" class="input" type="text" maxlength="@PostLimits.TitleMaxLength"
                @bind="Draft.Title" disabled="@Disabled" autocomplete="off"
                aria-invalid="@(titleError is null ? null : "true")" aria-describedby="post-title-hint @(titleError is null ? "" : "post-title-error")" />
         <span class="field-hint" id="post-title-hint">
-            <span>Konkretny tytuł pomaga innym trafić do rozmowy.</span>
+            <span>@L["Konkretny tytuł pomaga innym trafić do rozmowy."]</span>
             <CharCounter For="post-title" Value="@Draft.Title" Max="PostLimits.TitleMaxLength" />
         </span>
         @if (titleError is not null)
@@ -18,13 +18,13 @@
     </div>
 
     <div class="field">
-        <label class="field-label" for="post-category">Kategoria</label>
+        <label class="field-label" for="post-category">@L["Kategoria"]</label>
         <select @ref="categoryRef" id="post-category" class="select" @bind="CategoryValue" disabled="@Disabled"
                 aria-invalid="@(categoryError is null ? null : "true")" aria-describedby="@(categoryError is null ? null : "post-category-error")">
-            <option value="">Wybierz kategorię…</option>
+            <option value="">@L["Wybierz kategorię…"]</option>
             @foreach (var category in CategoryMeta.All)
             {
-                <option value="@category">@category.DisplayName() — @CategoryMeta.Description(category)</option>
+                <option value="@category">@L[category.DisplayName()] — @L[CategoryMeta.Description(category)]</option>
             }
         </select>
         @if (categoryError is not null)
@@ -34,12 +34,12 @@
     </div>
 
     <div class="field">
-        <label class="field-label" for="post-content">Treść</label>
+        <label class="field-label" for="post-content">@L["Treść"]</label>
         <textarea @ref="contentRef" id="post-content" class="textarea textarea-lg" maxlength="@PostLimits.ContentMaxLength"
                   @bind="Draft.Content" disabled="@Disabled"
                   aria-invalid="@(contentError is null ? null : "true")" aria-describedby="post-content-hint @(contentError is null ? "" : "post-content-error")"></textarea>
         <span class="field-hint" id="post-content-hint">
-            <span>Zwykły tekst — puste linie dzielą akapity.</span>
+            <span>@L["Zwykły tekst — puste linie dzielą akapity."]</span>
             <CharCounter For="post-content" Value="@Draft.Content" Max="PostLimits.ContentMaxLength" />
         </span>
         @if (contentError is not null)
@@ -53,7 +53,7 @@
             @if (Busy)
             {
                 <span class="spinner" aria-hidden="true"></span>
-                <span>@BusyLabel</span>
+                <span>@L[BusyLabel]</span>
             }
             else
             {
@@ -61,7 +61,7 @@
                 {
                     <Icon Name="@Icons.Cactus" />
                 }
-                <span>@SubmitLabel</span>
+                <span>@L[SubmitLabel]</span>
             }
         </button>
         @Actions
@@ -100,11 +100,11 @@
             return;
 
         var title = Draft.Title.Trim();
-        titleError = title.Length == 0 ? "Wpisz tytuł."
-            : title.Length < PostLimits.TitleMinLength ? $"Tytuł musi mieć co najmniej {PostLimits.TitleMinLength} znaki."
+        titleError = title.Length == 0 ? L["Wpisz tytuł."]
+            : title.Length < PostLimits.TitleMinLength ? L.Format("Tytuł musi mieć co najmniej {0} znaki.", PostLimits.TitleMinLength)
             : null;
-        categoryError = Draft.Category is null ? "Wybierz kategorię." : null;
-        contentError = string.IsNullOrWhiteSpace(Draft.Content) ? "Napisz treść posta." : null;
+        categoryError = Draft.Category is null ? L["Wybierz kategorię."] : null;
+        contentError = string.IsNullOrWhiteSpace(Draft.Content) ? L["Napisz treść posta."] : null;
 
         if (titleError is not null)
             await titleRef.FocusAsync();

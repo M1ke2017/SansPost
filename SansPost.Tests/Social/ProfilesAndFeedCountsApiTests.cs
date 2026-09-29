@@ -32,7 +32,7 @@ namespace SansPost.Tests.Social
             var fields = document.RootElement.EnumerateObject().Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             Assert.Equal(
-                new[] { "userId", "username", "joinedAt", "postCount", "commentCount", "recentPosts", "recentComments" }.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                new[] { "userId", "username", "joinedAt", "postCount", "commentCount", "recentPosts", "recentComments", "duels" }.ToHashSet(StringComparer.OrdinalIgnoreCase),
                 fields);
             foreach (var forbidden in new[] { "email", "passwordHash", "normalized", "role", "subscription", "refresh", "@example.com", "$2" })
                 Assert.DoesNotContain(forbidden, json, StringComparison.OrdinalIgnoreCase);

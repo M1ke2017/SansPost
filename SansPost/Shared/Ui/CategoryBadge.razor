@@ -1,7 +1,7 @@
 @* Kategoria posta jako link do jej feedu. *@
 <a class="badge category-badge @CategoryMeta.CssClass(Category)" href="@CategoryMeta.Url(Category)">
     <Icon Name="@CategoryMeta.Icon(Category)" Size="13" StrokeWidth="2" />
-    <span class="truncate">@Category.DisplayName()</span>
+    <span class="truncate">@L[Category.DisplayName()]</span>
 </a>
 
 @code {

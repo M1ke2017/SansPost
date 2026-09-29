@@ -4,11 +4,11 @@
 @* Klasyczny widok rozmowy — bezpośredni, udostępnialny adres /post-view/{id} (także linki z powiadomień #comment-12).
    Treść, reakcje i dyskusja: PostConversation (ta sama implementacja co rozmowa w BAR w Main Hall 3D). *@
 <div class="narrow">
-    <a class="back-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
+    <a class="back-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.ArrowLeft" Size="16" /> @L["Wróć do odkrywania"]</a>
 
     <PostConversation PostId="Id">
         <Unavailable>
-            <a class="btn btn-primary" href="@SaloonRoutes.Hub">Wróć do odkrywania</a>
+            <a class="btn btn-primary" href="@SaloonRoutes.Hub">@L["Wróć do odkrywania"]</a>
         </Unavailable>
     </PostConversation>
 </div>

@@ -1,0 +1,716 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name=" — masz teraz {0}" xml:space="preserve"><value> — you now have {0}</value></data>
+  <data name="(bęben mieści 2)." xml:space="preserve"><value>(the cylinder holds 2).</value></data>
+  <data name="(opcjonalnie)" xml:space="preserve"><value>(optional)</value></data>
+  <data name="+1 nabój (maks. 2), jeśli przeciwnik Cię nie trafi." xml:space="preserve"><value>+1 bullet (max 2) if your opponent doesn't hit you.</value></data>
+  <data name=", jeśli przeciwnik nie wróci." xml:space="preserve"><value> if the opponent doesn't come back.</value></data>
+  <data name="1 nabój" xml:space="preserve"><value>1 bullet</value></data>
+  <data name="3 prestiżu" xml:space="preserve"><value>3 prestige</value></data>
+  <data name="3 prestiżu · 1 nabój · 12 rund" xml:space="preserve"><value>3 prestige · 1 bullet · 12 rounds</value></data>
+  <data name="Administrator" xml:space="preserve"><value>Administrator</value></data>
+  <data name="Albo przeglądaj kategorie" xml:space="preserve"><value>Or browse categories</value></data>
+  <data name="Anuluj" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Ataki lub uporczywe zaczepki wobec konkretnej osoby." xml:space="preserve"><value>Attacks on or persistent pestering of a specific person.</value></data>
+  <data name="Autorzy" xml:space="preserve"><value>Authors</value></data>
+  <data name="Bar" xml:space="preserve"><value>Bar</value></data>
+  <data name="Bar jeszcze czeka na pierwszą rozmowę" xml:space="preserve"><value>The bar is still waiting for its first conversation</value></data>
+  <data name="Bar · SansPost Saloon" xml:space="preserve"><value>Bar · SansPost Saloon</value></data>
+  <data name="Bez efektu — obaj stoją." xml:space="preserve"><value>No effect — both still standing.</value></data>
+  <data name="bez zmian" xml:space="preserve"><value>no change</value></data>
+  <data name="Blok" xml:space="preserve"><value>Block</value></data>
+  <data name="Blok przeciwnika zatrzymał Twój strzał." xml:space="preserve"><value>Your opponent's Block stopped your shot.</value></data>
+  <data name="Brak dostępu" xml:space="preserve"><value>No access</value></data>
+  <data name="Brak dostępu · SansPost" xml:space="preserve"><value>No access · SansPost</value></data>
+  <data name="Brak komentarzy." xml:space="preserve"><value>No comments.</value></data>
+  <data name="Brak naboju — strzał jest niemożliwy." xml:space="preserve"><value>No bullet — you can't shoot.</value></data>
+  <data name="Brak naboju." xml:space="preserve"><value>No ammo.</value></data>
+  <data name="Brak postów" xml:space="preserve"><value>No posts</value></data>
+  <data name="Brak postów w kategorii {0}" xml:space="preserve"><value>No posts in {0}</value></data>
+  <data name="Brak powrotu do stołu — pojedynek oddany." xml:space="preserve"><value>You didn't come back to the table — duel forfeited.</value></data>
+  <data name="Brak połączenia ze stołem gry — ponawiam próbę…" xml:space="preserve"><value>No connection to the Game Table — retrying…</value></data>
+  <data name="Brak połączenia ze stołem gry — spróbuj za chwilę." xml:space="preserve"><value>No connection to the Game Table — try again in a moment.</value></data>
+  <data name="Brak ruchu" xml:space="preserve"><value>No move</value></data>
+  <data name="Brak wolnych przydomków." xml:space="preserve"><value>No free aliases left.</value></data>
+  <data name="Brak wolnych przydomków. Rejestracja jest chwilowo niedostępna." xml:space="preserve"><value>No free aliases left. Registration is temporarily unavailable.</value></data>
+  <data name="Brak wyników." xml:space="preserve"><value>No results.</value></data>
+  <data name="Brak {0} dla „{1}”" xml:space="preserve"><value>No {0} for “{1}”</value></data>
+  <data name="Bęben pełny — przeładowanie bez zmian." xml:space="preserve"><value>Cylinder full — reloading changed nothing.</value></data>
+  <data name="cały bar" xml:space="preserve"><value>the whole bar</value></data>
+  <data name="Cały bar: przypięta rozmowa i wszystko, o czym się tu mówi." xml:space="preserve"><value>The whole bar: the pinned conversation and everything people talk about here.</value></data>
+  <data name="Co działa, co przeszkadza, czego brakuje? Opinia trafi do kategorii Feedback jako zwykły post." xml:space="preserve"><value>What works, what gets in the way, what's missing? Your feedback goes to the Feedback category as a regular post.</value></data>
+  <data name="Co działa, co przeszkadza, czego brakuje? Uwagi o SansPost trafiają do kategorii Feedback — jak każda inna rozmowa." xml:space="preserve"><value>What works, what gets in the way, what is missing? Feedback about SansPost goes to the Feedback category — like any other conversation.</value></data>
+  <data name="Co najmniej {0} wśród {1}" xml:space="preserve"><value>At least {0} among {1}</value></data>
+  <data name="Co o tym myślisz?" xml:space="preserve"><value>What do you think?</value></data>
+  <data name="code:connection-lost" xml:space="preserve"><value>No connection to the Game Table — try again in a moment.</value></data>
+  <data name="Coś poszło nie tak" xml:space="preserve"><value>Something went wrong</value></data>
+  <data name="Coś poszło nie tak. Odśwież stronę, aby kontynuować." xml:space="preserve"><value>Something went wrong. Refresh the page to continue.</value></data>
+  <data name="Coś poszło nie tak. Spróbuj ponownie za chwilę." xml:space="preserve"><value>Something went wrong. Please try again in a moment.</value></data>
+  <data name="Czas minął — bez karty tracisz 1 prestiżu." xml:space="preserve"><value>Time's up — without a card you lose 1 prestige.</value></data>
+  <data name="Czas na ruch" xml:space="preserve"><value>Time to move</value></data>
+  <data name="Czas na ruch:" xml:space="preserve"><value>Time to move:</value></data>
+  <data name="Czego szukasz?" xml:space="preserve"><value>What are you looking for?</value></data>
+  <data name="Czekamy na przeciwnika." xml:space="preserve"><value>Waiting for an opponent.</value></data>
+  <data name="Czekamy na przeciwnika…" xml:space="preserve"><value>Waiting for an opponent…</value></data>
+  <data name="Czekamy, aż przeciwnik będzie gotowy." xml:space="preserve"><value>Waiting for the opponent to get ready.</value></data>
+  <data name="Czekamy, aż przeciwnik dołączy." xml:space="preserve"><value>Waiting for the opponent to join.</value></data>
+  <data name="Czekamy, aż przeciwnik zgodzi się na rewanż…" xml:space="preserve"><value>Waiting for the opponent to accept the rematch…</value></data>
+  <data name="czekasz" xml:space="preserve"><value>not ready</value></data>
+  <data name="Czytaj opinie" xml:space="preserve"><value>Read feedback</value></data>
+  <data name="Czytać możesz bez konta. Zaloguj się, aby publikować, komentować i reagować." xml:space="preserve"><value>You can read without an account. Sign in to post, comment and react.</value></data>
+  <data name="Czytać można bez konta. Żeby zacząć rozmowę, zaloguj się." xml:space="preserve"><value>Reading needs no account. To start a conversation, sign in.</value></data>
+  <data name="dni" xml:space="preserve"><value>days</value></data>
+  <data name="Dodaj komentarz" xml:space="preserve"><value>Add comment</value></data>
+  <data name="Dodaj wiadomość do SansPost — o technologii, grach, podróżach, pomysłach albo własnym projekcie." xml:space="preserve"><value>Add a message to SansPost — about technology, games, travel, ideas or your own project.</value></data>
+  <data name="Dołącz do rozmowy" xml:space="preserve"><value>Join the conversation</value></data>
+  <data name="Dołącz do Saloonu" xml:space="preserve"><value>Join the Saloon</value></data>
+  <data name="Drzwi są otwarte." xml:space="preserve"><value>The doors are open.</value></data>
+  <data name="dzień" xml:space="preserve"><value>day</value></data>
+  <data name="Dziękujemy. Zgłoszenie trafiło do moderacji." xml:space="preserve"><value>Thank you. The report has been sent to moderation.</value></data>
+  <data name="Edycja posta · SansPost" xml:space="preserve"><value>Edit post · SansPost</value></data>
+  <data name="edytowano" xml:space="preserve"><value>edited</value></data>
+  <data name="edytowano " xml:space="preserve"><value>edited </value></data>
+  <data name="Edytuj" xml:space="preserve"><value>Edit</value></data>
+  <data name="Edytuj komentarz" xml:space="preserve"><value>Edit comment</value></data>
+  <data name="Edytuj post" xml:space="preserve"><value>Edit post</value></data>
+  <data name="Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Email jest zbyt długi." xml:space="preserve"><value>The email is too long.</value></data>
+  <data name="Feedback" xml:space="preserve"><value>Feedback</value></data>
+  <data name="Gdy ktoś coś opublikuje, pojawi się tutaj." xml:space="preserve"><value>When someone publishes something, it will show up here.</value></data>
+  <data name="Gdy w barze zacznie się rozmowa, jej autor zawiśnie tu jako pierwszy poszukiwany." xml:space="preserve"><value>Once a conversation starts at the bar, its author will hang here as the first wanted.</value></data>
+  <data name="godzin" xml:space="preserve"><value>hours</value></data>
+  <data name="godziny" xml:space="preserve"><value>hours</value></data>
+  <data name="godzinę" xml:space="preserve"><value>hour</value></data>
+  <data name="gotowy" xml:space="preserve"><value>ready</value></data>
+  <data name="Gotowy — czekamy" xml:space="preserve"><value>Ready — waiting</value></data>
+  <data name="Gracz" xml:space="preserve"><value>Player</value></data>
+  <data name="Gracze przy stole" xml:space="preserve"><value>Players at the table</value></data>
+  <data name="Graj" xml:space="preserve"><value>Play</value></data>
+  <data name="Graj dalej" xml:space="preserve"><value>Keep playing</value></data>
+  <data name="Gry" xml:space="preserve"><value>Games</value></data>
+  <data name="Gry, rekomendacje i wspólne sesje." xml:space="preserve"><value>Games, recommendations and sessions together.</value></data>
+  <data name="gwiazdek" xml:space="preserve"><value>stars</value></data>
+  <data name="gwiazdka" xml:space="preserve"><value>star</value></data>
+  <data name="Gwiazdki" xml:space="preserve"><value>Stars</value></data>
+  <data name="Gwiazdki prestiżu" xml:space="preserve"><value>Prestige stars</value></data>
+  <data name="Głośność" xml:space="preserve"><value>Volume</value></data>
+  <data name="Głośność radia" xml:space="preserve"><value>Radio volume</value></data>
+  <data name="Główna nawigacja" xml:space="preserve"><value>Main navigation</value></data>
+  <data name="Główna sala" xml:space="preserve"><value>Main hall</value></data>
+  <data name="Główny plac" xml:space="preserve"><value>Main square</value></data>
+  <data name="Hasła nie są identyczne." xml:space="preserve"><value>The passwords don't match.</value></data>
+  <data name="Hasła nie są identyczne. Wpisz je ponownie." xml:space="preserve"><value>The passwords don't match. Enter them again.</value></data>
+  <data name="Hasło" xml:space="preserve"><value>Password</value></data>
+  <data name="Hasło jest wymagane." xml:space="preserve"><value>A password is required.</value></data>
+  <data name="Hasło jest zbyt długie." xml:space="preserve"><value>The password is too long.</value></data>
+  <data name="Hasło musi mieć od 8 do 64 znaków." xml:space="preserve"><value>The password must be 8 to 64 characters long.</value></data>
+  <data name="Hasło musi mieć od {0} do {1} znaków." xml:space="preserve"><value>The password must be {0} to {1} characters long.</value></data>
+  <data name="i" xml:space="preserve"><value>and</value></data>
+  <data name="Idź tropem słów: wyszukiwanie w tytułach i treści postów oraz w przydomkach autorów." xml:space="preserve"><value>Follow the trail of words: search post titles and content and author aliases.</value></data>
+  <data name="Inny powód" xml:space="preserve"><value>Other reason</value></data>
+  <data name="Jasny / ciemny motyw" xml:space="preserve"><value>Light / dark theme</value></data>
+  <data name="Jesteś już zalogowany jako" xml:space="preserve"><value>You are already signed in as</value></data>
+  <data name="Jeszcze bez postów" xml:space="preserve"><value>No posts yet</value></data>
+  <data name="jeszcze nie" xml:space="preserve"><value>not yet</value></data>
+  <data name="Język interfejsu" xml:space="preserve"><value>Interface language</value></data>
+  <data name="Karta na tę rundę jest już wybrana." xml:space="preserve"><value>A card for this round has already been chosen.</value></data>
+  <data name="Karta na tę rundę już wybrana." xml:space="preserve"><value>A card for this round has already been chosen.</value></data>
+  <data name="Karta nowego przybysza" xml:space="preserve"><value>Newcomer's card</value></data>
+  <data name="Karta powrotu do Saloonu" xml:space="preserve"><value>Return card to the Saloon</value></data>
+  <data name="Karta rozmów" xml:space="preserve"><value>Conversation Menu</value></data>
+  <data name="Karta wybrana" xml:space="preserve"><value>Card chosen</value></data>
+  <data name="Karta wybrana — czekamy na przeciwnika." xml:space="preserve"><value>Card chosen — waiting for the opponent.</value></data>
+  <data name="Karty komend" xml:space="preserve"><value>Command cards</value></data>
+  <data name="Karze unik i blok przeciwnika. Wystawia na strzał." xml:space="preserve"><value>Punishes your opponent's Dodge and Block. Leaves you open to a shot.</value></data>
+  <data name="Kategoria" xml:space="preserve"><value>Category</value></data>
+  <data name="Kategorie" xml:space="preserve"><value>Categories</value></data>
+  <data name="Kategorie i informacje" xml:space="preserve"><value>Categories and information</value></data>
+  <data name="Kategorie · SansPost" xml:space="preserve"><value>Categories · SansPost</value></data>
+  <data name="Każda kategoria to osobne miejsce w miasteczku — i nie wszystkie są o IT. Wybierz, dokąd idziesz." xml:space="preserve"><value>Every category is its own place in town — and not all of them are about IT. Pick where you're heading.</value></data>
+  <data name="Kolejność: reakcje + komentarze. Przy remisie wyżej wisi rozmowa z większą liczbą reakcji, potem komentarzy, potem nowsza." xml:space="preserve"><value>Order: reactions + comments. On a tie, the conversation with more reactions hangs higher, then more comments, then the newer one.</value></data>
+  <data name="komentarz" xml:space="preserve"><value>comment</value></data>
+  <data name="Komentarz może mieć maksymalnie 2000 znaków." xml:space="preserve"><value>A comment can have at most 2000 characters.</value></data>
+  <data name="Komentarz usunięty." xml:space="preserve"><value>Comment deleted.</value></data>
+  <data name="Komentarz zmienił się od chwili wczytania. Wczytaj aktualną wersję przed usunięciem." xml:space="preserve"><value>The comment changed since it was loaded. Load the current version before deleting.</value></data>
+  <data name="Komentarz zmienił się w międzyczasie" xml:space="preserve"><value>The comment changed in the meantime</value></data>
+  <data name="Komentarz zniknie z dyskusji. Tej operacji nie można cofnąć z poziomu aplikacji." xml:space="preserve"><value>The comment will disappear from the discussion. This can't be undone in the app.</value></data>
+  <data name="Komentarz został usunięty." xml:space="preserve"><value>The comment has been deleted.</value></data>
+  <data name="Komentarz został w międzyczasie zmieniony. Odśwież go i spróbuj ponownie." xml:space="preserve"><value>The comment was changed in the meantime. Refresh it and try again.</value></data>
+  <data name="Komentarze" xml:space="preserve"><value>Comments</value></data>
+  <data name="komentarzy" xml:space="preserve"><value>comments</value></data>
+  <data name="Konkretny tytuł pomaga innym trafić do rozmowy." xml:space="preserve"><value>A specific title helps others find the conversation.</value></data>
+  <data name="Konto" xml:space="preserve"><value>Account</value></data>
+  <data name="Konto aktywne" xml:space="preserve"><value>Account active</value></data>
+  <data name="Konto jest zawieszone — możesz czytać, ale rozpoczynanie rozmów jest obecnie niedostępne." xml:space="preserve"><value>Your account is suspended — you can read, but starting conversations is currently unavailable.</value></data>
+  <data name="Konto ma już ten status." xml:space="preserve"><value>The account already has this status.</value></data>
+  <data name="Konto nie może wykonywać tej operacji." xml:space="preserve"><value>This account can't perform this action.</value></data>
+  <data name="Konto pozwala publikować posty, komentować, reagować i zgłaszać treści." xml:space="preserve"><value>An account lets you post, comment, react and report content.</value></data>
+  <data name="Konto utworzone" xml:space="preserve"><value>Account created</value></data>
+  <data name="Konto zawieszone" xml:space="preserve"><value>Account suspended</value></data>
+  <data name="Konto zawieszone." xml:space="preserve"><value>Account suspended.</value></data>
+  <data name="Kto straci cały prestiż — przegrywa. Po 12 rundach wygrywa więcej prestiżu." xml:space="preserve"><value>Lose all your prestige and you lose. After 12 rounds, more prestige wins.</value></data>
+  <data name="Kącik muzyczny" xml:space="preserve"><value>Music Corner</value></data>
+  <data name="Limit kont publicznej wersji demo został osiągnięty." xml:space="preserve"><value>The public demo account limit has been reached.</value></data>
+  <data name="Limit kont został osiągnięty" xml:space="preserve"><value>The account limit has been reached</value></data>
+  <data name="Limit musi mieścić się w zakresie 1–{0}." xml:space="preserve"><value>The limit must be between 1 and {0}.</value></data>
+  <data name="Limit postów" xml:space="preserve"><value>Post limit</value></data>
+  <data name="Limit wykorzystany — usuń starszy post, aby dodać nowy." xml:space="preserve"><value>Limit reached — delete an older post to add a new one.</value></data>
+  <data name="Lista stacji nie odpowiada. Saloon działa dalej — spróbuj za chwilę." xml:space="preserve"><value>The station list is not responding. The Saloon keeps going — try again in a moment.</value></data>
+  <data name="Logowanie · SansPost" xml:space="preserve"><value>Sign in · SansPost</value></data>
+  <data name="Losuj inny" xml:space="preserve"><value>Draw another</value></data>
+  <data name="Mam już konto" xml:space="preserve"><value>I already have an account</value></data>
+  <data name="Masowe, powtarzalne lub reklamowe wpisy." xml:space="preserve"><value>Mass, repetitive or promotional posts.</value></data>
+  <data name="Masz już konto?" xml:space="preserve"><value>Already have an account?</value></data>
+  <data name="Masz już wysłane wyzwanie — poczekaj na odpowiedź albo je wycofaj." xml:space="preserve"><value>You've already sent a challenge — wait for an answer or withdraw it.</value></data>
+  <data name="Masz trwający pojedynek." xml:space="preserve"><value>You already have a duel in progress.</value></data>
+  <data name="Masz uwagi?" xml:space="preserve"><value>Have feedback?</value></data>
+  <data name="Miejsca, trasy i wskazówki z podróży." xml:space="preserve"><value>Places, routes and travel tips.</value></data>
+  <data name="Miejsce" xml:space="preserve"><value>Place</value></data>
+  <data name="minut" xml:space="preserve"><value>minutes</value></data>
+  <data name="minuty" xml:space="preserve"><value>minutes</value></data>
+  <data name="minutę" xml:space="preserve"><value>minute</value></data>
+  <data name="Mistrz Stołu" xml:space="preserve"><value>Master of the Table</value></data>
+  <data name="Mistrz Stołu: {0}, {1} ★." xml:space="preserve"><value>Master of the Table: {0}, {1} ★.</value></data>
+  <data name="Moderacja" xml:space="preserve"><value>Moderation</value></data>
+  <data name="Moje konto" xml:space="preserve"><value>My account</value></data>
+  <data name="Moje konto ({0})" xml:space="preserve"><value>My account ({0})</value></data>
+  <data name="Moje konto i posty" xml:space="preserve"><value>My account and posts</value></data>
+  <data name="Most Wanted · SansPost Saloon" xml:space="preserve"><value>Most Wanted · SansPost Saloon</value></data>
+  <data name="Możesz edytować tylko własne posty" xml:space="preserve"><value>You can only edit your own posts</value></data>
+  <data name="Możesz opublikować jeszcze {0}." xml:space="preserve"><value>You can publish {0} more.</value></data>
+  <data name="Możesz przeglądać SansPost, ale publikowanie jest obecnie niedostępne (posty, komentarze, reakcje i zgłoszenia)." xml:space="preserve"><value>You can browse SansPost, but publishing is currently unavailable (posts, comments, reactions and reports).</value></data>
+  <data name="Możesz przeglądać Stół gry, ale udział w pojedynkach jest obecnie niedostępny." xml:space="preserve"><value>You can browse the Game Table, but taking part in duels is currently unavailable.</value></data>
+  <data name="Możesz się teraz zalogować." xml:space="preserve"><value>You can sign in now.</value></data>
+  <data name="MUZYKA" xml:space="preserve"><value>MUSIC</value></data>
+  <data name="Muzyka w Saloonie" xml:space="preserve"><value>Music in the Saloon</value></data>
+  <data name="Myśli…" xml:space="preserve"><value>Thinking…</value></data>
+  <data name="Mógł zostać usunięty albo ukryty przez moderację." xml:space="preserve"><value>It may have been deleted or hidden by moderation.</value></data>
+  <data name="Mógł zostać usunięty przez autora lub ukryty przez moderację." xml:space="preserve"><value>It may have been deleted by its author or hidden by moderation.</value></data>
+  <data name="Mój profil" xml:space="preserve"><value>My profile</value></data>
+  <data name="Mój publiczny profil" xml:space="preserve"><value>My public profile</value></data>
+  <data name="Na początek" xml:space="preserve"><value>To start</value></data>
+  <data name="Na razie cisza. Gdy ktoś skomentuje Twój post, zobaczysz to tutaj." xml:space="preserve"><value>All quiet for now. When someone comments on your post, you'll see it here.</value></data>
+  <data name="Na SansPost od" xml:space="preserve"><value>On SansPost since</value></data>
+  <data name="Na start:" xml:space="preserve"><value>At the start:</value></data>
+  <data name="Na tym szlaku nikt jeszcze nie zostawił wiadomości." xml:space="preserve"><value>Nobody has left a message on this trail yet.</value></data>
+  <data name="na żywo" xml:space="preserve"><value>live</value></data>
+  <data name="Na żywo: runda trwa 15 sekund — brak karty kosztuje 1 prestiżu." xml:space="preserve"><value>Live: a round lasts 15 seconds — no card costs 1 prestige.</value></data>
+  <data name="Naboje" xml:space="preserve"><value>Ammo</value></data>
+  <data name="Naboje: {0} z 2." xml:space="preserve"><value>Ammo: {0} of 2.</value></data>
+  <data name="Najgłośniejsze rozmowy Saloonu z ostatnich 7 dni. Ich autorzy są poszukiwani — za rozmowy, które poruszyły salę." xml:space="preserve"><value>The loudest Saloon conversations of the last 7 days. Their authors are wanted — for the conversations that stirred the hall.</value></data>
+  <data name="najlepsze rozmowy" xml:space="preserve"><value>top conversations</value></data>
+  <data name="Najnowsze" xml:space="preserve"><value>Latest</value></data>
+  <data name="Najnowsze posty" xml:space="preserve"><value>Latest posts</value></data>
+  <data name="Najnowsze rozmowy" xml:space="preserve"><value>Latest conversations</value></data>
+  <data name="Najpierw odbierz rolę administratora." xml:space="preserve"><value>Remove the administrator role first.</value></data>
+  <data name="najwięcej reakcji" xml:space="preserve"><value>most reactions</value></data>
+  <data name="Napisz pierwszy post" xml:space="preserve"><value>Write your first post</value></data>
+  <data name="Napisz post" xml:space="preserve"><value>Write a post</value></data>
+  <data name="Napisz treść komentarza." xml:space="preserve"><value>Write the comment.</value></data>
+  <data name="Napisz treść posta." xml:space="preserve"><value>Write the post content.</value></data>
+  <data name="Napisz w kategorii Feedback" xml:space="preserve"><value>Write in the Feedback category</value></data>
+  <data name="Napisz w tej kategorii" xml:space="preserve"><value>Write in this category</value></data>
+  <data name="Następna stacja" xml:space="preserve"><value>Next station</value></data>
+  <data name="Następna stacja: {0}" xml:space="preserve"><value>Next station: {0}</value></data>
+  <data name="Nawigacja" xml:space="preserve"><value>Navigation</value></data>
+  <data name="Nazwa użytkownika: 3–50 znaków, litery, cyfry oraz . _ -" xml:space="preserve"><value>Username: 3–50 characters, letters, digits and . _ -</value></data>
+  <data name="Nie jest nigdzie wyświetlany." xml:space="preserve"><value>It is never shown anywhere.</value></data>
+  <data name="Nie ma jeszcze postów" xml:space="preserve"><value>No posts yet</value></data>
+  <data name="Nie ma takiej kategorii" xml:space="preserve"><value>There's no such category</value></data>
+  <data name="Nie ma tu nic do czytania" xml:space="preserve"><value>Nothing to read here</value></data>
+  <data name="Nie masz jeszcze karty?" xml:space="preserve"><value>Don't have a card yet?</value></data>
+  <data name="Nie masz jeszcze postów" xml:space="preserve"><value>You don't have any posts yet</value></data>
+  <data name="Nie masz konta?" xml:space="preserve"><value>Don't have an account?</value></data>
+  <data name="Nie masz uprawnień do edycji tego komentarza." xml:space="preserve"><value>You don't have permission to edit this comment.</value></data>
+  <data name="Nie masz uprawnień do edycji tego posta." xml:space="preserve"><value>You don't have permission to edit this post.</value></data>
+  <data name="Nie masz uprawnień do tej operacji." xml:space="preserve"><value>You don't have permission to do this.</value></data>
+  <data name="Nie masz uprawnień do usunięcia tego komentarza." xml:space="preserve"><value>You don't have permission to delete this comment.</value></data>
+  <data name="Nie masz uprawnień do usunięcia tego posta." xml:space="preserve"><value>You don't have permission to delete this post.</value></data>
+  <data name="Nie możesz dołączyć do własnego pojedynku." xml:space="preserve"><value>You can't join your own duel.</value></data>
+  <data name="Nie możesz moderować własnego konta." xml:space="preserve"><value>You can't moderate your own account.</value></data>
+  <data name="Nie możesz wyzwać samego siebie." xml:space="preserve"><value>You can't challenge yourself.</value></data>
+  <data name="Nie możesz zmienić własnej roli." xml:space="preserve"><value>You can't change your own role.</value></data>
+  <data name="Nie można utworzyć konta z podanym emailem lub nazwą użytkownika." xml:space="preserve"><value>An account can't be created with this email or username.</value></data>
+  <data name="Nie można utworzyć konta z tym adresem email. Użyj innego." xml:space="preserve"><value>An account can't be created with this email address. Use a different one.</value></data>
+  <data name="Nie udało się połączyć ponownie." xml:space="preserve"><value>Couldn't reconnect.</value></data>
+  <data name="Nie udało się połączyć z Saloonem. Spróbuj ponownie za chwilę." xml:space="preserve"><value>Couldn't reach the Saloon. Try again in a moment.</value></data>
+  <data name="Nie udało się przybić listów gończych. Spróbuj ponownie za chwilę." xml:space="preserve"><value>Couldn't nail up the wanted posters. Try again in a moment.</value></data>
+  <data name="Nie udało się wczytać kategorii" xml:space="preserve"><value>Couldn't load the categories</value></data>
+  <data name="Nie udało się wczytać komentarzy." xml:space="preserve"><value>Couldn't load the comments.</value></data>
+  <data name="Nie udało się wczytać posta" xml:space="preserve"><value>Couldn't load the post</value></data>
+  <data name="Nie udało się wczytać postów" xml:space="preserve"><value>Couldn't load posts</value></data>
+  <data name="Nie udało się wczytać profilu" xml:space="preserve"><value>Couldn't load the profile</value></data>
+  <data name="Nie udało się wyświetlić tej strony. Spróbuj ponownie — jeśli problem się powtarza, wróć za chwilę." xml:space="preserve"><value>This page could not be displayed. Try again — if the problem persists, come back in a moment.</value></data>
+  <data name="Nie udało się — spróbuj ponownie." xml:space="preserve"><value>That didn't work — please try again.</value></data>
+  <data name="Nie znaleziono pojedynku." xml:space="preserve"><value>Duel not found.</value></data>
+  <data name="Nie znaleziono użytkownika" xml:space="preserve"><value>User not found</value></data>
+  <data name="Nie znaleziono · SansPost" xml:space="preserve"><value>Not found · SansPost</value></data>
+  <data name="Nieodpowiednie treści" xml:space="preserve"><value>Inappropriate content</value></data>
+  <data name="Nieprawidłowa kategoria." xml:space="preserve"><value>Invalid category.</value></data>
+  <data name="Nieprawidłowa rola użytkownika." xml:space="preserve"><value>Invalid user role.</value></data>
+  <data name="Nieprawidłowe dane logowania." xml:space="preserve"><value>Invalid sign-in details.</value></data>
+  <data name="Nieprawidłowe sortowanie lub kategoria." xml:space="preserve"><value>Invalid sort order or category.</value></data>
+  <data name="Nieprawidłowy adres email." xml:space="preserve"><value>Invalid email address.</value></data>
+  <data name="Nieprawidłowy email lub hasło." xml:space="preserve"><value>Incorrect email or password.</value></data>
+  <data name="Nieprawidłowy identyfikator zasobu." xml:space="preserve"><value>Invalid content identifier.</value></data>
+  <data name="Nieprawidłowy kursor." xml:space="preserve"><value>Invalid cursor.</value></data>
+  <data name="Nieprawidłowy lub wygasły refresh token." xml:space="preserve"><value>Invalid or expired refresh token.</value></data>
+  <data name='Nieprawidłowy nagłówek If-Match. Oczekiwany pojedynczy ETag, np. "3".' xml:space="preserve"><value>Invalid If-Match header. A single ETag is expected, e.g. "3".</value></data>
+  <data name="Nieprawidłowy numer rundy." xml:space="preserve"><value>Invalid round number.</value></data>
+  <data name="Nieprawidłowy stan pojedynku." xml:space="preserve"><value>Invalid duel state.</value></data>
+  <data name="Nieprawidłowy typ subskrypcji." xml:space="preserve"><value>Invalid subscription type.</value></data>
+  <data name="Nieprawidłowy typ zasobu lub powód." xml:space="preserve"><value>Invalid content type or reason.</value></data>
+  <data name="Nieprzeczytane" xml:space="preserve"><value>Unread</value></data>
+  <data name="Nieznany efekt." xml:space="preserve"><value>Unknown effect.</value></data>
+  <data name="Nikogo więcej nie ma teraz przy stole. Zagraj z manekinem albo poczekaj na rewolwerowca." xml:space="preserve"><value>Nobody else is at the table right now. Play the training dummy or wait for a gunslinger.</value></data>
+  <data name="Nikt jeszcze nie pisał o temacie {0}" xml:space="preserve"><value>Nobody has written about {0} yet</value></data>
+  <data name="Nikt jeszcze nie skomentował." xml:space="preserve"><value>No one has commented yet.</value></data>
+  <data name="Nowa rozmowa" xml:space="preserve"><value>New conversation</value></data>
+  <data name="Nowe konta są chwilowo niedostępne. Nadal możesz przeglądać wszystkie posty i dyskusje." xml:space="preserve"><value>New accounts are temporarily unavailable. You can still browse all posts and discussions.</value></data>
+  <data name="Nowy komentarz od" xml:space="preserve"><value>New comment from</value></data>
+  <data name="Nowy pojedynek treningowy" xml:space="preserve"><value>New training duel</value></data>
+  <data name="Nowy post" xml:space="preserve"><value>New post</value></data>
+  <data name="Nowy post · SansPost" xml:space="preserve"><value>New post · SansPost</value></data>
+  <data name="Np. keyset, Gruzja, planszówki…" xml:space="preserve"><value>E.g. keyset, Georgia, board games…</value></data>
+  <data name="Nękanie" xml:space="preserve"><value>Harassment</value></data>
+  <data name="Obaj gracze wybierają kartę w ukryciu; karty odsłaniają się jednocześnie." xml:space="preserve"><value>Both players choose a card in secret; the cards are revealed at the same time.</value></data>
+  <data name="Obraźliwe treści" xml:space="preserve"><value>Offensive content</value></data>
+  <data name="Oddać pojedynek? Wygra przeciwnik." xml:space="preserve"><value>Surrender the duel? Your opponent wins.</value></data>
+  <data name="Odkrywaj" xml:space="preserve"><value>Discover</value></data>
+  <data name="Odrzuć" xml:space="preserve"><value>Decline</value></data>
+  <data name="Odśwież" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Odśwież stronę" xml:space="preserve"><value>Refresh the page</value></data>
+  <data name="Ogólne" xml:space="preserve"><value>General</value></data>
+  <data name="Operacja koliduje z aktualnym stanem. Odśwież stronę." xml:space="preserve"><value>This conflicts with the current state. Refresh the page.</value></data>
+  <data name="Operacja wymaga uprawnień administratora." xml:space="preserve"><value>This action requires administrator permissions.</value></data>
+  <data name="Opisz problem w szczegółach." xml:space="preserve"><value>Describe the problem in the details.</value></data>
+  <data name="Opublikuj" xml:space="preserve"><value>Publish</value></data>
+  <data name="Osiągnięto limit postów ({0})." xml:space="preserve"><value>Post limit reached ({0}).</value></data>
+  <data name="ostatni" xml:space="preserve"><value>latest</value></data>
+  <data name="Ostatnie komentarze" xml:space="preserve"><value>Recent comments</value></data>
+  <data name="Ostatnie posty" xml:space="preserve"><value>Recent posts</value></data>
+  <data name="Otwieranie drzwi…" xml:space="preserve"><value>Opening the doors…</value></data>
+  <data name="Oznacz wszystkie jako przeczytane" xml:space="preserve"><value>Mark all as read</value></data>
+  <data name="Pauza" xml:space="preserve"><value>Pause</value></data>
+  <data name="Po zalogowaniu od razu przejdziesz do formularza nowej rozmowy." xml:space="preserve"><value>After signing in you will go straight to the new conversation form.</value></data>
+  <data name="Po zalogowaniu wrócisz do stołu gry i zaczniesz pojedynek treningowy." xml:space="preserve"><value>After signing in you will come back to the Game Table and start a training duel.</value></data>
+  <data name="Po zalogowaniu wrócisz do tej rozmowy — z reakcjami i komentarzami." xml:space="preserve"><value>After signing in you will come back to this conversation — with reactions and comments.</value></data>
+  <data name="Po zalogowaniu wrócisz w to samo miejsce w Saloonie." xml:space="preserve"><value>After signing in you will come back to the same place in the Saloon.</value></data>
+  <data name="pod" xml:space="preserve"><value>on</value></data>
+  <data name="Pod latarnią" xml:space="preserve"><value>Under the lantern</value></data>
+  <data name="Pod latarnią nikt jeszcze nie zostawił pomysłu." xml:space="preserve"><value>Nobody has left an idea under the lantern yet.</value></data>
+  <data name="pod Twoim postem „{0}”" xml:space="preserve"><value>on your post “{0}”</value></data>
+  <data name="Poddaj pojedynek" xml:space="preserve"><value>Surrender</value></data>
+  <data name="Podróże" xml:space="preserve"><value>Travel</value></data>
+  <data name="pojedynek" xml:space="preserve"><value>duel</value></data>
+  <data name="Pojedynek jest już zakończony." xml:space="preserve"><value>The duel is already over.</value></data>
+  <data name="Pojedynek jest przypisany do konta. Zaloguj się, żeby zagrać z innym graczem albo z manekinem treningowym." xml:space="preserve"><value>Duels belong to an account. Sign in to play another player or the training dummy.</value></data>
+  <data name="Pojedynek jeszcze trwa — możesz go oddać." xml:space="preserve"><value>The duel is still on — you can surrender it.</value></data>
+  <data name="Pojedynek na żywo" xml:space="preserve"><value>Live duel</value></data>
+  <data name="Pojedynek na żywo powstaje z przyjętego wyzwania (StartLiveAsync)." xml:space="preserve"><value>A live duel starts from an accepted challenge.</value></data>
+  <data name="Pojedynek oddany — wygrywa przeciwnik." xml:space="preserve"><value>Duel surrendered — your opponent wins.</value></data>
+  <data name="Pojedynek z {0} nie doszedł do skutku — gracz jest już niedostępny." xml:space="preserve"><value>The duel with {0} didn't happen — the player is no longer available.</value></data>
+  <data name="Pojedynek zacznie się, gdy obaj będziecie gotowi." xml:space="preserve"><value>The duel starts when you are both ready.</value></data>
+  <data name="Pojedynek zacznie się, gdy obaj gracze będą gotowi." xml:space="preserve"><value>The duel starts when both players are ready.</value></data>
+  <data name="Pojedynek zakończony" xml:space="preserve"><value>Duel over</value></data>
+  <data name="Pojedynek zakończony." xml:space="preserve"><value>The duel is over.</value></data>
+  <data name="Pojedynki" xml:space="preserve"><value>Duels</value></data>
+  <data name="Pokaż hasło" xml:space="preserve"><value>Show password</value></data>
+  <data name="Pokaż kolejne komentarze" xml:space="preserve"><value>Show more comments</value></data>
+  <data name="Pokaż starsze" xml:space="preserve"><value>Show older</value></data>
+  <data name="Pokaż, nad czym pracujesz, i zbierz opinie." xml:space="preserve"><value>Show what you're working on and gather feedback.</value></data>
+  <data name="Polub post, {0}" xml:space="preserve"><value>Like post, {0}</value></data>
+  <data name="polubienia" xml:space="preserve"><value>likes</value></data>
+  <data name="polubienie" xml:space="preserve"><value>like</value></data>
+  <data name="polubień" xml:space="preserve"><value>likes</value></data>
+  <data name="Pomysły" xml:space="preserve"><value>Ideas</value></data>
+  <data name="Pomysły do przedyskutowania — także te niegotowe." xml:space="preserve"><value>Ideas to discuss — unfinished ones too.</value></data>
+  <data name="Pomóż moderacji zrozumieć problem." xml:space="preserve"><value>Help moderation understand the problem.</value></data>
+  <data name="Ponowne wyzwanie tego gracza będzie możliwe za chwilę." xml:space="preserve"><value>You'll be able to challenge this player again in a moment.</value></data>
+  <data name="Popularne" xml:space="preserve"><value>Popular</value></data>
+  <data name="Popularne posty" xml:space="preserve"><value>Popular posts</value></data>
+  <data name="Popularne rozmowy" xml:space="preserve"><value>Popular conversations</value></data>
+  <data name="PORAŻKA" xml:space="preserve"><value>DEFEAT</value></data>
+  <data name="post" xml:space="preserve"><value>post</value></data>
+  <data name="Post usunięty." xml:space="preserve"><value>Post deleted.</value></data>
+  <data name="Post zmienił się od czasu otwarcia edytora" xml:space="preserve"><value>The post changed since you opened the editor</value></data>
+  <data name="Post zniknie z feedu, wyszukiwarki i Twojego profilu razem z dyskusją. Tej operacji nie można cofnąć z poziomu aplikacji." xml:space="preserve"><value>The post will disappear from the feed, search and your profile together with its discussion. This can't be undone in the app.</value></data>
+  <data name="Post został usunięty." xml:space="preserve"><value>The post has been deleted.</value></data>
+  <data name="Post został w międzyczasie zmieniony. Odśwież go i spróbuj ponownie." xml:space="preserve"><value>The post was changed in the meantime. Refresh it and try again.</value></data>
+  <data name="Posty" xml:space="preserve"><value>Posts</value></data>
+  <data name="Posty w kategorii {0}" xml:space="preserve"><value>Posts in {0}</value></data>
+  <data name="postów" xml:space="preserve"><value>posts</value></data>
+  <data name="Powiadomienia" xml:space="preserve"><value>Notifications</value></data>
+  <data name="Powrót do Saloonu" xml:space="preserve"><value>Back to the Saloon</value></data>
+  <data name="Powtórz hasło" xml:space="preserve"><value>Repeat password</value></data>
+  <data name="Powód" xml:space="preserve"><value>Reason</value></data>
+  <data name="Powód zgłoszenia jest wymagany." xml:space="preserve"><value>A report reason is required.</value></data>
+  <data name="Pozostali poszukiwani" xml:space="preserve"><value>Also wanted</value></data>
+  <data name="Połączenie ze stołem przerwane — wznawiam…" xml:space="preserve"><value>Connection to the table lost — reconnecting…</value></data>
+  <data name="Połączenie zostało przerwane. Próbujemy je przywrócić." xml:space="preserve"><value>The connection was interrupted. We're trying to restore it.</value></data>
+  <data name="połączony" xml:space="preserve"><value>connected</value></data>
+  <data name="Prefiks musi mieć od {0} do {1} znaków." xml:space="preserve"><value>The prefix must be {0} to {1} characters long.</value></data>
+  <data name="Prestiż" xml:space="preserve"><value>Prestige</value></data>
+  <data name="Prestiż: {0}." xml:space="preserve"><value>Prestige: {0}.</value></data>
+  <data name="prestiżu" xml:space="preserve"><value>prestige</value></data>
+  <data name="Profil" xml:space="preserve"><value>Profile</value></data>
+  <data name="Programowanie, sprzęt, narzędzia i nowinki." xml:space="preserve"><value>Programming, hardware, tools and news.</value></data>
+  <data name="Projekty" xml:space="preserve"><value>Projects</value></data>
+  <data name="Prowokacja" xml:space="preserve"><value>Taunt</value></data>
+  <data name="Prowokacja przeciwnika ukarała Twoją defensywę." xml:space="preserve"><value>Your opponent's Taunt punished your defence.</value></data>
+  <data name="Przebieg" xml:space="preserve"><value>Duel log</value></data>
+  <data name="Przeciwnik" xml:space="preserve"><value>Opponent</value></data>
+  <data name="Przeciwnik jest gotowy — kliknij „GOTOWY”." xml:space="preserve"><value>Your opponent is ready — click “READY”.</value></data>
+  <data name="Przeciwnik nie wrócił do stołu — wygrana walkowerem." xml:space="preserve"><value>Your opponent didn't come back — you win by walkover.</value></data>
+  <data name="Przeciwnik nie zdążył wybrać karty — traci 1 prestiżu." xml:space="preserve"><value>Your opponent ran out of time — they lose 1 prestige.</value></data>
+  <data name="Przeciwnik opuścił już stół." xml:space="preserve"><value>Your opponent has already left the table.</value></data>
+  <data name="Przeciwnik opuścił stół." xml:space="preserve"><value>Your opponent has left the table.</value></data>
+  <data name="Przeciwnik poddał pojedynek — wygrana walkowerem." xml:space="preserve"><value>Your opponent surrendered — you win by walkover.</value></data>
+  <data name="Przeciwnik proponuje rewanż." xml:space="preserve"><value>Your opponent offers a rematch.</value></data>
+  <data name="Przeciwnik przeładował broń." xml:space="preserve"><value>Your opponent reloaded.</value></data>
+  <data name="Przeciwnik przeładował pełny bęben." xml:space="preserve"><value>Your opponent reloaded a full cylinder.</value></data>
+  <data name="Przeciwnik utracił połączenie. Czekamy na powrót…" xml:space="preserve"><value>Your opponent lost the connection. Waiting for them to come back…</value></data>
+  <data name="Przeciwnik wybrał — Twój ruch." xml:space="preserve"><value>Your opponent has chosen — your move.</value></data>
+  <data name="Przeciwnik:" xml:space="preserve"><value>Opponent:</value></data>
+  <data name="przed chwilą" xml:space="preserve"><value>just now</value></data>
+  <data name="Przeglądaj posty" xml:space="preserve"><value>Browse posts</value></data>
+  <data name="Przegrana — tym razem to Ty schodzisz ze sceny." xml:space="preserve"><value>Defeat — this time you leave the stage.</value></data>
+  <data name="Przegrane" xml:space="preserve"><value>Losses</value></data>
+  <data name="Przejdź dalej" xml:space="preserve"><value>Continue</value></data>
+  <data name="Przejdź do swoich postów" xml:space="preserve"><value>Go to your posts</value></data>
+  <data name="Przejdź do treści" xml:space="preserve"><value>Skip to content</value></data>
+  <data name="Przewiń kategorie w lewo" xml:space="preserve"><value>Scroll categories left</value></data>
+  <data name="Przewiń kategorie w prawo" xml:space="preserve"><value>Scroll categories right</value></data>
+  <data name="Przeładowanie" xml:space="preserve"><value>Reload</value></data>
+  <data name="Przeładowanie: +1 nabój." xml:space="preserve"><value>Reload: +1 bullet.</value></data>
+  <data name="Przeładuj" xml:space="preserve"><value>Reload</value></data>
+  <data name="Przełącz jasny lub ciemny motyw" xml:space="preserve"><value>Toggle light or dark theme</value></data>
+  <data name="Przy stole gry nie ma teraz miejsca. Spróbuj za chwilę." xml:space="preserve"><value>There's no room at the Game Table right now. Try again in a moment.</value></data>
+  <data name="Przybijamy listy gończe…" xml:space="preserve"><value>Nailing up the wanted posters…</value></data>
+  <data name="Przydomek musi pochodzić z generatora SansPost." xml:space="preserve"><value>The alias must come from the SansPost generator.</value></data>
+  <data name="Przydomki pochodzą ze słownika SansPost — widoczne publicznie i stałe po rejestracji." xml:space="preserve"><value>Aliases come from the SansPost dictionary — public and permanent after registration.</value></data>
+  <data name="Przygotowanie do pojedynku" xml:space="preserve"><value>Getting ready for the duel</value></data>
+  <data name="Przyjmij" xml:space="preserve"><value>Accept</value></data>
+  <data name="Przyjmij rewanż" xml:space="preserve"><value>Accept rematch</value></data>
+  <data name="Przypięte" xml:space="preserve"><value>Pinned</value></data>
+  <data name="Publiczna wersja SansPost ma ograniczoną liczbę kont i wszystkie miejsca są zajęte. Wszystkie treści możesz czytać bez konta." xml:space="preserve"><value>The public version of SansPost has a limited number of accounts and all seats are taken. You can read everything without an account.</value></data>
+  <data name="Publikowanie jest wyłączone" xml:space="preserve"><value>Publishing is disabled</value></data>
+  <data name="Publikowanie…" xml:space="preserve"><value>Publishing…</value></data>
+  <data name="Radio Browser jest niedostępny." xml:space="preserve"><value>Radio Browser is unavailable.</value></data>
+  <data name="radio country" xml:space="preserve"><value>country radio</value></data>
+  <data name="Radio country na żywo, prosto ze stacji. Gra dalej, gdy wrócisz do sali, baru albo tablicy Wanted." xml:space="preserve"><value>Live country radio, straight from the station. It keeps playing when you go back to the hall, the bar or the Wanted board.</value></data>
+  <data name="Radio gra" xml:space="preserve"><value>Radio playing</value></data>
+  <data name="Radio jest chwilowo niedostępne." xml:space="preserve"><value>The radio is temporarily unavailable.</value></data>
+  <data name="Radio w Saloonie" xml:space="preserve"><value>Radio in the Saloon</value></data>
+  <data name="Radio zatrzymane" xml:space="preserve"><value>Radio stopped</value></data>
+  <data name="Ranking pojawi się po pierwszym pojedynku z innym graczem." xml:space="preserve"><value>The leaderboard appears after the first duel against another player.</value></data>
+  <data name="Ranking stołu" xml:space="preserve"><value>Table leaderboard</value></data>
+  <data name="reakcja" xml:space="preserve"><value>reaction</value></data>
+  <data name="reakcje" xml:space="preserve"><value>reactions</value></data>
+  <data name="reakcji" xml:space="preserve"><value>reactions</value></data>
+  <data name="Rejestracja jest obecnie wyłączona" xml:space="preserve"><value>Registration is currently closed</value></data>
+  <data name="Rejestracja jest obecnie wyłączona." xml:space="preserve"><value>Registration is currently disabled.</value></data>
+  <data name="REMIS" xml:space="preserve"><value>DRAW</value></data>
+  <data name="Remis — obaj rewolwerowcy zostają w grze." xml:space="preserve"><value>Draw — both gunslingers stay in the game.</value></data>
+  <data name="Remisy" xml:space="preserve"><value>Draws</value></data>
+  <data name="Rewanż" xml:space="preserve"><value>Rematch</value></data>
+  <data name="Rewanż dotyczy pojedynku przy stole gry." xml:space="preserve"><value>A rematch applies to a duel at the Game Table.</value></data>
+  <data name="Rozegrane: {0}. Prestiż {1} : {2}." xml:space="preserve"><value>Played: {0}. Prestige {1} : {2}.</value></data>
+  <data name="Rozmowa" xml:space="preserve"><value>Conversation</value></data>
+  <data name="rozmowy" xml:space="preserve"><value>conversations</value></data>
+  <data name="Rozmowy o technologii, grach, podróżach, pomysłach i projektach. Czytać można bez konta." xml:space="preserve"><value>Conversations about technology, games, travel, ideas and projects. Reading needs no account.</value></data>
+  <data name="Rozmowy z największą liczbą reakcji." xml:space="preserve"><value>The conversations with the most reactions.</value></data>
+  <data name="Rozmowy, które mają sens." xml:space="preserve"><value>Conversations that make sense.</value></data>
+  <data name="Rozmowy, które nie pasują nigdzie indziej." xml:space="preserve"><value>Conversations that don't fit anywhere else.</value></data>
+  <data name="rozmów" xml:space="preserve"><value>conversations</value></data>
+  <data name="Rozpocznij pojedynek treningowy" xml:space="preserve"><value>Start a training duel</value></data>
+  <data name="Rozpocznij rozmowę" xml:space="preserve"><value>Start a conversation</value></data>
+  <data name="Rozpocznij rozmowę: {0}" xml:space="preserve"><value>Start a conversation: {0}</value></data>
+  <data name="Rozstaje dróg" xml:space="preserve"><value>Crossroads</value></data>
+  <data name="Rozstrzygnięcie…" xml:space="preserve"><value>Resolving…</value></data>
+  <data name="rund" xml:space="preserve"><value>rounds</value></data>
+  <data name="runda" xml:space="preserve"><value>round</value></data>
+  <data name="Runda nie jest gotowa do rozstrzygnięcia." xml:space="preserve"><value>The round isn't ready to be resolved.</value></data>
+  <data name="Runda {0}" xml:space="preserve"><value>Round {0}</value></data>
+  <data name="Runda {0} rozstrzygnięta. Wybierz kartę na rundę {1}." xml:space="preserve"><value>Round {0} resolved. Choose a card for round {1}.</value></data>
+  <data name="Runda {0} rozstrzygnięta. Wybierz ruch na rundę {1}." xml:space="preserve"><value>Round {0} resolved. Choose your move for round {1}.</value></data>
+  <data name="Runda {0} z {1}" xml:space="preserve"><value>Round {0} of {1}</value></data>
+  <data name="rundy" xml:space="preserve"><value>rounds</value></data>
+  <data name="Saloon otwiera drzwi…" xml:space="preserve"><value>The Saloon is opening its doors…</value></data>
+  <data name="Saloon SansPost — sala główna" xml:space="preserve"><value>SansPost Saloon — main hall</value></data>
+  <data name="SansPost dopiero się rozkręca. Zacznij pierwszą rozmowę." xml:space="preserve"><value>SansPost is just getting started. Start the first conversation.</value></data>
+  <data name="SansPost Saloon" xml:space="preserve"><value>SansPost Saloon</value></data>
+  <data name="SansPost to miejsce, gdzie ludzie zostawiają wiadomości, opinie i historie — o technologii, grach, podróżach, pomysłach i projektach. Czytasz bez konta; z kontem publikujesz, komentujesz i reagujesz." xml:space="preserve"><value>SansPost is a place where people leave messages, opinions and stories — about technology, games, travel, ideas and projects. You read without an account; with one you post, comment and react.</value></data>
+  <data name="SansPost to projekt portfolio działający na żywo. Treści są prawdziwe, a liczba kont w tej wersji jest ograniczona." xml:space="preserve"><value>SansPost is a live portfolio project. The content is real, and the number of accounts in this version is limited.</value></data>
+  <data name="SansPost · otwarta przestrzeń rozmów · projekt portfolio działający na żywo" xml:space="preserve"><value>SansPost · an open space for conversations · a live portfolio project</value></data>
+  <data name="SansPost — publiczna przestrzeń rozmów o technologii, grach, podróżach, pomysłach i projektach." xml:space="preserve"><value>SansPost — a public space for conversations about technology, games, travel, ideas and projects.</value></data>
+  <data name="SansPost — rozmowy, które mają sens" xml:space="preserve"><value>SansPost — conversations that make sense</value></data>
+  <data name="SansPost — Saloon" xml:space="preserve"><value>SansPost — Saloon</value></data>
+  <data name="SansPost — wejście do Saloonu" xml:space="preserve"><value>SansPost — Saloon entrance</value></data>
+  <data name="Sesja strony wygasła." xml:space="preserve"><value>The page session has expired.</value></data>
+  <data name="Sesja zakończona" xml:space="preserve"><value>Session ended</value></data>
+  <data name="Silnik: SansPost.Game.Core (F#) — każdą rundę rozstrzyga serwer." xml:space="preserve"><value>Engine: SansPost.Game.Core (F#) — the server resolves every round.</value></data>
+  <data name="Skróty konta" xml:space="preserve"><value>Account shortcuts</value></data>
+  <data name="Sortowanie postów" xml:space="preserve"><value>Sort posts</value></data>
+  <data name="Sortowanie rozmów" xml:space="preserve"><value>Sort conversations</value></data>
+  <data name="Spam lub reklama" xml:space="preserve"><value>Spam or advertising</value></data>
+  <data name="Sprawdzanie dostępności rejestracji…" xml:space="preserve"><value>Checking whether registration is open…</value></data>
+  <data name="Sprawdzanie uprawnień…" xml:space="preserve"><value>Checking permissions…</value></data>
+  <data name="Sprawdzanie wolnych miejsc w Saloonie…" xml:space="preserve"><value>Checking for free seats in the Saloon…</value></data>
+  <data name="Sprawdź dane: poprawny email i hasło 8–64 znaków." xml:space="preserve"><value>Check your details: a valid email and a password of 8–64 characters.</value></data>
+  <data name="Sprawdź dane: poprawny email i hasło {0}–{1} znaków." xml:space="preserve"><value>Check your details: a valid email and a password of {0}–{1} characters.</value></data>
+  <data name="Sprawdź listę dostępnych kategorii." xml:space="preserve"><value>Check the list of available categories.</value></data>
+  <data name="Sprawdź wprowadzone dane." xml:space="preserve"><value>Check the data you entered.</value></data>
+  <data name="Spróbuj innych lub krótszych słów." xml:space="preserve"><value>Try different or shorter words.</value></data>
+  <data name="Spróbuj ponownie" xml:space="preserve"><value>Try again</value></data>
+  <data name="Stacja nie odpowiada" xml:space="preserve"><value>Station not responding</value></data>
+  <data name="Starsze powiadomienia" xml:space="preserve"><value>Older notifications</value></data>
+  <data name="Stolik do gry" xml:space="preserve"><value>Card table</value></data>
+  <data name="Strefy Saloonu" xml:space="preserve"><value>Saloon zones</value></data>
+  <data name="Stroimy radio…" xml:space="preserve"><value>Tuning the radio…</value></data>
+  <data name="Strona stacji" xml:space="preserve"><value>Station website</value></data>
+  <data name="Strona stacji {0} (otwiera się w nowej karcie)" xml:space="preserve"><value>{0} website (opens in a new tab)</value></data>
+  <data name="Strzał" xml:space="preserve"><value>Shoot</value></data>
+  <data name="Strzał przeciwnika trafił Cię." xml:space="preserve"><value>Your opponent's shot hit you.</value></data>
+  <data name="Stół czeka na pierwszego mistrza." xml:space="preserve"><value>The table is waiting for its first champion.</value></data>
+  <data name="Stół gry" xml:space="preserve"><value>Game Table</value></data>
+  <data name="Szczegóły" xml:space="preserve"><value>Details</value></data>
+  <data name="Szczegóły mogą mieć maksymalnie 500 znaków." xml:space="preserve"><value>Details can have at most 500 characters.</value></data>
+  <data name="Szukaj" xml:space="preserve"><value>Search</value></data>
+  <data name="Szukaj autorów" xml:space="preserve"><value>Search authors</value></data>
+  <data name="Szukaj postów" xml:space="preserve"><value>Search posts</value></data>
+  <data name="Szukaj postów…" xml:space="preserve"><value>Search posts…</value></data>
+  <data name="Szukaj rozmowy" xml:space="preserve"><value>Search conversations</value></data>
+  <data name="Szukaj rozmowy…" xml:space="preserve"><value>Search conversations…</value></data>
+  <data name="Szukaj w temacie {0}" xml:space="preserve"><value>Search in {0}</value></data>
+  <data name="Szukaj we wszystkich kategoriach" xml:space="preserve"><value>Search all categories</value></data>
+  <data name="Szukanie…" xml:space="preserve"><value>Searching…</value></data>
+  <data name="Ta część SansPost jest dostępna tylko dla uprawnionych kont." xml:space="preserve"><value>This part of SansPost is only available to authorised accounts.</value></data>
+  <data name="Ta stacja jest chwilowo niedostępna." xml:space="preserve"><value>This station is temporarily unavailable.</value></data>
+  <data name="ta treść nie jest już dostępna" xml:space="preserve"><value>this content is no longer available</value></data>
+  <data name="Ta treść nie jest już dostępna." xml:space="preserve"><value>This content is no longer available.</value></data>
+  <data name="Ta treść została zmieniona w innym miejscu. Odśwież aktualną wersję." xml:space="preserve"><value>This content was changed elsewhere. Refresh to get the current version.</value></data>
+  <data name="Tablica czeka na pierwszą rozmowę." xml:space="preserve"><value>The board is waiting for the first conversation.</value></data>
+  <data name="Tablica ogłoszeń" xml:space="preserve"><value>Notice board</value></data>
+  <data name="Tablica ogłoszeń jest jeszcze pusta. Twoja opinia może zawisnąć tu pierwsza." xml:space="preserve"><value>The notice board is still empty. Your feedback can be the first one pinned here.</value></data>
+  <data name="Tablica Wanted" xml:space="preserve"><value>Wanted Board</value></data>
+  <data name="Tak, poddaję pojedynek" xml:space="preserve"><value>Yes, I surrender</value></data>
+  <data name="Taki profil nie istnieje. Sprawdź nazwę albo poszukaj autora w wyszukiwarce." xml:space="preserve"><value>This profile doesn't exist. Check the name or look the author up in search.</value></data>
+  <data name="Technologia" xml:space="preserve"><value>Technology</value></data>
+  <data name="Telegraf" xml:space="preserve"><value>Telegraph office</value></data>
+  <data name="Temat" xml:space="preserve"><value>Topic</value></data>
+  <data name="Tematy" xml:space="preserve"><value>Topics</value></data>
+  <data name="Ten adres email nie może zostać użyty." xml:space="preserve"><value>This email address can't be used.</value></data>
+  <data name="Ten adres nie prowadzi do żadnej strony SansPost. Może link jest nieaktualny?" xml:space="preserve"><value>This address doesn't lead to any SansPost page. Maybe the link is out of date?</value></data>
+  <data name="Ten gracz jest w trakcie pojedynku." xml:space="preserve"><value>This player is in a duel.</value></data>
+  <data name="Ten gracz już Cię wyzwał — możesz przyjąć jego wyzwanie." xml:space="preserve"><value>This player has already challenged you — you can accept their challenge.</value></data>
+  <data name="Ten gracz nie jest teraz dostępny." xml:space="preserve"><value>This player isn't available right now.</value></data>
+  <data name="Ten gracz nie może teraz zagrać." xml:space="preserve"><value>This player can't play right now.</value></data>
+  <data name="Ten komentarz nie jest już dostępny." xml:space="preserve"><value>This comment is no longer available.</value></data>
+  <data name="Ten komentarz został w międzyczasie usunięty." xml:space="preserve"><value>This comment was deleted in the meantime.</value></data>
+  <data name="Ten pojedynek ma już dwóch graczy." xml:space="preserve"><value>This duel already has two players.</value></data>
+  <data name="Ten pojedynek nie ma fazy gotowości." xml:space="preserve"><value>This duel has no ready phase.</value></data>
+  <data name="Ten post nie jest dostępny" xml:space="preserve"><value>This post isn't available</value></data>
+  <data name="Ten post nie jest już dostępny" xml:space="preserve"><value>This post is no longer available</value></data>
+  <data name="Ten post nie jest już dostępny — mógł zostać usunięty lub ukryty." xml:space="preserve"><value>This post is no longer available — it may have been deleted or hidden.</value></data>
+  <data name="Ten post nie jest już dostępny." xml:space="preserve"><value>This post is no longer available.</value></data>
+  <data name="Ten przydomek został właśnie zajęty. Wylosowaliśmy dla Ciebie nowy." xml:space="preserve"><value>This alias was just taken. We've drawn a new one for you.</value></data>
+  <data name="Ten przydomek został właśnie zajęty. Wylosuj inny." xml:space="preserve"><value>This alias was just taken. Draw another one.</value></data>
+  <data name="Teraz gra" xml:space="preserve"><value>Now playing</value></data>
+  <data name="The Gunslinger's Draw — pojedynek jeden na jeden, 3–5 minut. Bez hazardu i nagród — liczy się przewidywanie przeciwnika." xml:space="preserve"><value>The Gunslinger's Draw — a one-on-one duel, 3–5 minutes. No gambling and no prizes — reading your opponent is what counts.</value></data>
+  <data name="To zgłoszenie już czeka na moderację." xml:space="preserve"><value>This report is already waiting for moderation.</value></data>
+  <data name="Top 10 graczy stołu" xml:space="preserve"><value>Top 10 players at the table</value></data>
+  <data name="Trafienie przerwało Twoje przeładowanie." xml:space="preserve"><value>The hit interrupted your reload.</value></data>
+  <data name="trening" xml:space="preserve"><value>training</value></data>
+  <data name="Treści nieodpowiednie dla publicznej przestrzeni." xml:space="preserve"><value>Content inappropriate for a public space.</value></data>
+  <data name="Treść" xml:space="preserve"><value>Content</value></data>
+  <data name="Treść jest już ukryta." xml:space="preserve"><value>The content is already hidden.</value></data>
+  <data name="Treść jest wymagana." xml:space="preserve"><value>Content is required.</value></data>
+  <data name="Treść komentarza jest wymagana." xml:space="preserve"><value>Comment content is required.</value></data>
+  <data name="Treść może mieć maksymalnie 10000 znaków." xml:space="preserve"><value>Content can have at most 10,000 characters.</value></data>
+  <data name="Treść nie istnieje." xml:space="preserve"><value>The content doesn't exist.</value></data>
+  <data name="Treść nie jest ukryta." xml:space="preserve"><value>The content isn't hidden.</value></data>
+  <data name="Treść została usunięta przez autora i nie podlega tej operacji." xml:space="preserve"><value>The content was deleted by its author and can't be processed.</value></data>
+  <data name="Treść została w międzyczasie zmieniona. Spróbuj ponownie." xml:space="preserve"><value>The content was changed in the meantime. Try again.</value></data>
+  <data name="Twoja niezapisana wersja (do skopiowania)" xml:space="preserve"><value>Your unsaved version (to copy)</value></data>
+  <data name="Twoja prowokacja ukarała defensywę przeciwnika." xml:space="preserve"><value>Your Taunt punished your opponent's defence.</value></data>
+  <data name="Twoja sesja wygasła. Zaloguj się ponownie." xml:space="preserve"><value>Your session has expired. Sign in again.</value></data>
+  <data name="Twoja sesja została zakończona. Zaloguj się ponownie, aby kontynuować." xml:space="preserve"><value>Your session has ended. Sign in again to continue.</value></data>
+  <data name="Twoja zmiana nie została zapisana, żeby nie nadpisać nowszej wersji." xml:space="preserve"><value>Your change wasn't saved so it wouldn't overwrite a newer version.</value></data>
+  <data name="Twoje konto" xml:space="preserve"><value>Your account</value></data>
+  <data name="Twoje konto jest zawieszone — możesz czytać, ale nie możesz publikować, komentować ani reagować." xml:space="preserve"><value>Your account is suspended — you can read, but you can't post, comment or react.</value></data>
+  <data name="Twoje konto jest zawieszone — możesz przeglądać, ale nie możesz publikować ani brać udziału w pojedynkach." xml:space="preserve"><value>Your account is suspended — you can browse, but you can't post or take part in duels.</value></data>
+  <data name="Twoje konto może mieć jednocześnie {0}. Usuń któryś ze starszych, aby opublikować nowy." xml:space="preserve"><value>Your account can have {0} at a time. Delete one of the older ones to publish a new one.</value></data>
+  <data name="Twoje konto · SansPost" xml:space="preserve"><value>Your account · SansPost</value></data>
+  <data name="Twoje pojedynki:" xml:space="preserve"><value>Your duels:</value></data>
+  <data name="Twoje posty" xml:space="preserve"><value>Your posts</value></data>
+  <data name="Twoje posty pojawią się tutaj — i na Twoim publicznym profilu." xml:space="preserve"><value>Your posts will show up here — and on your public profile.</value></data>
+  <data name="Twoje posty, limit publikacji i skróty do najważniejszych miejsc." xml:space="preserve"><value>Your posts, your publishing limit and shortcuts to the most important places.</value></data>
+  <data name="Twoje zmiany nie zostały zapisane, żeby nie nadpisać nowszej wersji. Wczytaj aktualną wersję i wprowadź zmiany ponownie." xml:space="preserve"><value>Your changes weren't saved so they wouldn't overwrite a newer version. Load the current version and make your changes again.</value></data>
+  <data name="Twój blok zatrzymał strzał." xml:space="preserve"><value>Your Block stopped the shot.</value></data>
+  <data name="Twój przydomek" xml:space="preserve"><value>Your alias</value></data>
+  <data name="Twój strzał chybił — przeciwnik zrobił unik." xml:space="preserve"><value>Your shot missed — your opponent dodged.</value></data>
+  <data name="Twój strzał przerwał przeładowanie przeciwnika." xml:space="preserve"><value>Your shot interrupted your opponent's reload.</value></data>
+  <data name="Twój strzał trafił." xml:space="preserve"><value>Your shot hit.</value></data>
+  <data name="Twój wybór — zakryty przed przeciwnikiem." xml:space="preserve"><value>Your choice — hidden from your opponent.</value></data>
+  <data name="Ty" xml:space="preserve"><value>You</value></data>
+  <data name="Ty:" xml:space="preserve"><value>You:</value></data>
+  <data name="Ty: {0}. Przeciwnik: {1}." xml:space="preserve"><value>You: {0}. Opponent: {1}.</value></data>
+  <data name="Typ zgłaszanego zasobu jest wymagany." xml:space="preserve"><value>The type of reported content is required.</value></data>
+  <data name="Tytuł" xml:space="preserve"><value>Title</value></data>
+  <data name="Tytuł jest wymagany." xml:space="preserve"><value>A title is required.</value></data>
+  <data name="Tytuł musi mieć co najmniej {0} znaki." xml:space="preserve"><value>The title must be at least {0} characters long.</value></data>
+  <data name="Tytuł musi mieć od 3 do 150 znaków." xml:space="preserve"><value>The title must be 3 to 150 characters long.</value></data>
+  <data name="Udział w pojedynkach jest niedostępny." xml:space="preserve"><value>Taking part in duels is unavailable.</value></data>
+  <data name="Unik" xml:space="preserve"><value>Dodge</value></data>
+  <data name="Unik udany — strzał przeciwnika chybił." xml:space="preserve"><value>Dodge worked — your opponent's shot missed.</value></data>
+  <data name="Unika strzału, ale prowokacja go karze." xml:space="preserve"><value>Dodges a shot, but Taunt punishes it.</value></data>
+  <data name="Usunąć komentarz?" xml:space="preserve"><value>Delete the comment?</value></data>
+  <data name="Usunąć ten post?" xml:space="preserve"><value>Delete this post?</value></data>
+  <data name="Usuń" xml:space="preserve"><value>Delete</value></data>
+  <data name="Usuń komentarz" xml:space="preserve"><value>Delete comment</value></data>
+  <data name="Usuń post" xml:space="preserve"><value>Delete post</value></data>
+  <data name="utracił połączenie" xml:space="preserve"><value>connection lost</value></data>
+  <data name="Uwagi o SansPost — co działa, a co poprawić." xml:space="preserve"><value>Feedback about SansPost — what works and what to improve.</value></data>
+  <data name="Uzasadnienie może mieć maksymalnie 500 znaków." xml:space="preserve"><value>The justification can have at most 500 characters.</value></data>
+  <data name="Użytkownik nie istnieje." xml:space="preserve"><value>The user doesn't exist.</value></data>
+  <data name="W kategorii {0} nic nie pasuje. Spróbuj bez filtra kategorii albo innych słów." xml:space="preserve"><value>Nothing matches in {0}. Try without the category filter or with other words.</value></data>
+  <data name="W ostatnich 7 dniach było mniej rozmów — tablicę uzupełniają najnowsze wcześniejsze." xml:space="preserve"><value>There were fewer conversations in the last 7 days — the board is filled with the latest earlier ones.</value></data>
+  <data name="W warsztacie jeszcze cicho — nikt nie pokazał tu projektu." xml:space="preserve"><value>It's still quiet in the workshop — nobody has shown a project here yet.</value></data>
+  <data name="W/P/R" xml:space="preserve"><value>W/L/D</value></data>
+  <data name="Walkower za" xml:space="preserve"><value>Walkover in</value></data>
+  <data name="Warsztat" xml:space="preserve"><value>Workshop</value></data>
+  <data name="wczoraj" xml:space="preserve"><value>yesterday</value></data>
+  <data name="Wczytaj aktualną wersję" xml:space="preserve"><value>Load the current version</value></data>
+  <data name="Wczytano aktualną wersję posta." xml:space="preserve"><value>The current version of the post has been loaded.</value></data>
+  <data name="Wczytywanie posta…" xml:space="preserve"><value>Loading post…</value></data>
+  <data name="Wczytywanie postów…" xml:space="preserve"><value>Loading posts…</value></data>
+  <data name="Wczytywanie profilu…" xml:space="preserve"><value>Loading profile…</value></data>
+  <data name="Wczytywanie…" xml:space="preserve"><value>Loading…</value></data>
+  <data name="Wejdź do Saloonu" xml:space="preserve"><value>Enter the Saloon</value></data>
+  <data name="Wejdź jako gość" xml:space="preserve"><value>Enter as a guest</value></data>
+  <data name="Wejście do SansPost" xml:space="preserve"><value>Enter SansPost</value></data>
+  <data name="Witaj z powrotem," xml:space="preserve"><value>Welcome back,</value></data>
+  <data name="Więcej wyników" xml:space="preserve"><value>More results</value></data>
+  <data name="Wpisz co najmniej {0} znaki." xml:space="preserve"><value>Type at least {0} characters.</value></data>
+  <data name="Wpisz tytuł." xml:space="preserve"><value>Enter a title.</value></data>
+  <data name="Wpisz, czego szukasz — tytuły, treść rozmów i przydomki autorów." xml:space="preserve"><value>Type what you are looking for — titles, conversation text and author aliases.</value></data>
+  <data name="Wróć do odkrywania" xml:space="preserve"><value>Back to discovery</value></data>
+  <data name="Wróć do posta" xml:space="preserve"><value>Back to the post</value></data>
+  <data name="Wróć do rozmowy" xml:space="preserve"><value>Back to the conversation</value></data>
+  <data name="Wróć do rozmów w barze" xml:space="preserve"><value>Back to bar conversations</value></data>
+  <data name="Wróć do sali" xml:space="preserve"><value>Back to the hall</value></data>
+  <data name="Wróć do Saloonu" xml:space="preserve"><value>Back to the Saloon</value></data>
+  <data name="Wróć do tablicy Wanted" xml:space="preserve"><value>Back to the Wanted Board</value></data>
+  <data name="Wróć: {0}" xml:space="preserve"><value>Back: {0}</value></data>
+  <data name="Wszystkie" xml:space="preserve"><value>All</value></data>
+  <data name="Wszystkie kategorie" xml:space="preserve"><value>All categories</value></data>
+  <data name="Wszystkie rozmowy" xml:space="preserve"><value>All conversations</value></data>
+  <data name="Wszystkie tematy" xml:space="preserve"><value>All topics</value></data>
+  <data name="Wszystkie treści możesz czytać bez konta." xml:space="preserve"><value>You can read everything without an account.</value></data>
+  <data name="Wulgaryzmy, obelgi, mowa nienawiści." xml:space="preserve"><value>Profanity, insults, hate speech.</value></data>
+  <data name="Wybierz kartę — przeciwnik wybiera w tym samym czasie." xml:space="preserve"><value>Choose a card — your opponent is choosing at the same time.</value></data>
+  <data name="Wybierz kategorię." xml:space="preserve"><value>Choose a category.</value></data>
+  <data name="Wybierz kategorię…" xml:space="preserve"><value>Choose a category…</value></data>
+  <data name="Wybierz miejsce w sali: bar z rozmowami, tablicę Wanted, stół gry albo kącik muzyczny." xml:space="preserve"><value>Pick a spot in the hall: the bar with conversations, the Wanted board, the Game Table or the Music Corner.</value></data>
+  <data name="Wybierz miejsce — w sali albo tutaj" xml:space="preserve"><value>Pick a spot — in the hall or here</value></data>
+  <data name="Wybierz ruch — przeciwnik wybiera w tym samym czasie." xml:space="preserve"><value>Choose your move — your opponent is choosing at the same time.</value></data>
+  <data name="Wybierz stację" xml:space="preserve"><value>Pick a station</value></data>
+  <data name="Wybrana stacja" xml:space="preserve"><value>Selected station</value></data>
+  <data name="Wycofaj wyzwanie" xml:space="preserve"><value>Withdraw challenge</value></data>
+  <data name="Wyczyść wyszukiwanie" xml:space="preserve"><value>Clear search</value></data>
+  <data name="Wygrana! Przeciwnik schodzi ze sceny." xml:space="preserve"><value>Victory! Your opponent leaves the stage.</value></data>
+  <data name="Wygrane" xml:space="preserve"><value>Wins</value></data>
+  <data name="wygrane / przegrane / remisy" xml:space="preserve"><value>wins / losses / draws</value></data>
+  <data name="Wykorzystano limit postów" xml:space="preserve"><value>Post limit reached</value></data>
+  <data name="Wykorzystano {0} z {1} postów" xml:space="preserve"><value>{0} of {1} posts used</value></data>
+  <data name="Wykorzystany limit postów" xml:space="preserve"><value>Post limit used</value></data>
+  <data name="Wyloguj się" xml:space="preserve"><value>Sign out</value></data>
+  <data name="Wymagany nagłówek If-Match z ETag pobranym przez GET." xml:space="preserve"><value>An If-Match header with the ETag returned by GET is required.</value></data>
+  <data name="wynik" xml:space="preserve"><value>result</value></data>
+  <data name="wyniki" xml:space="preserve"><value>results</value></data>
+  <data name="Wyniki wyszukiwania" xml:space="preserve"><value>Search results</value></data>
+  <data name="Wyniki: „{0}”" xml:space="preserve"><value>Results: “{0}”</value></data>
+  <data name="wyników" xml:space="preserve"><value>results</value></data>
+  <data name="Wysłane wyzwanie" xml:space="preserve"><value>Challenge sent</value></data>
+  <data name="wyzwanie" xml:space="preserve"><value>challenge</value></data>
+  <data name="Wyzwanie do {0} wygasło bez odpowiedzi." xml:space="preserve"><value>Your challenge to {0} expired without an answer.</value></data>
+  <data name="Wyzwanie od {0}" xml:space="preserve"><value>Challenge from {0}</value></data>
+  <data name="Wyzwanie od {0} wygasło." xml:space="preserve"><value>The challenge from {0} expired.</value></data>
+  <data name="Wyzwanie wygasło albo zostało wycofane." xml:space="preserve"><value>The challenge has expired or was withdrawn.</value></data>
+  <data name="Wyzwanie wysłane do {0} — czekamy na odpowiedź." xml:space="preserve"><value>Challenge sent to {0} — waiting for an answer.</value></data>
+  <data name="Wyzwij" xml:space="preserve"><value>Challenge</value></data>
+  <data name="Wyzwij: {0}" xml:space="preserve"><value>Challenge: {0}</value></data>
+  <data name="wyzywa Cię" xml:space="preserve"><value>is challenging you</value></data>
+  <data name="Wyzywający odszedł od stołu." xml:space="preserve"><value>The challenger has left the table.</value></data>
+  <data name="Wyślij zgłoszenie" xml:space="preserve"><value>Send report</value></data>
+  <data name="za rozmowę, która rozpaliła Saloon" xml:space="preserve"><value>for the conversation that set the Saloon on fire</value></data>
+  <data name="Zacznij dyskusję." xml:space="preserve"><value>Start the discussion.</value></data>
+  <data name="Zacznij pierwszą rozmowę — pojawi się tutaj." xml:space="preserve"><value>Start the first conversation — it will show up here.</value></data>
+  <data name="Zalogowano jako" xml:space="preserve"><value>Signed in as</value></data>
+  <data name="Zaloguj" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Zaloguj się" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Zaloguj się, aby dołączyć do dyskusji." xml:space="preserve"><value>Sign in to join the discussion.</value></data>
+  <data name="Zaloguj się, aby rozpocząć rozmowę" xml:space="preserve"><value>Sign in to start a conversation</value></data>
+  <data name="Zaloguj się, aby wejść do Saloonu." xml:space="preserve"><value>Sign in to enter the Saloon.</value></data>
+  <data name="Zaloguj się, aby zagrać" xml:space="preserve"><value>Sign in to play</value></data>
+  <data name="Zamknij" xml:space="preserve"><value>Close</value></data>
+  <data name="Zamknij okno" xml:space="preserve"><value>Close window</value></data>
+  <data name="Zamknij powiadomienie" xml:space="preserve"><value>Dismiss notification</value></data>
+  <data name="Zapalamy lampy w Saloonie…" xml:space="preserve"><value>Lighting the lamps in the Saloon…</value></data>
+  <data name="Zapisywanie…" xml:space="preserve"><value>Saving…</value></data>
+  <data name="Zapisz" xml:space="preserve"><value>Save</value></data>
+  <data name="Zapisz zmiany" xml:space="preserve"><value>Save changes</value></data>
+  <data name="Zapytanie musi mieć od {0} do {1} znaków." xml:space="preserve"><value>The query must be {0} to {1} characters long.</value></data>
+  <data name="Zasady w skrócie" xml:space="preserve"><value>Rules in short</value></data>
+  <data name="Zatrzymuje strzał, ale prowokacja go karze." xml:space="preserve"><value>Stops a shot, but Taunt punishes it.</value></data>
+  <data name="Załaduj więcej" xml:space="preserve"><value>Load more</value></data>
+  <data name="Załóż je w minutę" xml:space="preserve"><value>Create one in a minute</value></data>
+  <data name="Załóż konto" xml:space="preserve"><value>Create account</value></data>
+  <data name="Załóż konto · SansPost" xml:space="preserve"><value>Create account · SansPost</value></data>
+  <data name="Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za chwilę." xml:space="preserve"><value>Too many actions in a short time. Try again in a moment.</value></data>
+  <data name="Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za {0} s." xml:space="preserve"><value>Too many actions in a short time. Try again in {0} s.</value></data>
+  <data name="Zbyt wiele prób logowania. Odczekaj chwilę i spróbuj ponownie." xml:space="preserve"><value>Too many sign-in attempts. Wait a moment and try again.</value></data>
+  <data name="Zbyt wiele prób w krótkim czasie. Odczekaj chwilę i spróbuj ponownie." xml:space="preserve"><value>Too many attempts in a short time. Wait a moment and try again.</value></data>
+  <data name="Zbyt wiele wyszukiwań. Spróbuj ponownie za chwilę." xml:space="preserve"><value>Too many searches. Try again in a moment.</value></data>
+  <data name="Zbyt wiele wyszukiwań. Spróbuj ponownie za {0} s." xml:space="preserve"><value>Too many searches. Try again in {0} s.</value></data>
+  <data name="Zgłaszany zasób nie istnieje." xml:space="preserve"><value>The reported content doesn't exist.</value></data>
+  <data name="Zgłoszenie nie istnieje." xml:space="preserve"><value>The report doesn't exist.</value></data>
+  <data name="Zgłoszenie trafi do moderacji. Autor nie zobaczy, kto zgłosił treść." xml:space="preserve"><value>The report goes to moderation. The author won't see who reported it.</value></data>
+  <data name="Zgłoszenie zostało już rozpatrzone." xml:space="preserve"><value>The report has already been resolved.</value></data>
+  <data name="Zgłoś" xml:space="preserve"><value>Report</value></data>
+  <data name="Zgłoś komentarz" xml:space="preserve"><value>Report comment</value></data>
+  <data name="Zgłoś post" xml:space="preserve"><value>Report post</value></data>
+  <data name="Zgłoś treść" xml:space="preserve"><value>Report content</value></data>
+  <data name="Zmiany zobaczą wszyscy czytelnicy. Post zostanie oznaczony jako edytowany." xml:space="preserve"><value>All readers will see the changes. The post will be marked as edited.</value></data>
+  <data name="znaków" xml:space="preserve"><value>characters</value></data>
+  <data name="Znalezione rozmowy" xml:space="preserve"><value>Conversations found</value></data>
+  <data name="Zostaw opinię" xml:space="preserve"><value>Leave feedback</value></data>
+  <data name="Zostaw opinię o SansPost" xml:space="preserve"><value>Leave feedback about SansPost</value></data>
+  <data name="Zużywa 1 nabój. Trafia przeładowanie, prowokację i strzał." xml:space="preserve"><value>Uses 1 bullet. Hits Reload, Taunt and Shoot.</value></data>
+  <data name="ZWYCIĘSTWO" xml:space="preserve"><value>VICTORY</value></data>
+  <data name="Zwykły tekst — puste linie dzielą akapity." xml:space="preserve"><value>Plain text — empty lines separate paragraphs.</value></data>
+  <data name="{0} nie opublikował(a) jeszcze żadnego posta." xml:space="preserve"><value>{0} hasn't published any posts yet.</value></data>
+  <data name="{0} odrzuca wyzwanie." xml:space="preserve"><value>{0} declines the challenge.</value></data>
+  <data name="{0} przyjmuje wyzwanie!" xml:space="preserve"><value>{0} accepts the challenge!</value></data>
+  <data name="{0} temu" xml:space="preserve"><value>{0} ago</value></data>
+  <data name="{0} wycofuje wyzwanie." xml:space="preserve"><value>{0} withdrew the challenge.</value></data>
+  <data name="{0} wyzywa Cię na pojedynek!" xml:space="preserve"><value>{0} challenges you to a duel!</value></data>
+  <data name="{0} wyzywa Cię na pojedynek." xml:space="preserve"><value>{0} challenges you to a duel.</value></data>
+  <data name="{0} wśród {1}" xml:space="preserve"><value>{0} among {1}</value></data>
+  <data name="{0} — przejdź do dyskusji" xml:space="preserve"><value>{0} — go to the discussion</value></data>
+  <data name="{0}. Zaloguj się, aby polubić" xml:space="preserve"><value>{0}. Sign in to like</value></data>
+  <data name="{0}–{1} znaków." xml:space="preserve"><value>{0}–{1} characters.</value></data>
+  <data name="Łączenie z SansPost…" xml:space="preserve"><value>Connecting to SansPost…</value></data>
+  <data name="Łączenie ze stacją…" xml:space="preserve"><value>Connecting to the station…</value></data>
+  <data name="Śladem Rewolwerowca" xml:space="preserve"><value>The Gunslinger's Draw</value></data>
+  <data name="ŚLADEM|REWOLWEROWCA" xml:space="preserve"><value>THE GUNSLINGER'S|DRAW</value></data>
+  <data name="Świeże wiadomości ze wszystkich zakątków SansPost." xml:space="preserve"><value>Fresh messages from every corner of SansPost.</value></data>
+  <data name="świeże wpisy" xml:space="preserve"><value>fresh posts</value></data>
+  <data name="Świeże wpisy ze wszystkich tematów, od najnowszych." xml:space="preserve"><value>Fresh posts from every topic, newest first.</value></data>
+  <data name="„{0}” — szukaj" xml:space="preserve"><value>“{0}” — search</value></data>
+</root>

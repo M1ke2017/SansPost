@@ -10,8 +10,8 @@
 }
 else if (errorMessage is not null && items.Count == 0)
 {
-    <EmptyState Title="Nie udało się wczytać postów" Text="@errorMessage" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger">
-        <button type="button" class="btn" @onclick="ReloadAsync"><Icon Name="@Icons.Refresh" /> Spróbuj ponownie</button>
+    <EmptyState Title="Nie udało się wczytać postów" Text="@L.Text(errorMessage)" IconName="@Icons.AlertTriangle" Variant="AlertVariant.Danger">
+        <button type="button" class="btn" @onclick="ReloadAsync"><Icon Name="@Icons.Refresh" /> @L["Spróbuj ponownie"]</button>
     </EmptyState>
 }
 else if (items.Count == 0)
@@ -27,7 +27,7 @@ else if (items.Count == 0)
 }
 else
 {
-    <ul class="post-list @(Compact ? "is-compact" : "")" aria-label="@Label">
+    <ul class="post-list @(Compact ? "is-compact" : "")" aria-label="@L[Label]">
         @foreach (var item in items)
         {
             <li @key="item.Id" id="@($"feed-item-{item.Id}")">
@@ -38,7 +38,7 @@ else
 
     @if (errorMessage is not null)
     {
-        <Alert Variant="AlertVariant.Danger" Class="load-more">@errorMessage</Alert>
+        <Alert Variant="AlertVariant.Danger" Class="load-more">@L.Text(errorMessage)</Alert>
     }
 
     <LoadMore HasMore="nextCursor is not null" IsLoading="isLoading" OnClick="LoadMoreAsync" Label="Pokaż starsze"
@@ -94,7 +94,7 @@ else
         var added = items.Count - before;
         if (added > 0)
         {
-            status = $"Wczytano {UiText.Posts(added)}. Razem: {UiText.Number(items.Count)}.";
+            status = $"Wczytano {UiText.Posts(L, added)}. Razem: {UiText.Number(L, items.Count)}.";
 
             // Przycisk zniknął (koniec listy) — fokus na pierwszy nowy post, żeby nie przepadł na <body>.
             if (nextCursor is null)

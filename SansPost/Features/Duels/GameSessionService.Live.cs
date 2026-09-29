@@ -128,6 +128,7 @@ namespace SansPost.Features.Duels
                 snapshot = SnapshotFor(session, seat);
             }
 
+            await PersistResultAsync(session, outbox);
             await PublishAsync(outbox);
             return ServiceResult<DuelSnapshot>.Success(snapshot);
         }
@@ -305,6 +306,7 @@ namespace SansPost.Features.Duels
                     outbox = Forfeit(session, seat, "disconnect");
                 }
 
+                await PersistResultAsync(session, outbox);
                 await PublishAsync(outbox);
             }
             catch (Exception ex)
@@ -333,6 +335,7 @@ namespace SansPost.Features.Duels
                     outbox = CloseRound(session, timedOut.ResultValue.Item1, timedOut.ResultValue.Item2);
                 }
 
+                await PersistResultAsync(session, outbox);
                 await PublishAsync(outbox);
             }
             catch (Exception ex)
@@ -354,6 +357,7 @@ namespace SansPost.Features.Duels
             var events = RoundResolvedEvents(session, record);
             if (session.Finished)
             {
+                QueueResult(session);
                 if (session.HumanOpponent)
                     events.Add(DuelEvent.Presence);
             }
@@ -373,6 +377,7 @@ namespace SansPost.Features.Duels
             session.Ending = ending;
             session.StopTimers();
             Touch(session);
+            QueueResult(session);
             var events = Updated(session);
             if (session.HumanOpponent)
                 events.Add(DuelEvent.Presence);
@@ -445,6 +450,51 @@ namespace SansPost.Features.Duels
                 return new DuelEvent(session.UserAt(seat), DuelEvents.RoundResolved,
                     new RoundResolvedEvent(snapshot.DuelId, record.Round, DuelMapper.Round(seat, record), snapshot.Result, snapshot));
             }).ToList();
+
+        // Wynik PvP (Sprint 21): pod blokadą, raz na sesję (zakończenie jest jednorazowe). Trening pomijany.
+        private void QueueResult(DuelSession session)
+        {
+            if (!session.HumanOpponent || !session.Finished || session.PendingResult is not null)
+                return;
+            var result = ((DuelPhase.Finished)session.State.Phase).Item;
+            var winner = Rules.winner(result);
+            int? winnerId = winner is null ? null : session.UserAt(winner.Value);
+            var knockout = session.State.PlayerOne.Prestige <= 0 || session.State.PlayerTwo.Prestige <= 0;
+            session.PendingResult = new DuelResultRecord
+            {
+                DuelId = session.Id,
+                PlayerOneId = session.PlayerOneId,
+                PlayerTwoId = session.PlayerTwoId!.Value,
+                WinnerId = winnerId,
+                ResultType = winnerId is null ? DuelResultType.Draw : DuelResultType.Win,
+                RoundCount = session.State.History.Length,
+                FinishedAt = _time.GetUtcNow().UtcDateTime,
+                FinishReason = session.Ending switch
+                {
+                    "surrender" => DuelFinishReason.Surrender,
+                    "disconnect" => DuelFinishReason.Disconnect,
+                    _ => knockout ? DuelFinishReason.Knockout : DuelFinishReason.RoundLimit
+                }
+            };
+        }
+
+        // Zapis wyniku po zwolnieniu blokady, przed zdarzeniami końca gry (klienci odświeżają ranking już po zapisie).
+        // Dokładnie raz w procesie (Interlocked) i raz w bazie (UNIQUE DuelId). Błąd bazy nie psuje zakończonej gry.
+        private async Task PersistResultAsync(DuelSession session, List<DuelEvent> outbox)
+        {
+            if (Interlocked.Exchange(ref session.PendingResult, null) is not { } record)
+                return;
+            try
+            {
+                await using var scope = _scopes.CreateAsyncScope();
+                if (await scope.ServiceProvider.GetRequiredService<DuelStandingsService>().RecordAsync(record))
+                    outbox.Add(DuelEvent.Standings);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Nie udało się zapisać wyniku pojedynku {DuelId}.", record.DuelId);
+            }
+        }
 
         private async Task PublishAsync(List<DuelEvent> events)
         {

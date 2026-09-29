@@ -9,26 +9,26 @@
 {
     @if (GuestLink)
     {
-        <a class="like-button" href="@UiText.LoginUrl(ReturnUrl)" aria-label="@($"{UiText.Likes(count)}. Zaloguj się, aby polubić")">
+        <a class="like-button" href="@UiText.LoginUrl(ReturnUrl)" aria-label="@L.Format("{0}. Zaloguj się, aby polubić", UiText.Likes(L, count))">
             <Icon Name="@Icons.Heart" />
-            <span aria-hidden="true">@UiText.Number(count)</span>
+            <span aria-hidden="true">@UiText.Number(L, count)</span>
         </a>
     }
     else
     {
-        <span class="stat" aria-label="@UiText.Likes(count)" role="img">
+        <span class="stat" aria-label="@UiText.Likes(L, count)" role="img">
             <Icon Name="@Icons.Heart" />
-            <span aria-hidden="true">@UiText.Number(count)</span>
+            <span aria-hidden="true">@UiText.Number(L, count)</span>
         </span>
     }
 }
 else
 {
     <button type="button" class="like-button" aria-pressed="@(liked ? "true" : "false")" aria-busy="@(busy ? "true" : "false")"
-            aria-label="@($"Polub post, {UiText.Likes(count)}")" disabled="@(!Viewer.CanWrite)"
+            aria-label="@L.Format("Polub post, {0}", UiText.Likes(L, count))" disabled="@(!Viewer.CanWrite)"
             title="@(Viewer.CanWrite ? null : UiErrors.Suspended)" @onclick="ToggleAsync">
         <Icon Name="@Icons.Heart" />
-        <span aria-hidden="true">@UiText.Number(count)</span>
+        <span aria-hidden="true">@UiText.Number(L, count)</span>
     </button>
 }
 
@@ -95,7 +95,7 @@ else
                     return;
                 }
 
-                Toasts.Error(UiErrors.Describe(result, notFound: "Ten post nie jest już dostępny."));
+                Toasts.Error(UiErrors.Describe(result, notFound: L["Ten post nie jest już dostępny."]));
             }
         }
         catch (Exception)

@@ -5,7 +5,7 @@
    Mały i dyskretny: desktop — narożnik, telefon — nad treścią pod nagłówkiem (poza dolną nawigacją i paskiem stref). *@
 @if (State is { Started: true, Name: not null } radio)
 {
-    <aside class="mini-player @(radio.IsActive ? "is-live" : "")" aria-label="Radio w Saloonie">
+    <aside class="mini-player @(radio.IsActive ? "is-live" : "")" aria-label="@L["Radio w Saloonie"]">
         <span class="mini-player-icon" aria-hidden="true">♪</span>
         <span class="mini-player-text">
             <span class="mini-player-kicker">
@@ -13,15 +13,15 @@
                 {
                     <span class="mini-player-live">LIVE</span>
                 }
-                @(radio.Status == "error" ? "Stacja nie odpowiada" : "Country Radio")
+                @(radio.Status == "error" ? L["Stacja nie odpowiada"] : "Country Radio")
             </span>
             <span class="mini-player-name" title="@radio.Name">@radio.Name</span>
         </span>
         <button type="button" class="mini-player-toggle" data-music-toggle @attributes="radio.StationAttributes()"
-                aria-label="@($"{(radio.IsActive ? "Pauza" : "Graj")}: {radio.Name}")">
+                aria-label="@($"{(radio.IsActive ? L["Pauza"] : L["Graj"])}: {radio.Name}")">
             <span aria-hidden="true">@(radio.IsActive ? "❚❚" : "▶")</span>
         </button>
-        <label class="visually-hidden" for="mini-player-volume">Głośność radia</label>
+        <label class="visually-hidden" for="mini-player-volume">@L["Głośność radia"]</label>
         <input id="mini-player-volume" class="mini-player-volume" type="range" min="0" max="100" step="5" value="@radio.Volume"
                aria-valuetext="@($"{radio.Volume}%")" data-music-volume />
     </aside>

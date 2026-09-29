@@ -493,8 +493,8 @@ namespace SansPost.E2E
             await Item(page, "all").ClickAsync();
             await Expect(Cards(page).First).ToBeVisibleAsync();
             await AssertSheetAsync("lista");
-            Assert.True(await Panel(page).EvaluateAsync<bool>("d => d.scrollHeight > d.clientHeight"), "Lista przewija się w oknie.");
-            await Panel(page).EvaluateAsync("d => d.scrollTop = d.scrollHeight");
+            Assert.True(await Panel(page).Locator(".dialog-body").EvaluateAsync<bool>("b => b.scrollHeight > b.clientHeight"), "Lista przewija się w oknie.");
+            await Panel(page).Locator(".dialog-body").EvaluateAsync("b => b.scrollTop = b.scrollHeight");
             await AssertSheetAsync("lista przewinięta");
 
             await page.Keyboard.PressAsync("Escape");
@@ -543,7 +543,7 @@ namespace SansPost.E2E
                 await WaitCameraStillAsync(page);
 
                 var frames = await Frames(page);
-                await Panel(page).EvaluateAsync("d => d.scrollTop = d.scrollHeight");
+                await Panel(page).Locator(".dialog-body").EvaluateAsync("b => b.scrollTop = b.scrollHeight");
                 await page.WaitForTimeoutAsync(700);
                 Assert.Equal(frames, await Frames(page));   // czytanie rozmów nie budzi renderu sali
 
@@ -559,6 +559,63 @@ namespace SansPost.E2E
                 length ??= now;
                 Assert.Equal(length, now);
             }
+        }
+
+        // ---- Visual fix: długa lista — przewija się tylko treść okna; nagłówek i szerokość stałe ------------------------
+
+        [Theory]
+        [InlineData(1440, 900)]
+        [InlineData(1280, 800)]
+        [InlineData(1024, 768)]
+        [InlineData(768, 1024)]
+        [InlineData(390, 844)]
+        [InlineData(360, 740)]
+        public async Task LongList_ScrollsOnlyInsidePanel_HeaderAndWidthStable(int width, int height)
+        {
+            await using var context = await NewContextAsync(width, height);
+            var page = await context.NewPageAsync();
+            await OpenHallAsync(page, "/saloon?bar=all&scene=3d");
+            await Expect(Cards(page).First).ToBeVisibleAsync();
+            for (var i = 0; i < 2 && await Panel(page).GetByRole(AriaRole.Button, new() { Name = "Pokaż starsze" }).CountAsync() > 0; i++)
+            {
+                var count = await Cards(page).CountAsync();
+                await Panel(page).GetByRole(AriaRole.Button, new() { Name = "Pokaż starsze" }).ClickAsync();
+                await Expect(Cards(page)).Not.ToHaveCountAsync(count);
+            }
+
+            const string Geometry = @"() => {
+                const d = document.querySelector('dialog[open]'), head = d.querySelector('.dialog-header'), body = d.querySelector('.dialog-body');
+                const r = e => { const b = e.getBoundingClientRect(); return [b.x, b.y, b.width, b.height].map(v => Math.round(v * 10) / 10); };
+                return { dialog: r(d), header: r(head), body: r(body), cardWidth: Math.round(d.querySelector('.post-card').getBoundingClientRect().width * 10) / 10,
+                         dialogScroll: d.scrollTop, bodyScroll: body.scrollTop, pageScroll: window.scrollY,
+                         overflowX: Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, body.scrollWidth - body.clientWidth) };
+            }";
+            var before = await page.EvaluateAsync<System.Text.Json.JsonElement>(Geometry);
+            var style = await Panel(page).Locator(".dialog-body").EvaluateAsync<string[]>(
+                "b => { const s = getComputedStyle(b); return [s.overflowY, s.overflowX, s.overscrollBehaviorY, s.scrollbarGutter, getComputedStyle(b.closest('dialog')).overflowY]; }");
+            Assert.Equal(new[] { "auto", "hidden", "contain", "stable", "hidden" }, style);
+            Assert.True(await Panel(page).Locator(".dialog-body").EvaluateAsync<bool>("b => b.scrollHeight > b.clientHeight + 200"), "Lista dłuższa niż okno.");
+
+            // Kółkiem nad listą — także po dojściu do końca: przewija się wyłącznie treść okna.
+            await Cards(page).Nth(1).HoverAsync();
+            for (var i = 0; i < 12; i++)
+                await page.Mouse.WheelAsync(0, 600);
+            await page.Locator(".dialog-body").EvaluateAsync("b => new Promise(r => setTimeout(r, 300))");
+            var after = await page.EvaluateAsync<System.Text.Json.JsonElement>(Geometry);
+
+            Assert.True(after.GetProperty("bodyScroll").GetDouble() > 200, $"Treść przewinięta: {after}");
+            Assert.Equal(0, after.GetProperty("dialogScroll").GetDouble());
+            Assert.Equal(0, after.GetProperty("pageScroll").GetDouble());
+            Assert.Equal(0, after.GetProperty("overflowX").GetDouble());
+            foreach (var part in new[] { "dialog", "header", "body" })
+                Assert.Equal(before.GetProperty(part).ToString(), after.GetProperty(part).ToString());
+            Assert.Equal(before.GetProperty("cardWidth").GetDouble(), after.GetProperty("cardWidth").GetDouble());
+            await Expect(Panel(page).GetByRole(AriaRole.Button, new() { Name = "Zamknij okno" })).ToBeInViewportAsync();
+            await Ui.AssertNoHorizontalOverflowAsync(page, $"BAR po przewinięciu {width}");
+
+            // Okno nie wychodzi poza dostępną szerokość (bez 100vw).
+            var dialog = before.GetProperty("dialog");
+            Assert.True(dialog[0].GetDouble() >= -0.5 && dialog[0].GetDouble() + dialog[2].GetDouble() <= width + 0.5, $"Okno w granicach: {dialog}");
         }
     }
 }

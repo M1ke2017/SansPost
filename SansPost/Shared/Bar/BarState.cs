@@ -210,6 +210,14 @@ namespace SansPost.Shared.Bar
             _ => Menu
         };
 
+        // Tytuł w języku interfejsu (Sprint 22) — wyszukiwanie z frazą użytkownika jako parametrem.
+        public string TitleFor(SansPost.Localization.Loc l) => View switch
+        {
+            BarView.Topic => l[Category!.Value.DisplayName()],
+            BarView.Search when Query.Length > 0 => l.Format("Wyniki: „{0}”", Query),
+            _ => l[Title]
+        };
+
         public string Title => View switch
         {
             BarView.Menu => "Karta rozmów",

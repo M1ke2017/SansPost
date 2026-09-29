@@ -2,7 +2,7 @@
    Pozycje to prawdziwe przyciski (Enter / Spacja); tematy z istniejących kategorii (bez Feedback). *@
 <div class="bar-menu">
     <section class="bar-menu-section" aria-labelledby="bar-menu-start">
-        <h3 id="bar-menu-start" class="bar-menu-heading"><span>Na początek</span></h3>
+        <h3 id="bar-menu-start" class="bar-menu-heading"><span>@L["Na początek"]</span></h3>
         <ul class="bar-menu-list" role="list">
             <li>@Item("newest", "Najnowsze", "świeże wpisy", new BarState(BarView.Newest))</li>
             <li>@Item("popular", "Popularne", "najwięcej reakcji", new BarState(BarView.Popular, Sort: PostSort.Popular))</li>
@@ -13,7 +13,7 @@
     <p class="bar-menu-divider" aria-hidden="true"><span>✦</span></p>
 
     <section class="bar-menu-section" aria-labelledby="bar-menu-topics">
-        <h3 id="bar-menu-topics" class="bar-menu-heading"><span>Tematy</span></h3>
+        <h3 id="bar-menu-topics" class="bar-menu-heading"><span>@L["Tematy"]</span></h3>
         <ul class="bar-menu-list" role="list">
             @foreach (var topic in BarState.Topics)
             {
@@ -25,7 +25,7 @@
     <p class="bar-menu-divider" aria-hidden="true"><span>✦</span></p>
 
     <section class="bar-menu-section bar-menu-start-conversation" aria-labelledby="bar-menu-new">
-        <h3 id="bar-menu-new" class="bar-menu-heading"><span>Nowa rozmowa</span></h3>
+        <h3 id="bar-menu-new" class="bar-menu-heading"><span>@L["Nowa rozmowa"]</span></h3>
         <BarStartConversation />
     </section>
 </div>
@@ -36,7 +36,7 @@
 
     private string TopicNote(PostCategory topic) =>
         Categories?.FirstOrDefault(c => c.Category == topic) is { } summary
-            ? UiText.Plural(summary.PostCount, "rozmowa", "rozmowy", "rozmów")
+            ? UiText.Plural(L, summary.PostCount, "rozmowa", "rozmowy", "rozmów")
             : "";
 
     private RenderFragment Item(string id, string name, string note, BarState target, string? icon = null) => __builder =>
@@ -47,9 +47,9 @@
             {
                 <Icon Name="@icon" Size="16" Class="bar-menu-icon" />
             }
-            <span class="bar-menu-name">@name</span>
+            <span class="bar-menu-name">@L[name]</span>
             <span class="bar-menu-leader" aria-hidden="true"></span>
-            <span class="bar-menu-note">@note</span>
+            <span class="bar-menu-note">@L[note]</span>
         </button>
     };
 }

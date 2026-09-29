@@ -7,15 +7,15 @@
 @* Zgłoszenie posta/komentarza: powód, opcjonalne szczegóły, potwierdzenie. Bez wewnętrznych danych moderacji. *@
 <Modal @ref="modal" Title="@title">
     <ChildContent>
-        <p class="muted text-sm">Zgłoszenie trafi do moderacji. Autor nie zobaczy, kto zgłosił treść.</p>
+        <p class="muted text-sm">@L["Zgłoszenie trafi do moderacji. Autor nie zobaczy, kto zgłosił treść."]</p>
 
         @if (errorMessage is not null)
         {
-            <Alert Variant="@errorVariant">@errorMessage</Alert>
+            <Alert Variant="@errorVariant">@L.Text(errorMessage)</Alert>
         }
 
         <fieldset class="stack-sm" style="border: 0; padding: 0; margin: 0">
-            <legend class="field-label" style="margin-bottom: var(--space-2)">Powód</legend>
+            <legend class="field-label" style="margin-bottom: var(--space-2)">@L["Powód"]</legend>
             @foreach (var value in Enum.GetValues<ReportReason>())
             {
                 var option = value;
@@ -23,31 +23,31 @@
                     <input type="radio" name="report-reason" value="@option" checked="@(reason == option)"
                            autofocus="@(option == ReportReason.Spam)" @onchange="() => reason = option" />
                     <span>
-                        <span class="report-option-title">@Label(option)</span>
-                        <span class="report-option-hint">@Hint(option)</span>
+                        <span class="report-option-title">@L[Label(option)]</span>
+                        <span class="report-option-hint">@L[Hint(option)]</span>
                     </span>
                 </label>
             }
         </fieldset>
 
         <div class="field">
-            <label class="field-label" for="report-details">Szczegóły <span class="optional">(opcjonalnie)</span></label>
+            <label class="field-label" for="report-details">@L["Szczegóły"] <span class="optional">@L["(opcjonalnie)"]</span></label>
             <textarea id="report-details" class="textarea textarea-sm" maxlength="@ModerationLimits.DetailsMaxLength"
                       @bind="details" aria-describedby="report-details-hint"></textarea>
             <span class="field-hint" id="report-details-hint">
-                <span>Pomóż moderacji zrozumieć problem.</span>
+                <span>@L["Pomóż moderacji zrozumieć problem."]</span>
                 <CharCounter For="report-details" Value="@details" Max="ModerationLimits.DetailsMaxLength" />
             </span>
         </div>
     </ChildContent>
     <Footer>
-        <button type="button" class="btn" @onclick="() => modal!.CloseAsync()">Anuluj</button>
+        <button type="button" class="btn" @onclick="() => modal!.CloseAsync()">@L["Anuluj"]</button>
         <button type="button" class="btn btn-primary" disabled="@isBusy" aria-busy="@(isBusy ? "true" : "false")" @onclick="SubmitAsync">
             @if (isBusy)
             {
                 <span class="spinner" aria-hidden="true"></span>
             }
-            Wyślij zgłoszenie
+            @L["Wyślij zgłoszenie"]
         </button>
     </Footer>
 </Modal>

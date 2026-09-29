@@ -5,25 +5,25 @@
 @inject ToastService Toasts
 @inject ILogger<PostForm> Logger
 
-<PageTitle>Nowy post · SansPost</PageTitle>
+<PageTitle>@L["Nowy post · SansPost"]</PageTitle>
 
 <div class="narrow">
-    <a class="back-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.ArrowLeft" Size="16" /> Wróć do odkrywania</a>
+    <a class="back-link" href="@SaloonRoutes.Hub"><Icon Name="@Icons.ArrowLeft" Size="16" /> @L["Wróć do odkrywania"]</a>
 
     <div class="page-header">
         <div>
-            <h1>@(draft.Category == PostCategory.Feedback ? "Zostaw opinię" : "Nowy post")</h1>
+            <h1>@(draft.Category == PostCategory.Feedback ? L["Zostaw opinię"] : L["Nowy post"])</h1>
             <p>@(draft.Category == PostCategory.Feedback
-                ? "Co działa, co przeszkadza, czego brakuje? Opinia trafi do kategorii Feedback jako zwykły post."
-                : "Dodaj wiadomość do SansPost — o technologii, grach, podróżach, pomysłach albo własnym projekcie.")</p>
+                ? L["Co działa, co przeszkadza, czego brakuje? Opinia trafi do kategorii Feedback jako zwykły post."]
+                : L["Dodaj wiadomość do SansPost — o technologii, grach, podróżach, pomysłach albo własnym projekcie."])</p>
         </div>
     </div>
 
     @if (quota is { Remaining: <= 0 })
     {
         <EmptyState Title="Wykorzystano limit postów" IconName="@Icons.FileText" Variant="AlertVariant.Warning"
-                    Text="@($"Twoje konto może mieć jednocześnie {UiText.Posts(quota.Limit)}. Usuń któryś ze starszych, aby opublikować nowy.")">
-            <a class="btn btn-primary" href="/me">Przejdź do swoich postów</a>
+                    Text="@L.Format("Twoje konto może mieć jednocześnie {0}. Usuń któryś ze starszych, aby opublikować nowy.", UiText.Posts(L, quota.Limit))">
+            <a class="btn btn-primary" href="/me">@L["Przejdź do swoich postów"]</a>
         </EmptyState>
     }
     else
@@ -35,7 +35,7 @@
             }
             @if (errorMessage is not null)
             {
-                <Alert Variant="@errorVariant" Focusable="true" @ref="errorAlert">@errorMessage</Alert>
+                <Alert Variant="@errorVariant" Focusable="true" @ref="errorAlert">@L.Text(errorMessage)</Alert>
             }
 
             <div class="card">
@@ -43,11 +43,11 @@
                     <PostEditor Draft="draft" OnValidSubmit="SubmitAsync" Busy="isSubmitting" Disabled="@(Viewer?.CanWrite == false)"
                                 SubmitLabel="Opublikuj" BusyLabel="Publikowanie…">
                         <Actions>
-                            <a class="btn btn-ghost" href="@SaloonRoutes.Hub">Anuluj</a>
+                            <a class="btn btn-ghost" href="@SaloonRoutes.Hub">@L["Anuluj"]</a>
                             @if (quota is not null)
                             {
                                 <span class="spacer"></span>
-                                <span class="text-sm subtle">Wykorzystano @quota.Used z @quota.Limit postów</span>
+                                <span class="text-sm subtle">@L.Format("Wykorzystano {0} z {1} postów", quota.Used, quota.Limit)</span>
                             }
                         </Actions>
                     </PostEditor>

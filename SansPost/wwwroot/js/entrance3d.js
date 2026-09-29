@@ -9,7 +9,7 @@
 import {
     THREE, startScene, theme, random,
     clamp01, phase, easeInOutCubic, easeOut, createRenderer, disposeScene, canvasTexture, boardsTexture, noiseTexture,
-    wallpaperTexture, signTexture, signMesh as sign, Batch, worldUv
+    wallpaperTexture, signTexture, signMesh as sign, Batch, worldUv, renderOnDemand
 } from "./scene3d-common.js";
 
 export { chooseRenderer } from "./scene3d-common.js";
@@ -625,6 +625,16 @@ function setup(host, signs, force) {
             debug: { frames: 0, doorAngle: 0, cameraZ: 0, disposed: false, layout: "porch" }
         };
         window.__sansPost3d = state.debug;
+        // Pomiary (Sprint 23): liczba unikalnych materiałów i siatek sceny.
+        const materials = new Set();
+        let meshes = 0;
+        world.scene.traverse(obj => {
+            if (!obj.isMesh && !obj.isInstancedMesh) return;
+            meshes++;
+            for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) if (m) materials.add(m);
+        });
+        state.debug.materials = materials.size;
+        state.debug.meshes = meshes;
         applyTheme(state, PALETTE[theme()]);
         frameCamera(state);
         placeSigns(state);
@@ -651,7 +661,7 @@ function setup(host, signs, force) {
         state.themeObserver = new MutationObserver(() => state && applyTheme(state, PALETTE[theme()]));
         state.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
-        renderer.setAnimationLoop(tick);
+        renderOnDemand(state, tick, () => state !== null && state.renderer === renderer);
     } catch (e) {
         if (!state) disposeScene(new THREE.Scene(), renderer);
         throw e;
@@ -661,7 +671,10 @@ function setup(host, signs, force) {
 function tick(time) {
     const s = state;
     if (!s) return;
-    if (!s.dirty && !s.entering) return;
+    if (!s.dirty && !s.entering) {
+        s.sleep();
+        return;
+    }
     s.dirty = false;
     s.debug.frames++;
 
@@ -690,6 +703,8 @@ function tick(time) {
     s.debug.cameraZ = s.camera.position.z;
 
     s.renderer.render(s.scene, s.camera);
+    const info = s.renderer.info;
+    Object.assign(s.debug, { drawCalls: info.render.calls, triangles: info.render.triangles, geometries: info.memory.geometries, textures: info.memory.textures, programs: info.programs?.length ?? 0 });
 }
 
 // Wejście: światło, drzwi, kamera przez próg; Promise kończy się po animacji (Entrance nawiguje do /saloon).
@@ -701,6 +716,7 @@ export function enter(durationMs) {
     let resolve;
     const promise = new Promise(r => { resolve = r; });
     s.entering = { start: performance.now(), duration: Math.max(1, durationMs), resolve, promise, done: false };
+    s.wake();
     try { sessionStorage.setItem("sp-through-door", String(Date.now())); } catch { /* bez storage — sala bez "settle" */ }
     return promise;
 }

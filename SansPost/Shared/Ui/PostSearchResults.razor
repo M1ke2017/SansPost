@@ -11,11 +11,11 @@
 <p id="@HintId" class="text-sm subtle search-hint" role="status" aria-live="polite">
     @if (isSearching)
     {
-        <span class="cluster"><span class="spinner" aria-hidden="true" style="width: 14px; height: 14px"></span> Szukanie…</span>
+        <span class="cluster"><span class="spinner" aria-hidden="true" style="width: 14px; height: 14px"></span> @L["Szukanie…"]</span>
     }
     else if (tooShort)
     {
-        <span>Wpisz co najmniej @SearchLimits.QueryMinLength znaki.</span>
+        <span>@L.Format("Wpisz co najmniej {0} znaki.", SearchLimits.QueryMinLength)</span>
     }
     else if (hasSearched && error is null)
     {
@@ -33,7 +33,7 @@ else if (hasSearched)
         @if (authors.Count > 0)
         {
             <section aria-labelledby="@($"{HintId}-authors")" class="stack-sm">
-                <h2 id="@($"{HintId}-authors")" class="section-title">Autorzy</h2>
+                <h2 id="@($"{HintId}-authors")" class="section-title">@L["Autorzy"]</h2>
                 <ul class="author-chips list-plain">
                     @foreach (var author in authors)
                     {
@@ -41,7 +41,7 @@ else if (hasSearched)
                             <a class="author-chip" href="@UiText.ProfileUrl(author.Username)">
                                 <Avatar Username="@author.Username" Size="sm" />
                                 <span class="truncate">@author.Username</span>
-                                <span class="subtle text-xs nowrap">@UiText.Posts(author.PostCount)</span>
+                                <span class="subtle text-xs nowrap">@UiText.Posts(L, author.PostCount)</span>
                             </a>
                         </li>
                     }
@@ -53,27 +53,27 @@ else if (hasSearched)
             <h2 id="@($"{HintId}-posts")" class="@(ShowSectionHeadings ? "section-title" : "visually-hidden")">@PostsHeading</h2>
             @if (results.Count == 0)
             {
-                <EmptyState Title="@($"Brak {EmptyNoun} dla „{Trimmed}”")" IconName="@Icons.Search"
-                            Text="@(Category is PostCategory c ? $"W kategorii {c.DisplayName()} nic nie pasuje. Spróbuj bez filtra kategorii albo innych słów." : "Spróbuj innych lub krótszych słów.")">
+                <EmptyState Title="@L.Format("Brak {0} dla „{1}”", L[EmptyNoun], Trimmed)" IconName="@Icons.Search"
+                            Text="@(Category is PostCategory c ? L.Format("W kategorii {0} nic nie pasuje. Spróbuj bez filtra kategorii albo innych słów.", L[c.DisplayName()]) : L["Spróbuj innych lub krótszych słów."])">
                     @if (Category is not null && OnClearCategory.HasDelegate)
                     {
-                        <button type="button" class="btn" @onclick="OnClearCategory">Szukaj we wszystkich kategoriach</button>
+                        <button type="button" class="btn" @onclick="OnClearCategory">@L["Szukaj we wszystkich kategoriach"]</button>
                     }
                     @if (OnClear.HasDelegate)
                     {
-                        <button type="button" class="btn btn-ghost" @onclick="OnClear">Wyczyść wyszukiwanie</button>
+                        <button type="button" class="btn btn-ghost" @onclick="OnClear">@L["Wyczyść wyszukiwanie"]</button>
                     }
                 </EmptyState>
             }
             else
             {
-                <ul class="post-list @(Compact ? "is-compact" : "")" aria-label="Wyniki wyszukiwania">
+                <ul class="post-list @(Compact ? "is-compact" : "")" aria-label="@L["Wyniki wyszukiwania"]">
                     @foreach (var item in results)
                     {
                         <li @key="item.Id" id="@($"{HintId}-result-{item.Id}")"><PostCard Post="item" HeadingLevel="ItemHeadingLevel" Compact="Compact" /></li>
                     }
                 </ul>
-                <LoadMore HasMore="nextCursor is not null" IsLoading="isLoadingMore" OnClick="LoadMoreAsync" Label="Więcej wyników" Status="@moreStatus" />
+                <LoadMore HasMore="nextCursor is not null" IsLoading="isLoadingMore" OnClick="LoadMoreAsync" Label="@L["Więcej wyników"]" Status="@moreStatus" />
             }
         </section>
     </div>
@@ -118,9 +118,9 @@ else if (hasSearched)
     private string Trimmed => Query?.Trim() ?? "";
 
     private string ResultSummary => results.Count == 0 && authors.Count == 0
-        ? "Brak wyników."
-        : $"{(nextCursor is null ? "" : "Co najmniej ")}{UiText.Plural(results.Count, "wynik", "wyniki", "wyników")} wśród {EmptyNoun}"
-          + (authors.Count > 0 ? $" i {UiText.Plural(authors.Count, "autor", "autorów", "autorów")}." : ".");
+        ? L["Brak wyników."]
+        : L.Format(nextCursor is null ? "{0} wśród {1}" : "Co najmniej {0} wśród {1}", UiText.Plural(L, results.Count, "wynik", "wyniki", "wyników"), L[EmptyNoun])
+          + (authors.Count > 0 ? $" i {UiText.Plural(L, authors.Count, "autor", "autorów", "autorów")}." : ".");
 
     protected override async Task OnParametersSetAsync()
     {
@@ -256,7 +256,7 @@ else if (hasSearched)
 
             results.AddRange(page.Value!.Items.Where(r => results.All(e => e.Id != r.Id)).Select(PostCardModel.From).ToList());
             nextCursor = page.Value.NextCursor;
-            moreStatus = $"Wczytano {UiText.Plural(results.Count - before, "kolejny wynik", "kolejne wyniki", "kolejnych wyników")}.";
+            moreStatus = $"Wczytano {UiText.Plural(L, results.Count - before, "kolejny wynik", "kolejne wyniki", "kolejnych wyników")}.";
 
             if (nextCursor is null && results.Count > before)
                 await JS.InvokeVoidAsync("sansPost.focusSelector", $"#{HintId}-result-{results[before].Id} .post-card-title a");

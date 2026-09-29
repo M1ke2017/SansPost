@@ -6,11 +6,11 @@
    ReturnUrl sprawdza serwer (AccountController: tylko adres lokalny) — adres końcowy wyniku to już zweryfikowany cel. *@
 @if (AfterRegistration)
 {
-    <Alert Variant="AlertVariant.Success" Title="Konto utworzone">Zaloguj się, aby wejść do Saloonu.</Alert>
+    <Alert Variant="AlertVariant.Success" Title="Konto utworzone">@L["Zaloguj się, aby wejść do Saloonu."]</Alert>
 }
 @if (error is not null)
 {
-    <Alert Variant="@errorVariant">@error</Alert>
+    <Alert Variant="@errorVariant">@L.Text(error)</Alert>
 }
 
 <form class="card-form stack" method="post" action="auth/login" @ref="form" @onsubmit="SubmitAsync">
@@ -18,22 +18,22 @@
     <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
 
     <div class="field">
-        <label class="field-label" for="@($"{IdPrefix}-email")">Email</label>
-        <input class="input" type="email" id="@($"{IdPrefix}-email")" name="Email" autocomplete="username" required autofocus
+        <label class="field-label" for="@($"{IdPrefix}-email")">@L["Email"]</label>
+        <input class="input" type="email" id="@($"{IdPrefix}-email")" name="@L["Email"]" autocomplete="username" required autofocus
                aria-invalid="@(invalidCredentials ? "true" : null)" />
     </div>
 
     <div class="field">
-        <label class="field-label" for="@($"{IdPrefix}-password")">Hasło</label>
+        <label class="field-label" for="@($"{IdPrefix}-password")">@L["Hasło"]</label>
         <PasswordInput Id="@($"{IdPrefix}-password")" Name="Password" Autocomplete="current-password" Invalid="invalidCredentials" />
     </div>
 
     <button type="submit" class="btn btn-primary btn-lg btn-block card-submit" aria-busy="@(busy ? "true" : "false")">
-        @(busy ? "Otwieranie drzwi…" : SubmitLabel)
+        @(busy ? L["Otwieranie drzwi…"] : L[SubmitLabel])
     </button>
 </form>
 
-<p class="card-switch">Nie masz jeszcze karty? <button type="button" class="card-link" @onclick="OnSwitchToRegister">Załóż konto</button></p>
+<p class="card-switch">@L["Nie masz jeszcze karty?"] <button type="button" class="card-link" @onclick="OnSwitchToRegister">@L["Załóż konto"]</button></p>
 
 @code {
     // Dokąd po zalogowaniu (weryfikuje serwer). Entrance: /saloon; BAR: miejsce w Saloonie, z którego przyszło logowanie.

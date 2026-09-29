@@ -471,5 +471,88 @@ namespace SansPost.E2E
                 Assert.Equal(1, await CanvasCount(page));
             }
         }
+
+        // ---- Visual fix: obrazy w ramach — bez wspólnej płaszczyzny z ramą, stabilne klatka po klatce ----------------------
+
+        // Sonda (__sansPostHallProbe): płótna jednolitą magentą, prostokąty ich wnętrza w każdej klatce; bufor rysowania
+        // zachowany, żeby odczyt pikseli po renderze na żądanie był wiarygodny. Każdy piksel wnętrza płótna, który nie jest
+        // magentą, to rama albo ściana przebita przez obraz (z-fighting). Przed poprawką: 76–100% wnętrza w każdej klatce.
+        private const string PaintingProbe = @"window.__sansPostHallProbe = true;
+            (() => { const get = HTMLCanvasElement.prototype.getContext;
+              HTMLCanvasElement.prototype.getContext = function (type, attributes) {
+                if (/webgl/i.test(type)) attributes = { ...(attributes || {}), preserveDrawingBuffer: true };
+                return get.call(this, type, attributes); }; })();";
+
+        private const string PaintingSampler = @"() => {
+            window.__pic = { sampled: 0, worst: 0, worstAt: null };
+            let last = -1;
+            const canvas = document.querySelector('.saloon-hall canvas'), gl = canvas.getContext('webgl2');
+            const tick = () => {
+                const d = window.__sansPostHall;
+                if (window.__pic.stop) return;
+                if (d.frames !== last && d.paintingRects) {
+                    last = d.frames;
+                    const r = canvas.getBoundingClientRect(), sx = canvas.width / r.width, sy = canvas.height / r.height;
+                    d.paintingRects.forEach((p, i) => {
+                        if (!p) return;
+                        const x0 = Math.max(0, Math.round((p.x0 - r.left) * sx)), x1 = Math.min(canvas.width, Math.round((p.x1 - r.left) * sx));
+                        const y0 = Math.max(0, Math.round((p.y0 - r.top) * sy)), y1 = Math.min(canvas.height, Math.round((p.y1 - r.top) * sy));
+                        const w = x1 - x0, h = y1 - y0;
+                        if (w < 6 || h < 6) return;
+                        const px = new Uint8Array(w * h * 4);
+                        gl.readPixels(x0, canvas.height - y1, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+                        let off = 0;
+                        for (let k = 0; k < px.length; k += 4) if (!(px[k] > 200 && px[k + 1] < 70 && px[k + 2] > 200)) off++;
+                        window.__pic.sampled++;
+                        if (off / (w * h) > window.__pic.worst) { window.__pic.worst = off / (w * h); window.__pic.worstAt = { painting: i, area: d.area, moving: d.moving, w, h, off }; }
+                    });
+                }
+                requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        }";
+
+        [Theory]
+        [InlineData(ColorScheme.Light)]
+        [InlineData(ColorScheme.Dark)]
+        public async Task Paintings_OwnDepthLayer_StableFrameByFrameThroughCameraMoves(ColorScheme scheme)
+        {
+            await using var context = await _env.NewContextAsync(width: 1280, height: 800, colorScheme: scheme);
+            await context.AddInitScriptAsync(CapableGpu);
+            await context.AddInitScriptAsync(PaintingProbe);
+            var page = await context.NewPageAsync();
+            await OpenHallAsync(page);
+
+            // Geometria: rama ma własną głębokość od ściany, płótno wyraźnie przed frontem ramy; płótno nieprzezroczyste,
+            // bez cieni (dekoracja nie daje cienia, a cień na płaskiej teksturze dawał tylko artefakty).
+            var paintings = await page.EvaluateAsync<System.Text.Json.JsonElement>("() => window.__sansPostHall.paintings");
+            Assert.Equal(2, paintings.GetArrayLength());
+            foreach (var painting in paintings.EnumerateArray())
+            {
+                Assert.InRange(painting.GetProperty("canvasGap").GetDouble(), 0.01, 0.03);
+                Assert.True(painting.GetProperty("frameDepth").GetDouble() > 0.01, $"Rama przed ścianą: {painting}");
+                Assert.False(painting.GetProperty("transparent").GetBoolean());
+                Assert.False(painting.GetProperty("castShadow").GetBoolean());
+                Assert.False(painting.GetProperty("receiveShadow").GetBoolean());
+            }
+
+            // Klatka po klatce: kadr główny, przejazdy do BAR / Wanted / Kącika muzycznego i powroty.
+            await page.EvaluateAsync(PaintingSampler);
+            foreach (var zone in new[] { "bar", "wanted", "music" })
+            {
+                await Zone(page, zone).ClickAsync();
+                await Expect(Panel(page)).ToBeVisibleAsync();
+                await WaitCameraStillAsync(page);
+                await Panel(page).GetByRole(AriaRole.Button, new() { Name = "Zamknij okno" }).ClickAsync();
+                await Expect(Panel(page)).ToHaveCountAsync(0);
+                await page.WaitForFunctionAsync("() => window.__sansPostHall.area === null && window.__sansPostHall.moving === false");
+            }
+            var result = await page.EvaluateAsync<System.Text.Json.JsonElement>("() => { window.__pic.stop = true; return window.__pic; }");
+
+            Assert.True(result.GetProperty("sampled").GetInt32() >= 5, $"Za mało klatek z obrazem w kadrze: {result}");
+            // Margines na drobne przesłonięcie przez kinkiet wiszący przy obrazie w ukośnych kadrach (~1–3%) — z-fighting
+            // zajmował 76–100% wnętrza płótna.
+            Assert.True(result.GetProperty("worst").GetDouble() < 0.05, $"Obraz przebity przez ramę/ścianę: {result}");
+        }
     }
 }

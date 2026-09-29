@@ -1,0 +1,31 @@
+@inject IJSRuntime JS
+
+@* Przełącznik języka interfejsu PL / EN (Sprint 22). Zmiana w miejscu — bez przeładowania strony: sesja, okno BAR,
+   pojedynek, połączenie SignalR i grające radio zostają. Wybór zapamiętany w cookie "sp-lang" (i atrybut lang na <html>). *@
+<div class="language-toggle" role="group" aria-label="@L["Język interfejsu"]">
+    @foreach (var language in Loc.Supported)
+    {
+        <button type="button" class="language-option @(L.Language == language ? "is-active" : "")" lang="@language"
+                aria-pressed="@(L.Language == language ? "true" : "false")"
+                title="@(language == Loc.English ? "English" : "Polski")" @onclick="() => SwitchAsync(language)">
+            @language.ToUpperInvariant()
+        </button>
+    }
+</div>
+
+@code {
+    private async Task SwitchAsync(string language)
+    {
+        if (L.Language == language)
+            return;
+        try
+        {
+            await JS.InvokeVoidAsync("sansPost.setLanguage", language);
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        await L.SetAsync(language);
+    }
+}

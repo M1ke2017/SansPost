@@ -2,46 +2,46 @@
    i trening z manekinem. Lista to tylko przydomki (bez e-maili i UserId) — gracza wskazuje nieprzezroczysty uchwyt.
    Kto może wyzwać albo przyjąć, rozstrzyga serwer (wspólna polityka konta); tu tylko prezentacja. *@
 <section class="game-lobby" aria-labelledby="game-lobby-title">
-    <h3 class="game-deck-title" id="game-lobby-title">Pojedynek na żywo</h3>
+    <h3 class="game-deck-title" id="game-lobby-title">@L["Pojedynek na żywo"]</h3>
 
     @foreach (var invite in Challenges.Where(c => c.Direction == "incoming"))
     {
-        <div class="game-invite" role="group" aria-label="@($"Wyzwanie od {invite.OpponentAlias}")">
+        <div class="game-invite" role="group" aria-label="@L.Format("Wyzwanie od {0}", invite.OpponentAlias)">
             <p class="game-invite-text">
                 <Icon Name="@Icons.Revolver" Size="18" />
-                <span><strong>@invite.OpponentAlias</strong> wyzywa Cię na pojedynek.</span>
+                <span>@((MarkupString)L.Format("{0} wyzywa Cię na pojedynek.", $"<strong>{System.Net.WebUtility.HtmlEncode(invite.OpponentAlias)}</strong>"))</span>
                 <span class="game-countdown" data-deadline="@Deadline(invite.LocalDeadline)" aria-hidden="true"></span>
             </p>
             @if (CanPlay)
             {
                 <div class="cluster">
-                    <button type="button" class="btn btn-primary game-accept" disabled="@Busy" @onclick="() => OnAccept.InvokeAsync(invite.ChallengeId)">Przyjmij</button>
-                    <button type="button" class="btn game-reject" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(invite.ChallengeId)">Odrzuć</button>
+                    <button type="button" class="btn btn-primary game-accept" disabled="@Busy" @onclick="() => OnAccept.InvokeAsync(invite.ChallengeId)">@L["Przyjmij"]</button>
+                    <button type="button" class="btn game-reject" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(invite.ChallengeId)">@L["Odrzuć"]</button>
                 </div>
             }
             else
             {
-                <button type="button" class="btn game-reject" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(invite.ChallengeId)">Odrzuć</button>
+                <button type="button" class="btn game-reject" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(invite.ChallengeId)">@L["Odrzuć"]</button>
             }
         </div>
     }
 
     @if (Challenges.FirstOrDefault(c => c.Direction == "outgoing") is { } outgoing)
     {
-        <div class="game-invite is-outgoing" role="group" aria-label="Wysłane wyzwanie">
+        <div class="game-invite is-outgoing" role="group" aria-label="@L["Wysłane wyzwanie"]">
             <p class="game-invite-text">
                 <Icon Name="@Icons.Clock" Size="18" />
-                <span>Wyzwanie wysłane do <strong>@outgoing.OpponentAlias</strong> — czekamy na odpowiedź.</span>
+                <span>@((MarkupString)L.Format("Wyzwanie wysłane do {0} — czekamy na odpowiedź.", $"<strong>{System.Net.WebUtility.HtmlEncode(outgoing.OpponentAlias)}</strong>"))</span>
                 <span class="game-countdown" data-deadline="@Deadline(outgoing.LocalDeadline)" aria-hidden="true"></span>
             </p>
-            <button type="button" class="btn game-cancel" disabled="@Busy" @onclick="OnCancel">Wycofaj wyzwanie</button>
+            <button type="button" class="btn game-cancel" disabled="@Busy" @onclick="OnCancel">@L["Wycofaj wyzwanie"]</button>
         </div>
     }
 
-    <p class="game-lobby-hint" id="game-players-title">Gracze przy stole</p>
+    <p class="game-lobby-hint" id="game-players-title">@L["Gracze przy stole"]</p>
     @if (Players.Count == 0)
     {
-        <p class="game-note game-players-empty">Nikogo więcej nie ma teraz przy stole. Zagraj z manekinem albo poczekaj na rewolwerowca.</p>
+        <p class="game-note game-players-empty">@L["Nikogo więcej nie ma teraz przy stole. Zagraj z manekinem albo poczekaj na rewolwerowca."]</p>
     }
     else
     {
@@ -54,13 +54,13 @@
                     <span class="game-online-alias">@player.Alias</span>
                     @if (Challenges.Any(c => c.Direction == "incoming" && c.OpponentAlias == player.Alias))
                     {
-                        <span class="game-online-state">wyzywa Cię</span>
+                        <span class="game-online-state">@L["wyzywa Cię"]</span>
                     }
                     else if (CanPlay)
                     {
-                        <button type="button" class="btn game-challenge" aria-label="@($"Wyzwij: {player.Alias}")"
+                        <button type="button" class="btn game-challenge" aria-label="@L.Format("Wyzwij: {0}", player.Alias)"
                                 disabled="@(Busy || waiting)" @onclick="() => OnChallenge.InvokeAsync(player.Handle)">
-                            Wyzwij
+                            @L["Wyzwij"]
                         </button>
                     }
                 </li>
@@ -75,10 +75,15 @@
     <p class="game-lobby-note" role="status">@Note</p>
 </section>
 
+@if (Standings is not null)
+{
+    <GameStandings Standings="Standings" />
+}
+
 @if (CanPlay)
 {
     <button type="button" class="btn btn-primary game-start" disabled="@Busy" @onclick="OnTraining">
-        <Icon Name="@Icons.Revolver" Size="18" /> Rozpocznij pojedynek treningowy
+        <Icon Name="@Icons.Revolver" Size="18" /> @L["Rozpocznij pojedynek treningowy"]
     </button>
 }
 
@@ -89,6 +94,7 @@
     [Parameter] public bool Busy { get; set; }
     [Parameter] public string? Note { get; set; }
     [Parameter] public string? Error { get; set; }
+    [Parameter] public StandingsView? Standings { get; set; }
     [Parameter] public EventCallback<string> OnChallenge { get; set; }
     [Parameter] public EventCallback<string> OnAccept { get; set; }
     [Parameter] public EventCallback<string> OnReject { get; set; }

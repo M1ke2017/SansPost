@@ -23,16 +23,16 @@
         <button type="button" class="menu-backdrop" tabindex="-1" aria-hidden="true" @onclick="CloseAsync"></button>
         <section class="menu-panel notif-panel" id="notif-panel" tabindex="-1" aria-labelledby="notif-title" @onkeydown="PanelKeyDown">
             <div class="notif-head">
-                <h2 id="notif-title" class="section-title">Powiadomienia</h2>
+                <h2 id="notif-title" class="section-title">@L["Powiadomienia"]</h2>
                 @if (unread > 0)
                 {
-                    <button type="button" class="btn btn-ghost btn-sm" @onclick="MarkAllAsync" disabled="@busy">Oznacz wszystkie jako przeczytane</button>
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="MarkAllAsync" disabled="@busy">@L["Oznacz wszystkie jako przeczytane"]</button>
                 }
             </div>
 
             @if (loading && items.Count == 0)
             {
-                <p class="muted text-sm notif-empty" role="status">Wczytywanie…</p>
+                <p class="muted text-sm notif-empty" role="status">@L["Wczytywanie…"]</p>
             }
             else if (error is not null)
             {
@@ -40,7 +40,7 @@
             }
             else if (items.Count == 0)
             {
-                <p class="muted text-sm notif-empty">Na razie cisza. Gdy ktoś skomentuje Twój post, zobaczysz to tutaj.</p>
+                <p class="muted text-sm notif-empty">@L["Na razie cisza. Gdy ktoś skomentuje Twój post, zobaczysz to tutaj."]</p>
             }
             else
             {
@@ -53,21 +53,21 @@
                                 <Avatar Username="@notification.ActorUsername" Size="sm" />
                                 <span class="notif-body">
                                     <span class="notif-text">
-                                        Nowy komentarz od <strong>@notification.ActorUsername</strong>
+                                        @L["Nowy komentarz od"] <strong>@notification.ActorUsername</strong>
                                         @if (notification.TargetAvailable && notification.PostTitle is not null)
                                         {
-                                            <span> pod Twoim postem „@notification.PostTitle”</span>
+                                            <span> @L.Format("pod Twoim postem „{0}”", notification.PostTitle)</span>
                                         }
                                         else
                                         {
-                                            <span class="muted"> — ta treść nie jest już dostępna</span>
+                                            <span class="muted"> — @L["ta treść nie jest już dostępna"]</span>
                                         }
                                     </span>
                                     <TimeAgo Value="notification.CreatedAt" Class="text-xs subtle" />
                                 </span>
                                 @if (!notification.IsRead)
                                 {
-                                    <span class="notif-dot"><span class="visually-hidden">Nieprzeczytane</span></span>
+                                    <span class="notif-dot"><span class="visually-hidden">@L["Nieprzeczytane"]</span></span>
                                 }
                             </button>
                         </li>
@@ -75,7 +75,7 @@
                 </ul>
                 @if (nextCursor is not null)
                 {
-                    <button type="button" class="btn btn-ghost btn-sm btn-block" @onclick="LoadMoreAsync" disabled="@loading">Starsze powiadomienia</button>
+                    <button type="button" class="btn btn-ghost btn-sm btn-block" @onclick="LoadMoreAsync" disabled="@loading">@L["Starsze powiadomienia"]</button>
                 }
             }
         </section>

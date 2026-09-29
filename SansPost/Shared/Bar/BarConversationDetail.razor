@@ -2,14 +2,14 @@
    (komentarze, edycja, usuwanie, zgłoszenia, reakcje, uprawnienia) — wspólny PostConversation, ten sam co na
    klasycznej stronie /post-view/{id}. Tu tylko powrót do listy (albo tablicy Wanted), z której rozmowę otwarto. *@
 <div class="bar-conversation">
-    <button type="button" class="bar-back" aria-label="@(OriginTitle == BackLabel ? null : $"{BackLabel}: {OriginTitle}")" @onclick="OnBack">
-        <Icon Name="@Icons.ArrowLeft" Size="16" /> @BackLabel
+    <button type="button" class="bar-back" aria-label="@(OriginTitle == BackLabel ? null : $"{L[BackLabel]}: {L[OriginTitle]}")" @onclick="OnBack">
+        <Icon Name="@Icons.ArrowLeft" Size="16" /> @L[BackLabel]
     </button>
 
     <PostConversation PostId="PostId" HeadingLevel="3" TitleId="bar-conversation-title" IdPrefix="bar-"
                       LoginReturnUrl="@ReturnUrl" SetPageTitle="false" CommentsLink="false" ScrollToFragment="false">
         <Unavailable>
-            <button type="button" class="btn" @onclick="OnBack">@BackLabel</button>
+            <button type="button" class="btn" @onclick="OnBack">@L[BackLabel]</button>
         </Unavailable>
     </PostConversation>
 </div>

@@ -3,33 +3,33 @@
 @attribute [Authorize]
 @inject UiServices Ui
 
-<PageTitle>Twoje konto · SansPost</PageTitle>
+<PageTitle>@L["Twoje konto · SansPost"]</PageTitle>
 
 <div class="stack-lg">
     <div class="page-header" style="margin-bottom: 0">
         <div>
-            <h1>Twoje konto</h1>
-            <p>Twoje posty, limit publikacji i skróty do najważniejszych miejsc.</p>
+            <h1>@L["Twoje konto"]</h1>
+            <p>@L["Twoje posty, limit publikacji i skróty do najważniejszych miejsc."]</p>
         </div>
-        <a class="btn btn-primary" href="/new"><Icon Name="@Icons.Plus" /> Nowy post</a>
+        <a class="btn btn-primary" href="/new"><Icon Name="@Icons.Plus" /> @L["Nowy post"]</a>
     </div>
 
     <div class="layout-with-aside">
         <section aria-labelledby="my-posts">
-            <h2 id="my-posts" class="section-title" style="margin-bottom: var(--space-3)">Twoje posty</h2>
+            <h2 id="my-posts" class="section-title" style="margin-bottom: var(--space-3)">@L["Twoje posty"]</h2>
             @if (userId is int id)
             {
-                <FeedList AuthorId="id" ShowAuthor="false" HeadingLevel="3" Label="Twoje posty">
+                <FeedList AuthorId="id" ShowAuthor="false" HeadingLevel="3" Label="@L["Twoje posty"]">
                     <Empty>
                         <EmptyState Title="Nie masz jeszcze postów" Text="Twoje posty pojawią się tutaj — i na Twoim publicznym profilu.">
-                            <a class="btn btn-primary" href="/new"><Icon Name="@Icons.PenSquare" /> Napisz pierwszy post</a>
+                            <a class="btn btn-primary" href="/new"><Icon Name="@Icons.PenSquare" /> @L["Napisz pierwszy post"]</a>
                         </EmptyState>
                     </Empty>
                 </FeedList>
             }
         </section>
 
-        <aside class="aside" aria-label="Konto">
+        <aside class="aside" aria-label="@L["Konto"]">
             @if (account is not null)
             {
                 <div class="card">
@@ -38,22 +38,22 @@
                             <Avatar Username="@account.Username" />
                             <div class="who">
                                 <strong class="truncate">@account.Username</strong>
-                                <span class="when">Na SansPost od @UiText.MonthYear(account.CreatedAt)</span>
+                                <span class="when">@L["Na SansPost od"] @UiText.MonthYear(L, account.CreatedAt)</span>
                             </div>
                         </div>
 
                         <div class="cluster">
                             @if (Viewer?.IsSuspended == true)
                             {
-                                <span class="badge badge-warning"><Icon Name="@Icons.Pause" Size="13" /> Konto zawieszone</span>
+                                <span class="badge badge-warning"><Icon Name="@Icons.Pause" Size="13" /> @L["Konto zawieszone"]</span>
                             }
                             else
                             {
-                                <span class="badge badge-success"><Icon Name="@Icons.CheckCircle" Size="13" /> Konto aktywne</span>
+                                <span class="badge badge-success"><Icon Name="@Icons.CheckCircle" Size="13" /> @L["Konto aktywne"]</span>
                             }
                             @if (account.Role == UserRole.Admin)
                             {
-                                <span class="badge badge-accent"><Icon Name="@Icons.Shield" Size="13" /> Administrator</span>
+                                <span class="badge badge-accent"><Icon Name="@Icons.Shield" Size="13" /> @L["Administrator"]</span>
                             }
                         </div>
 
@@ -61,32 +61,32 @@
                         {
                             <div class="stack-sm">
                                 <div class="spread text-sm">
-                                    <span>Limit postów</span>
+                                    <span>@L["Limit postów"]</span>
                                     <span class="muted">@quota.Used / @quota.Limit</span>
                                 </div>
-                                <div class="meter" role="progressbar" aria-label="Wykorzystany limit postów"
+                                <div class="meter" role="progressbar" aria-label="@L["Wykorzystany limit postów"]"
                                      aria-valuemin="0" aria-valuemax="@quota.Limit" aria-valuenow="@quota.Used">
                                     <span style="width: @(QuotaPercent)%"></span>
                                 </div>
                                 <span class="text-xs subtle">
-                                    @(quota.Remaining > 0 ? $"Możesz opublikować jeszcze {UiText.Posts(quota.Remaining)}." : "Limit wykorzystany — usuń starszy post, aby dodać nowy.")
+                                    @(quota.Remaining > 0 ? L.Format("Możesz opublikować jeszcze {0}.", UiText.Posts(L, quota.Remaining)) : L["Limit wykorzystany — usuń starszy post, aby dodać nowy."])
                                 </span>
                             </div>
                         }
                     </div>
                 </div>
 
-                <nav class="card" aria-label="Skróty konta">
+                <nav class="card" aria-label="@L["Skróty konta"]">
                     <div class="card-body stack-sm" style="padding: var(--space-2)">
-                        <a class="menu-item" href="@UiText.ProfileUrl(account.Username)"><Icon Name="@Icons.User" /> Mój publiczny profil</a>
+                        <a class="menu-item" href="@UiText.ProfileUrl(account.Username)"><Icon Name="@Icons.User" /> @L["Mój publiczny profil"]</a>
                         @if (account.Role == UserRole.Admin)
                         {
-                            <a class="menu-item" href="/admin/moderation"><Icon Name="@Icons.Shield" /> Moderacja</a>
+                            <a class="menu-item" href="/admin/moderation"><Icon Name="@Icons.Shield" /> @L["Moderacja"]</a>
                         }
-                        <a class="menu-item" href="@CategoryMeta.Url(PostCategory.Feedback)"><Icon Name="@Icons.Megaphone" /> Zostaw opinię o SansPost</a>
+                        <a class="menu-item" href="@CategoryMeta.Url(PostCategory.Feedback)"><Icon Name="@Icons.Megaphone" /> @L["Zostaw opinię o SansPost"]</a>
                         <form method="post" action="auth/logout">
                             <AntiforgeryField />
-                            <button type="submit" class="menu-item"><Icon Name="@Icons.LogOut" /> Wyloguj się</button>
+                            <button type="submit" class="menu-item"><Icon Name="@Icons.LogOut" /> @L["Wyloguj się"]</button>
                         </form>
                     </div>
                 </nav>

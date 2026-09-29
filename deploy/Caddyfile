@@ -7,6 +7,7 @@
 }
 
 {$SANSPOST_SITE_ADDRESS:localhost} {
-	encode gzip
+	# zstd dla przeglądarek, które go obsługują (mniejsze Three.js i app.css), gzip dla pozostałych.
+	encode zstd gzip
 	reverse_proxy sanspost:8080
 }

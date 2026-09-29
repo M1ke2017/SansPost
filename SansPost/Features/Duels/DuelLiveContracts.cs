@@ -12,7 +12,11 @@ namespace SansPost.Features.Duels
     public sealed record ChallengeReceived(string ChallengeId, string ChallengerAlias, DateTimeOffset ExpiresAt, int RemainingMs);
 
     // Stan przy wejściu i po każdym ponownym połączeniu (RequestState): gracze, wyzwania, trwający pojedynek (wznowienie).
-    public sealed record LobbyState(string YourAlias, IReadOnlyList<OnlinePlayer> Players, IReadOnlyList<ChallengeInfo> Challenges, DuelSnapshot? Duel);
+    public sealed record LobbyState(string YourAlias, IReadOnlyList<OnlinePlayer> Players, IReadOnlyList<ChallengeInfo> Challenges, DuelSnapshot? Duel,
+        StandingsView? Standings = null);
+
+    // Ranking stołu (Top 10, Mistrz Stołu) i statystyki pytającego gracza — odświeżane po zdarzeniu StandingsChanged.
+    public sealed record StandingsView(IReadOnlyList<LeaderboardEntry> Top, TableChampion? Champion, DuelStats You);
 
     public sealed record RoundStartedEvent(string DuelId, int Round, DateTimeOffset DeadlineUtc, int RemainingMs, DuelSnapshot Snapshot);
 
@@ -34,12 +38,14 @@ namespace SansPost.Features.Duels
         public const string RoundStarted = "RoundStarted";
         public const string RoundResolved = "RoundResolved";
         public const string PresenceChanged = "PresenceChanged";
+        public const string StandingsChanged = "StandingsChanged";
     }
 
     // Zdarzenie do wysłania po zmianie stanu (zbierane pod blokadą, wysyłane po jej zwolnieniu). UserId null = wszyscy przy stole.
     public sealed record DuelEvent(int? UserId, string Name, object? Payload)
     {
         public static DuelEvent Presence { get; } = new(null, DuelEvents.PresenceChanged, null);
+        public static DuelEvent Standings { get; } = new(null, DuelEvents.StandingsChanged, null);
     }
 
     public interface IDuelNotifier

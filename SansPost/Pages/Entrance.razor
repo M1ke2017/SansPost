@@ -5,7 +5,7 @@
 @inject IJSRuntime JS
 @inject ScenePreference Preference
 
-<PageTitle>SansPost — Saloon</PageTitle>
+<PageTitle>@L["SansPost — Saloon"]</PageTitle>
 
 @* Wejście do Saloonu. Renderer główny: Three.js (js/entrance3d.js) — wybierany automatycznie, gdy przeglądarka ma wydajny GPU;
    inaczej (brak WebGL, WebGL programowy, słaba płynność, reduced motion, błąd) zostaje scena 2.5D z CSS + inline SVG.
@@ -28,7 +28,7 @@
     <div class="entrance-pending" role="status">
         <span class="entrance-pending-kicker" aria-hidden="true">Saloon</span>
         <span class="entrance-pending-logo" aria-hidden="true">SansPost</span>
-        <span class="entrance-pending-text">Saloon otwiera drzwi…</span>
+        <span class="entrance-pending-text">@L["Saloon otwiera drzwi…"]</span>
     </div>
 
     <div class="entrance-stage">
@@ -84,25 +84,25 @@
         <p class="entrance-lead">
             @if (alias is not null)
             {
-                <span>Witaj z powrotem, <strong>@alias</strong>. Drzwi są otwarte.</span>
+                <span>@L["Witaj z powrotem,"] <strong>@alias</strong>. @L["Drzwi są otwarte."]</span>
             }
             else
             {
-                <span>Rozmowy o technologii, grach, podróżach, pomysłach i projektach. Czytać można bez konta.</span>
+                <span>@L["Rozmowy o technologii, grach, podróżach, pomysłach i projektach. Czytać można bez konta."]</span>
             }
         </p>
 
-        <nav class="entrance-signs" aria-label="Wejście do SansPost">
+        <nav class="entrance-signs" aria-label="@L["Wejście do SansPost"]">
             @if (alias is null)
             {
-                <a class="entrance-sign" data-anchor="login" href="@LoginHref" aria-haspopup="dialog" @onclick="OpenLoginAsync" @onclick:preventDefault>Zaloguj się</a>
-                <a class="entrance-sign" data-anchor="register" href="/register" aria-haspopup="dialog" @onclick="OpenRegisterAsync" @onclick:preventDefault>Załóż konto</a>
+                <a class="entrance-sign" data-anchor="login" href="@LoginHref" aria-haspopup="dialog" @onclick="OpenLoginAsync" @onclick:preventDefault>@L["Zaloguj się"]</a>
+                <a class="entrance-sign" data-anchor="register" href="/register" aria-haspopup="dialog" @onclick="OpenRegisterAsync" @onclick:preventDefault>@L["Załóż konto"]</a>
             }
             @* Wejście: przycisk w formularzu GET — działa też przed podłączeniem circuitu (zwykłe przejście na /saloon),
                a po podłączeniu Blazor przechwytuje submit i najpierw otwiera drzwi. Enter i Spacja jak w każdym przycisku. *@
             <form method="get" action="@SaloonRoutes.Hub" @onsubmit="EnterAsGuestAsync">
                 <button type="submit" class="entrance-sign is-primary" data-anchor="guest" aria-busy="@(entering ? "true" : "false")">
-                    @(alias is null ? "Wejdź jako gość" : "Wejdź do Saloonu")
+                    @(alias is null ? L["Wejdź jako gość"] : L["Wejdź do Saloonu"])
                 </button>
             </form>
         </nav>

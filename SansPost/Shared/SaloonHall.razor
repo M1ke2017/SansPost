@@ -12,8 +12,8 @@
    Do decyzji renderera sala jest w stanie Pending (warstwa z logo, bez klasycznego feedu); OnDecided("3d" | "css")
    dostaje strona /saloon dopiero wtedy, gdy pierwsza klatka jest narysowana albo zapadła decyzja fallback. *@
 <section class="saloon-hall @(ready ? "is-ready" : "")" aria-labelledby="hall-title" aria-describedby="hall-description">
-    <h1 id="hall-title" class="visually-hidden">Saloon SansPost — sala główna</h1>
-    <p id="hall-description" class="visually-hidden">Wybierz miejsce w sali: bar z rozmowami, tablicę Wanted, stół gry albo kącik muzyczny.</p>
+    <h1 id="hall-title" class="visually-hidden">@L["Saloon SansPost — sala główna"]</h1>
+    <p id="hall-description" class="visually-hidden">@L["Wybierz miejsce w sali: bar z rozmowami, tablicę Wanted, stół gry albo kącik muzyczny."]</p>
 
     <div class="hall-3d" @ref="host" aria-hidden="true"></div>
     <div class="hall-vignette" aria-hidden="true"></div>
@@ -22,7 +22,7 @@
        naprawdę globalne akcje: wyjście, motyw i konto. Wyszukiwanie i kategorie trafią do BAR (rozmowy), sala ma własną
        nawigację stref. Na mobile zostaje zwykły nagłówek. *@
     <nav class="hall-corner" aria-label="SansPost">
-        <a class="hall-corner-brand" href="/" title="SansPost — wejście do Saloonu">
+        <a class="hall-corner-brand" href="/" title="@L["SansPost — wejście do Saloonu"]">
             <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
                 <circle cx="16" cy="13.5" r="6" fill="currentColor" />
                 <path d="M4 21.5h24M9 26h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none" />
@@ -30,16 +30,16 @@
             <span>Sans<span class="brand-post">Post</span></span>
         </a>
         <span class="hall-corner-actions">
-            <ThemeToggle />
+            <LanguageToggle /><ThemeToggle />
             @if (Viewer is null)
             {
                 @* Karta logowania nad salą (te same formularze co Entrance i BAR) — bez klasycznej strony i bez otwierania baru. *@
                 <button type="button" id="hall-corner-login" class="hall-corner-link hall-corner-text" aria-haspopup="dialog"
-                        @onclick="() => loginCard!.ShowAsync()">Zaloguj się</button>
+                        @onclick="() => loginCard!.ShowAsync()">@L["Zaloguj się"]</button>
             }
             else
             {
-                <a class="hall-corner-link" href="/me" aria-label="Moje konto (@Viewer.Username)" title="Moje konto"><Icon Name="@Icons.User" Size="18" /></a>
+                <a class="hall-corner-link" href="/me" aria-label="@L.Format("Moje konto ({0})", Viewer.Username)" title="@L["Moje konto"]"><Icon Name="@Icons.User" Size="18" /></a>
             }
         </span>
     </nav>
@@ -47,19 +47,24 @@
     @* Pasek stref: jedyny zestaw przycisków stref (klawiatura, czytniki, dotyk). Desktop: pełny przy pierwszym wejściu
        w sesji, po pierwszym wyborze strefy kompaktowy (pełny przy wskazaniu/fokusie). Mobile: zawsze pełny, przyklejony
        u dołu. Obiekty i szyldy w scenie (canvas) prowadzą do tego samego SelectZoneAsync. *@
-    <nav class="hall-zones @(helperCompact ? "is-compact" : "")" aria-label="Strefy Saloonu" @ref="zonesElement">
+    <nav class="hall-zones @(helperCompact ? "is-compact" : "")" aria-label="@L["Strefy Saloonu"]" @ref="zonesElement">
         @if (!helperCompact)
         {
-            <p class="hall-zones-caption">Wybierz miejsce — w sali albo tutaj</p>
+            <p class="hall-zones-caption">@L["Wybierz miejsce — w sali albo tutaj"]</p>
         }
         @foreach (var zone in Zones)
         {
             <button type="button" class="hall-zone @(zone.Id == "bar" ? "is-primary" : "")" data-zone="@zone.Id"
-                    aria-haspopup="dialog"
+                    aria-haspopup="dialog" aria-describedby="@(zone.Id == "game" && championText is not null ? "hall-champion" : null)"
                     @onclick="() => SelectZoneAsync(zone.Id)">
-                <span class="hall-zone-name">@zone.Name</span>
-                <span class="hall-zone-hint">@zone.Hint</span>
+                <span class="hall-zone-name">@L[zone.Name]</span>
+                <span class="hall-zone-hint">@L[zone.Hint]</span>
             </button>
+        }
+        @* Plakietka Mistrza Stołu w scenie (canvas) — ten sam tekst dla czytnika jako opis strefy "Stół gry". *@
+        @if (championText is not null)
+        {
+            <span class="visually-hidden" id="hall-champion">@championText</span>
         }
     </nav>
 
@@ -67,7 +72,7 @@
     <div class="hall-pending" role="status">
         <span class="hall-pending-kicker" aria-hidden="true">Saloon</span>
         <span class="hall-pending-logo" aria-hidden="true">SansPost</span>
-        <span class="hall-pending-text">Zapalamy lampy w Saloonie…</span>
+        <span class="hall-pending-text">@L["Zapalamy lampy w Saloonie…"]</span>
     </div>
 </section>
 
@@ -161,7 +166,8 @@
             helperCompact = await JS.InvokeAsync<bool>("sansPost.hallOnboarded", false);
             module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/saloon3d.js");
             decision = await module.InvokeAsync<RendererDecision>("init", host,
-                new { force = Force, known3d = Known3d, zones = zonesElement, dotnet = self, arrived, area = restoreBar ? openZone : null });
+                new { force = Force, known3d = Known3d, zones = zonesElement, dotnet = self, arrived, area = restoreBar ? openZone : null, labels = SceneLabels() });
+            sceneLanguage = L.Language;
         }
         catch (JSDisconnectedException)
         {
@@ -182,6 +188,9 @@
 
         barDirty = false;
         StateHasChanged();
+        // Język zmieniony w trakcie startu sceny (napisy narysowane jeszcze w poprzednim) — przerysowanie teraz.
+        if (sceneLanguage != L.Language)
+            await OnLanguageChangedAsync();
         if (restoreBar)
             await barPanel!.ShowAsync();
 
@@ -189,6 +198,85 @@
         // odświeża go przy każdym otwarciu). Gdy tablica jest otwarta od razu, wynik przyjdzie z okna.
         if (Bar?.IsWanted != true)
             await LoadBoardAsync();
+        await LoadChampionAsync();
+    }
+
+    // Mistrz Stołu (Sprint 21): plakietka pod szyldem stołu — ranking z pamięci podręcznej serwisu (bez zapytania na wejście).
+    private string? championText;
+
+    private sealed record ChampionPlaque(string? Title, string? Alias, int Stars, string? Empty);
+
+    private TableChampion? champion;
+    private bool championLoaded;
+
+    // Język, w którym scena narysowała napisy przy starcie.
+    private string? sceneLanguage;
+
+    private async Task LoadChampionAsync()
+    {
+        try
+        {
+            champion = (await Ui.Run((DuelStandingsService s) => s.GetStandingsAsync())).Champion;
+            championLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Nie udało się wczytać Mistrza Stołu do sceny.");
+            return;
+        }
+        await ShowChampionAsync();
+    }
+
+    // Plakietka w scenie i opis dla czytnika — w bieżącym języku (po zmianie języka bez ponownego zapytania).
+    private async Task ShowChampionAsync()
+    {
+        championText = champion is null ? L["Stół czeka na pierwszego mistrza."] : L.Format("Mistrz Stołu: {0}, {1} ★.", champion.Alias, champion.Stars);
+        StateHasChanged();
+        if (module is null)
+            return;
+        try
+        {
+            await module.InvokeVoidAsync("setChampion", champion is null
+                ? new ChampionPlaque(null, null, 0, L["Stół czeka na pierwszego mistrza."])
+                : new ChampionPlaque(L["MISTRZ STOŁU"], champion.Alias, champion.Stars, null));
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    // Napisy malowane w scenie 3D (szyldy, tablica Wanted, rekwizyty stołu) w języku interfejsu.
+    private object SceneLabels() => new
+    {
+        bar = L["BAR"], game = L["STÓŁ GRY"], music = L["MUZYKA"],
+        wantedFor = L["za rozmowę, która rozpaliła Saloon"], wantedEmpty = L["Tablica czeka na pierwszą rozmowę."],
+        round = L["RUNDA"], rulesTitle = L["ŚLADEM|REWOLWEROWCA"], rules = L["3 prestiżu · 1 nabój · 12 rund"],
+        shoot = L["Strzał"], dodge = L["Unik"], reload = L["Przeładuj"], block = L["Blok"], taunt = L["Prowokacja"]
+    };
+
+    // Zmiana języka (Sprint 22): ta sama scena — przerysowanie tekstur z napisami i plakietki Mistrza Stołu.
+    protected override async Task OnLanguageChangedAsync()
+    {
+        if (module is null || !ready)
+            return;
+        try
+        {
+            await module.InvokeVoidAsync("setLanguage", SceneLabels());
+            sceneLanguage = L.Language;
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        catch (JSException)
+        {
+            return;
+        }
+        if (championLoaded)
+            await ShowChampionAsync();
     }
 
     private async Task LoadBoardAsync()

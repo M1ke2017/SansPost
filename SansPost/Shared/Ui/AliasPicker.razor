@@ -4,15 +4,15 @@
 @* Przydomek z zatwierdzonego słownika (WesternAliases) — nie da się go wpisać ręcznie. Pole ukryte jest tylko nośnikiem:
    serwer i tak weryfikuje, że to jeden z przydomków SansPost. Używany przez /register i kartę przybysza na Entrance. *@
 <div class="field alias-field">
-    <span class="field-label" id="alias-label">Twój przydomek</span>
+    <span class="field-label" id="alias-label">@L["Twój przydomek"]</span>
     <div class="alias-box">
         <output class="alias-value" id="alias-value" aria-labelledby="alias-label" aria-live="polite">@Alias</output>
         <button type="button" class="btn btn-sm" @onclick="RerollAsync"
                 aria-describedby="alias-hint" aria-busy="@(rolling ? "true" : "false")">
-            <Icon Name="@Icons.Refresh" Size="16" /> Losuj inny
+            <Icon Name="@Icons.Refresh" Size="16" /> @L["Losuj inny"]
         </button>
     </div>
-    <span class="field-hint" id="alias-hint">Przydomki pochodzą ze słownika SansPost — widoczne publicznie i stałe po rejestracji.</span>
+    <span class="field-hint" id="alias-hint">@L["Przydomki pochodzą ze słownika SansPost — widoczne publicznie i stałe po rejestracji."]</span>
     <input type="hidden" name="Username" value="@Alias" />
 </div>
 

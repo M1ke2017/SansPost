@@ -2,23 +2,23 @@
    Bez pojedynku — podgląd kart (nieaktywne). Wybrana karta zostaje oznaczona jako "Twój wybór" (zakryta przed przeciwnikiem);
    o tym, czy karta jest dostępna, rozstrzyga serwer (AvailableActions) — tu tylko prezentacja. *@
 <section class="game-deck" aria-labelledby="game-deck-title">
-    <h3 class="game-deck-title" id="game-deck-title">Karty komend</h3>
+    <h3 class="game-deck-title" id="game-deck-title">@L["Karty komend"]</h3>
     <ul class="game-cards">
         @foreach (var action in Current?.AvailableActions ?? Preview)
         {
             var chosen = Current is not null && (Current.YourMove ?? Pending) == action.Card;
-            var reason = Current is not null && !CanPlay && action.Enabled ? "Udział w pojedynkach jest niedostępny." : action.DisabledReason;
+            var reason = Current is not null && !CanPlay && action.Enabled ? L["Udział w pojedynkach jest niedostępny."] : action.DisabledReason is { } why ? L[why] : null;
             <li>
                 <button type="button" class="game-card @(chosen ? "is-chosen" : "")" data-card="@action.Card"
                         disabled="@(Current is null || !action.Enabled || !CanPlay || Busy || Pending is not null)"
                         aria-pressed="@(Current is null ? null : chosen ? "true" : "false")"
                         aria-describedby="@($"game-card-{action.Card}-text")" @onclick="() => OnPlay.InvokeAsync(action.Card)">
                     <span class="game-card-icon"><Icon Name="@IconFor(action.Card)" Size="26" StrokeWidth="1.6" /></span>
-                    <span class="game-card-name">@action.Name</span>
+                    <span class="game-card-name">@L[action.Name]</span>
                     <span class="game-card-text" id="@($"game-card-{action.Card}-text")">
-                        @action.Description@if (chosen)
+                        @L[action.Description]@if (chosen)
                         {
-                            <span class="game-card-reason"> Twój wybór — zakryty przed przeciwnikiem.</span>
+                            <span class="game-card-reason"> @L["Twój wybór — zakryty przed przeciwnikiem."]</span>
                         }
                         else if (Current is not null && reason is not null)
                         {
