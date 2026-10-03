@@ -47,6 +47,10 @@
   <data name="Co najmniej {0} wśród {1}" xml:space="preserve"><value>At least {0} among {1}</value></data>
   <data name="Co o tym myślisz?" xml:space="preserve"><value>What do you think?</value></data>
   <data name="code:connection-lost" xml:space="preserve"><value>No connection to the Game Table — try again in a moment.</value></data>
+  <data name="code:daily-comment-limit-reached" xml:space="preserve"><value>Daily comment limit reached (20). You can add more after midnight UTC.</value></data>
+  <data name="code:daily-game-limit-reached" xml:space="preserve"><value>Daily game limit reached (15). You can start more after midnight UTC.</value></data>
+  <data name="code:daily-post-limit-reached" xml:space="preserve"><value>Daily post limit reached (10). You can add more after midnight UTC.</value></data>
+  <data name="code:duel-player-daily-limit-reached" xml:space="preserve"><value>Your opponent has reached today's game limit. The duel did not start.</value></data>
   <data name="Coś poszło nie tak" xml:space="preserve"><value>Something went wrong</value></data>
   <data name="Coś poszło nie tak. Odśwież stronę, aby kontynuować." xml:space="preserve"><value>Something went wrong. Refresh the page to continue.</value></data>
   <data name="Coś poszło nie tak. Spróbuj ponownie za chwilę." xml:space="preserve"><value>Something went wrong. Please try again in a moment.</value></data>
@@ -63,14 +67,20 @@
   <data name="Czytaj opinie" xml:space="preserve"><value>Read feedback</value></data>
   <data name="Czytać możesz bez konta. Zaloguj się, aby publikować, komentować i reagować." xml:space="preserve"><value>You can read without an account. Sign in to post, comment and react.</value></data>
   <data name="Czytać można bez konta. Żeby zacząć rozmowę, zaloguj się." xml:space="preserve"><value>Reading needs no account. To start a conversation, sign in.</value></data>
+  <data name="Dalsze słuchanie wymaga ponownego uruchomienia." xml:space="preserve"><value>Start it again if you want to continue listening.</value></data>
   <data name="dni" xml:space="preserve"><value>days</value></data>
   <data name="Dodaj komentarz" xml:space="preserve"><value>Add comment</value></data>
   <data name="Dodaj wiadomość do SansPost — o technologii, grach, podróżach, pomysłach albo własnym projekcie." xml:space="preserve"><value>Add a message to SansPost — about technology, games, travel, ideas or your own project.</value></data>
   <data name="Dołącz do rozmowy" xml:space="preserve"><value>Join the conversation</value></data>
   <data name="Dołącz do Saloonu" xml:space="preserve"><value>Join the Saloon</value></data>
   <data name="Drzwi są otwarte." xml:space="preserve"><value>The doors are open.</value></data>
+  <data name="Dzienny limit postów" xml:space="preserve"><value>Daily post limit</value></data>
   <data name="dzień" xml:space="preserve"><value>day</value></data>
+  <data name="Dzisiejszy limit wykorzystany — kolejne posty po północy UTC." xml:space="preserve"><value>Today's limit used — more posts after midnight UTC.</value></data>
   <data name="Dziękujemy. Zgłoszenie trafiło do moderacji." xml:space="preserve"><value>Thank you. The report has been sent to moderation.</value></data>
+  <data name="Dziś możesz opublikować jeszcze {0}." xml:space="preserve"><value>You can publish {0} more today.</value></data>
+  <data name="Dziś możesz opublikować najwyżej {0}. Kolejne dodasz po północy UTC." xml:space="preserve"><value>You can publish up to {0} today. You can add more after midnight UTC.</value></data>
+  <data name="Dziś {0} z {1} postów" xml:space="preserve"><value>Today: {0} of {1} posts</value></data>
   <data name="Edycja posta · SansPost" xml:space="preserve"><value>Edit post · SansPost</value></data>
   <data name="edytowano" xml:space="preserve"><value>edited</value></data>
   <data name="edytowano " xml:space="preserve"><value>edited </value></data>
@@ -87,6 +97,7 @@
   <data name="godzinę" xml:space="preserve"><value>hour</value></data>
   <data name="gotowy" xml:space="preserve"><value>ready</value></data>
   <data name="Gotowy — czekamy" xml:space="preserve"><value>Ready — waiting</value></data>
+  <data name="GOŚĆ MOŻE CZYTAĆ" xml:space="preserve"><value>GUESTS CAN READ</value></data>
   <data name="Gracz" xml:space="preserve"><value>Player</value></data>
   <data name="Gracze przy stole" xml:space="preserve"><value>Players at the table</value></data>
   <data name="Graj" xml:space="preserve"><value>Play</value></data>
@@ -157,8 +168,6 @@
   <data name="Limit kont publicznej wersji demo został osiągnięty." xml:space="preserve"><value>The public demo account limit has been reached.</value></data>
   <data name="Limit kont został osiągnięty" xml:space="preserve"><value>The account limit has been reached</value></data>
   <data name="Limit musi mieścić się w zakresie 1–{0}." xml:space="preserve"><value>The limit must be between 1 and {0}.</value></data>
-  <data name="Limit postów" xml:space="preserve"><value>Post limit</value></data>
-  <data name="Limit wykorzystany — usuń starszy post, aby dodać nowy." xml:space="preserve"><value>Limit reached — delete an older post to add a new one.</value></data>
   <data name="Lista stacji nie odpowiada. Saloon działa dalej — spróbuj za chwilę." xml:space="preserve"><value>The station list is not responding. The Saloon keeps going — try again in a moment.</value></data>
   <data name="Logowanie · SansPost" xml:space="preserve"><value>Sign in · SansPost</value></data>
   <data name="Losuj inny" xml:space="preserve"><value>Draw another</value></data>
@@ -179,9 +188,7 @@
   <data name="Moje konto" xml:space="preserve"><value>My account</value></data>
   <data name="Moje konto ({0})" xml:space="preserve"><value>My account ({0})</value></data>
   <data name="Moje konto i posty" xml:space="preserve"><value>My account and posts</value></data>
-  <data name="Most Wanted · SansPost Saloon" xml:space="preserve"><value>Most Wanted · SansPost Saloon</value></data>
   <data name="Możesz edytować tylko własne posty" xml:space="preserve"><value>You can only edit your own posts</value></data>
-  <data name="Możesz opublikować jeszcze {0}." xml:space="preserve"><value>You can publish {0} more.</value></data>
   <data name="Możesz przeglądać SansPost, ale publikowanie jest obecnie niedostępne (posty, komentarze, reakcje i zgłoszenia)." xml:space="preserve"><value>You can browse SansPost, but publishing is currently unavailable (posts, comments, reactions and reports).</value></data>
   <data name="Możesz przeglądać Stół gry, ale udział w pojedynkach jest obecnie niedostępny." xml:space="preserve"><value>You can browse the Game Table, but taking part in duels is currently unavailable.</value></data>
   <data name="Możesz się teraz zalogować." xml:space="preserve"><value>You can sign in now.</value></data>
@@ -201,6 +208,9 @@
   <data name="Na żywo: runda trwa 15 sekund — brak karty kosztuje 1 prestiżu." xml:space="preserve"><value>Live: a round lasts 15 seconds — no card costs 1 prestige.</value></data>
   <data name="Naboje" xml:space="preserve"><value>Ammo</value></data>
   <data name="Naboje: {0} z 2." xml:space="preserve"><value>Ammo: {0} of 2.</value></data>
+  <data name="Najbardziej poszukiwani · SansPost Saloon" xml:space="preserve"><value>Most Wanted · SansPost Saloon</value></data>
+  <data name="Najbardziej poszukiwany" xml:space="preserve"><value>Most Wanted</value></data>
+  <data name="NAJBARDZIEJ|POSZUKIWANY" xml:space="preserve"><value>MOST WANTED</value></data>
   <data name="Najgłośniejsze rozmowy Saloonu z ostatnich 7 dni. Ich autorzy są poszukiwani — za rozmowy, które poruszyły salę." xml:space="preserve"><value>The loudest Saloon conversations of the last 7 days. Their authors are wanted — for the conversations that stirred the hall.</value></data>
   <data name="najlepsze rozmowy" xml:space="preserve"><value>top conversations</value></data>
   <data name="Najnowsze" xml:space="preserve"><value>Latest</value></data>
@@ -289,7 +299,6 @@
   <data name="Operacja wymaga uprawnień administratora." xml:space="preserve"><value>This action requires administrator permissions.</value></data>
   <data name="Opisz problem w szczegółach." xml:space="preserve"><value>Describe the problem in the details.</value></data>
   <data name="Opublikuj" xml:space="preserve"><value>Publish</value></data>
-  <data name="Osiągnięto limit postów ({0})." xml:space="preserve"><value>Post limit reached ({0}).</value></data>
   <data name="ostatni" xml:space="preserve"><value>latest</value></data>
   <data name="Ostatnie komentarze" xml:space="preserve"><value>Recent comments</value></data>
   <data name="Ostatnie posty" xml:space="preserve"><value>Recent posts</value></data>
@@ -344,6 +353,8 @@
   <data name="Posty" xml:space="preserve"><value>Posts</value></data>
   <data name="Posty w kategorii {0}" xml:space="preserve"><value>Posts in {0}</value></data>
   <data name="postów" xml:space="preserve"><value>posts</value></data>
+  <data name="POSZUKIWANI" xml:space="preserve"><value>WANTED</value></data>
+  <data name="POSZUKIWANY" xml:space="preserve"><value>WANTED</value></data>
   <data name="Powiadomienia" xml:space="preserve"><value>Notifications</value></data>
   <data name="Powrót do Saloonu" xml:space="preserve"><value>Back to the Saloon</value></data>
   <data name="Powtórz hasło" xml:space="preserve"><value>Repeat password</value></data>
@@ -375,6 +386,7 @@
   <data name="Przeciwnik przeładował pełny bęben." xml:space="preserve"><value>Your opponent reloaded a full cylinder.</value></data>
   <data name="Przeciwnik utracił połączenie. Czekamy na powrót…" xml:space="preserve"><value>Your opponent lost the connection. Waiting for them to come back…</value></data>
   <data name="Przeciwnik wybrał — Twój ruch." xml:space="preserve"><value>Your opponent has chosen — your move.</value></data>
+  <data name="Przeciwnik wykorzystał dzisiejszy limit gier. Pojedynek nie rozpoczął się." xml:space="preserve"><value>Your opponent has reached today's game limit. The duel did not start.</value></data>
   <data name="Przeciwnik:" xml:space="preserve"><value>Opponent:</value></data>
   <data name="przed chwilą" xml:space="preserve"><value>just now</value></data>
   <data name="Przeglądaj posty" xml:space="preserve"><value>Browse posts</value></data>
@@ -387,7 +399,6 @@
   <data name="Przewiń kategorie w prawo" xml:space="preserve"><value>Scroll categories right</value></data>
   <data name="Przeładowanie" xml:space="preserve"><value>Reload</value></data>
   <data name="Przeładowanie: +1 nabój." xml:space="preserve"><value>Reload: +1 bullet.</value></data>
-  <data name="Przeładuj" xml:space="preserve"><value>Reload</value></data>
   <data name="Przełącz jasny lub ciemny motyw" xml:space="preserve"><value>Toggle light or dark theme</value></data>
   <data name="Przy stole gry nie ma teraz miejsca. Spróbuj za chwilę." xml:space="preserve"><value>There's no room at the Game Table right now. Try again in a moment.</value></data>
   <data name="Przybijamy listy gończe…" xml:space="preserve"><value>Nailing up the wanted posters…</value></data>
@@ -407,6 +418,7 @@
   <data name="Radio jest chwilowo niedostępne." xml:space="preserve"><value>The radio is temporarily unavailable.</value></data>
   <data name="Radio w Saloonie" xml:space="preserve"><value>Radio in the Saloon</value></data>
   <data name="Radio zatrzymane" xml:space="preserve"><value>Radio stopped</value></data>
+  <data name="Radio zostało zatrzymane po 2 godzinach odtwarzania." xml:space="preserve"><value>Radio stopped after 2 hours of playback.</value></data>
   <data name="Ranking pojawi się po pierwszym pojedynku z innym graczem." xml:space="preserve"><value>The leaderboard appears after the first duel against another player.</value></data>
   <data name="Ranking stołu" xml:space="preserve"><value>Table leaderboard</value></data>
   <data name="reakcja" xml:space="preserve"><value>reaction</value></data>
@@ -498,6 +510,7 @@
   <data name="Tablica ogłoszeń" xml:space="preserve"><value>Notice board</value></data>
   <data name="Tablica ogłoszeń jest jeszcze pusta. Twoja opinia może zawisnąć tu pierwsza." xml:space="preserve"><value>The notice board is still empty. Your feedback can be the first one pinned here.</value></data>
   <data name="Tablica Wanted" xml:space="preserve"><value>Wanted Board</value></data>
+  <data name="Tak wyglądaliśmy, gdy zaczynaliśmy." xml:space="preserve"><value>This is where we started.</value></data>
   <data name="Tak, poddaję pojedynek" xml:space="preserve"><value>Yes, I surrender</value></data>
   <data name="Taki profil nie istnieje. Sprawdź nazwę albo poszukaj autora w wyszukiwarce." xml:space="preserve"><value>This profile doesn't exist. Check the name or look the author up in search.</value></data>
   <data name="Technologia" xml:space="preserve"><value>Technology</value></data>
@@ -544,7 +557,6 @@
   <data name="Twoje konto" xml:space="preserve"><value>Your account</value></data>
   <data name="Twoje konto jest zawieszone — możesz czytać, ale nie możesz publikować, komentować ani reagować." xml:space="preserve"><value>Your account is suspended — you can read, but you can't post, comment or react.</value></data>
   <data name="Twoje konto jest zawieszone — możesz przeglądać, ale nie możesz publikować ani brać udziału w pojedynkach." xml:space="preserve"><value>Your account is suspended — you can browse, but you can't post or take part in duels.</value></data>
-  <data name="Twoje konto może mieć jednocześnie {0}. Usuń któryś ze starszych, aby opublikować nowy." xml:space="preserve"><value>Your account can have {0} at a time. Delete one of the older ones to publish a new one.</value></data>
   <data name="Twoje konto · SansPost" xml:space="preserve"><value>Your account · SansPost</value></data>
   <data name="Twoje pojedynki:" xml:space="preserve"><value>Your duels:</value></data>
   <data name="Twoje posty" xml:space="preserve"><value>Your posts</value></data>
@@ -569,6 +581,7 @@
   <data name="Unik" xml:space="preserve"><value>Dodge</value></data>
   <data name="Unik udany — strzał przeciwnika chybił." xml:space="preserve"><value>Dodge worked — your opponent's shot missed.</value></data>
   <data name="Unika strzału, ale prowokacja go karze." xml:space="preserve"><value>Dodges a shot, but Taunt punishes it.</value></data>
+  <data name="Uruchom ponownie" xml:space="preserve"><value>Start again</value></data>
   <data name="Usunąć komentarz?" xml:space="preserve"><value>Delete the comment?</value></data>
   <data name="Usunąć ten post?" xml:space="preserve"><value>Delete this post?</value></data>
   <data name="Usuń" xml:space="preserve"><value>Delete</value></data>
@@ -626,9 +639,11 @@
   <data name="Wygrana! Przeciwnik schodzi ze sceny." xml:space="preserve"><value>Victory! Your opponent leaves the stage.</value></data>
   <data name="Wygrane" xml:space="preserve"><value>Wins</value></data>
   <data name="wygrane / przegrane / remisy" xml:space="preserve"><value>wins / losses / draws</value></data>
-  <data name="Wykorzystano limit postów" xml:space="preserve"><value>Post limit reached</value></data>
-  <data name="Wykorzystano {0} z {1} postów" xml:space="preserve"><value>{0} of {1} posts used</value></data>
-  <data name="Wykorzystany limit postów" xml:space="preserve"><value>Post limit used</value></data>
+  <data name="Wykorzystano dzisiejszy limit gier ({0}). Kolejne możesz rozpocząć po północy UTC." xml:space="preserve"><value>Daily game limit reached ({0}). You can start more after midnight UTC.</value></data>
+  <data name="Wykorzystano dzisiejszy limit komentarzy ({0}). Kolejne możesz dodać po północy UTC." xml:space="preserve"><value>Daily comment limit reached ({0}). You can add more after midnight UTC.</value></data>
+  <data name="Wykorzystano dzisiejszy limit postów" xml:space="preserve"><value>Today's post limit reached</value></data>
+  <data name="Wykorzystano dzisiejszy limit postów ({0}). Kolejne możesz dodać po północy UTC." xml:space="preserve"><value>Daily post limit reached ({0}). You can add more after midnight UTC.</value></data>
+  <data name="Wykorzystany dzienny limit postów" xml:space="preserve"><value>Daily post limit used</value></data>
   <data name="Wyloguj się" xml:space="preserve"><value>Sign out</value></data>
   <data name="Wymagany nagłówek If-Match z ETag pobranym przez GET." xml:space="preserve"><value>An If-Match header with the ETag returned by GET is required.</value></data>
   <data name="wynik" xml:space="preserve"><value>result</value></data>
@@ -651,6 +666,8 @@
   <data name="za rozmowę, która rozpaliła Saloon" xml:space="preserve"><value>for the conversation that set the Saloon on fire</value></data>
   <data name="Zacznij dyskusję." xml:space="preserve"><value>Start the discussion.</value></data>
   <data name="Zacznij pierwszą rozmowę — pojawi się tutaj." xml:space="preserve"><value>Start the first conversation — it will show up here.</value></data>
+  <data name="ZAJĘTE MIEJSCA" xml:space="preserve"><value>SEATS TAKEN</value></data>
+  <data name="Zajęte miejsca w Saloonie: {0} z {1}." xml:space="preserve"><value>Seats taken in the Saloon: {0} of {1}.</value></data>
   <data name="Zalogowano jako" xml:space="preserve"><value>Signed in as</value></data>
   <data name="Zaloguj" xml:space="preserve"><value>Sign in</value></data>
   <data name="Zaloguj się" xml:space="preserve"><value>Sign in</value></data>
@@ -667,6 +684,7 @@
   <data name="Zapisz zmiany" xml:space="preserve"><value>Save changes</value></data>
   <data name="Zapytanie musi mieć od {0} do {1} znaków." xml:space="preserve"><value>The query must be {0} to {1} characters long.</value></data>
   <data name="Zasady w skrócie" xml:space="preserve"><value>Rules in short</value></data>
+  <data name="Zatrzymane po 2 godzinach" xml:space="preserve"><value>Stopped after 2 hours</value></data>
   <data name="Zatrzymuje strzał, ale prowokacja go karze." xml:space="preserve"><value>Stops a shot, but Taunt punishes it.</value></data>
   <data name="Załaduj więcej" xml:space="preserve"><value>Load more</value></data>
   <data name="Załóż je w minutę" xml:space="preserve"><value>Create one in a minute</value></data>

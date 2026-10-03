@@ -3,10 +3,18 @@
 # Sekrety: pliki w ${SECRETS_DIR:-./secrets} (poza repozytorium) — patrz DEPLOYMENT.md.
 name: sanspost
 
+# Rotacja logów Dockera (json-file): najwyżej 5 × 10 MB na kontener — logi nie zapełnią dysku małego serwera.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sanspost}
       POSTGRES_USER: ${POSTGRES_USER:-sanspost}
@@ -31,6 +39,7 @@ services:
       dockerfile: Dockerfile
     image: sanspost:${SANSPOST_TAG:-local}
     restart: unless-stopped
+    logging: *logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +79,7 @@ services:
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     depends_on:
       sanspost:
         condition: service_healthy

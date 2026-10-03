@@ -36,16 +36,17 @@ namespace SansPost.Tests.Controllers
         }
 
         [Fact]
-        public async Task Create_ReturnsForbidden_WhenPostLimitReached()
+        public async Task Create_Returns429_WhenDailyPostLimitReached()
         {
             var service = new Mock<IPostService>();
             service.Setup(s => s.CreateAsync(1, ValidRequest, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ServiceResult<PostDetailsResponse>.Fail(ServiceError.Forbidden, "Osiągnięto limit postów."));
+                .ReturnsAsync(ServiceResult<PostDetailsResponse>.From(
+                    SansPost.Features.Usage.DailyQuota.LimitReached(SansPost.Features.Usage.QuotaKind.Post, DateTimeOffset.UtcNow)));
 
             var controller = new PostsController(service.Object).WithUser(1);
             var result = await controller.Create(ValidRequest, CancellationToken.None);
 
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(result).StatusCode);
+            Assert.Equal(StatusCodes.Status429TooManyRequests, Assert.IsType<ObjectResult>(result).StatusCode);
         }
 
         [Fact]

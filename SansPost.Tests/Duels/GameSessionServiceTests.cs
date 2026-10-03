@@ -41,6 +41,7 @@ namespace SansPost.Tests.Duels
 
         private async Task<(GameSessionService Service, Guid Id)> ChallengeAsync()
         {
+            _accounts.ClearDailyUsage();   // testy wielu pojedynków z rzędu; dzienny limit gier — DailyGameQuotaTests
             var service = Service();
             var created = Ok(await service.CreateAsync(Anna, "SzeryfAnna", DuelMode.Challenge));
             Ok(await service.JoinAsync(Guid.Parse(created.DuelId), Bart, "KowbojBart"));

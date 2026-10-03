@@ -154,7 +154,13 @@ namespace SansPost.Tests.Notifications
         {
             var (a, b, postId) = await ArrangeAsync();
             for (var i = 0; i < 23; i++)
+            {
+                // 23 komentarze jednej osoby (3 strony) — powyżej dziennego limitu 20, który nie jest tematem tego testu.
+                if (i == SansPost.Features.Usage.DailyQuota.Comments)
+                    using (var context = _db.CreateContext())
+                        await context.DailyUserUsages.ExecuteDeleteAsync();
                 await CommentAsync(b.Id, postId, $"komentarz {i}");   // zegar testowy stoi → identyczne CreatedAt
+            }
 
             var seen = new List<NotificationResponse>();
             string? cursor = null;

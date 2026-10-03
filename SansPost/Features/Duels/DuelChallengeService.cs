@@ -1,4 +1,5 @@
 using SansPost.Features.Identity;
+using SansPost.Features.Usage;
 
 namespace SansPost.Features.Duels
 {
@@ -76,6 +77,9 @@ namespace SansPost.Features.Duels
         {
             if (await _sessions.CheckParticipationAsync(userId, cancellationToken) is { } denied)
                 return ServiceResult<ChallengeInfo>.From(denied);
+            // Samo wyzwanie nie zużywa dziennego limitu gier — ale bez limitu nie ma sensu go wysyłać.
+            if (!await _sessions.HasGamesLeftAsync(userId, cancellationToken))
+                return ServiceResult<ChallengeInfo>.From(DailyQuota.LimitReached(QuotaKind.Game, _time.GetUtcNow()));
             if (_registry.UserOf(playerHandle) is not { } targetId)
                 return Unavailable();
             if (targetId == userId)
@@ -131,6 +135,9 @@ namespace SansPost.Features.Duels
             // Zawieszony nie przyjmie — wyzwanie zostaje nietknięte (może je odrzucić albo poczekać, aż wygaśnie).
             if (await _sessions.CheckParticipationAsync(userId, cancellationToken) is { } denied)
                 return ServiceResult<DuelSnapshot>.From(denied);
+            // Przyjmujący bez dziennego limitu gier — wyzwanie zostaje nietknięte (może je odrzucić).
+            if (!await _sessions.HasGamesLeftAsync(userId, cancellationToken))
+                return ServiceResult<DuelSnapshot>.From(DailyQuota.LimitReached(QuotaKind.Game, _time.GetUtcNow()));
 
             Challenge? challenge;
             lock (_gate)
@@ -145,6 +152,12 @@ namespace SansPost.Features.Duels
             {
                 await PublishAsync(Both(challenge, "unavailable"));
                 return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Wyzywający odszedł od stołu.", "player-unavailable");
+            }
+            // Wyzywający wykorzystał dziś limit gier — ogólny komunikat, bez jego licznika.
+            if (!await _sessions.HasGamesLeftAsync(challenge.ChallengerId, cancellationToken))
+            {
+                await PublishAsync(Both(challenge, "unavailable"));
+                return ServiceResult<DuelSnapshot>.From(DailyQuota.OpponentLimitReached());
             }
 
             var started = await _sessions.StartLiveAsync(challenge.ChallengerId, challenge.ChallengerAlias, challenge.TargetId, challenge.TargetAlias, cancellationToken);

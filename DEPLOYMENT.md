@@ -71,13 +71,20 @@ Multi-stage: SDK tylko w etapie build; obraz końcowy `mcr.microsoft.com/dotnet/
 
 ## 6. Pierwsze uruchomienie
 
+Produkcja startuje z **pustej** bazy: migracje tworzą schemat, opcjonalny seed demo dodaje rozmowy startowe. Nie kopiuj bazy
+deweloperskiej (konta QA, testowe posty, wyniki pojedynków, dane Playwright) i nie twórz kont QA na produkcji.
+
 ```bash
-cp .env.example .env            # uzupełnij domenę, porty
+cp .env.example .env            # SANSPOST_SITE_ADDRESS=<domena>, HTTP_PORT=80, HTTPS_PORT=443
+                                # publiczne demo: SANSPOST_SEED_CONTENT=true (rozmowy startowe, konta demo bez logowania)
 # utwórz sekrety (pkt 4)
 docker compose up -d
-docker compose ps               # postgres: healthy, sanspost: healthy
+docker compose ps               # postgres: healthy, sanspost: healthy, proxy: up
 curl -fsS https://<domena>/health/ready
 ```
+
+DNS: rekord `A` (i `AAAA`, jeśli serwer ma IPv6) domeny na adres serwera **przed** startem Caddy — certyfikat Let's Encrypt
+wymaga, by domena wskazywała serwer i porty 80/443 były osiągalne z internetu.
 
 ## 7. Migracje bazy
 
@@ -120,7 +127,35 @@ Inne proxy (nginx, Traefik, load balancer): ustaw jego adres w `KnownProxies` lu
 
 TLS kończy się na proxy; w obrazie nie ma certyfikatów, kontener słucha HTTP w prywatnej sieci. Przy `X-Forwarded-Proto: https` od zaufanego proxy `Request.Scheme = https`: cookie `Secure`, brak przekierowania, brak pętli. Przekierowanie HTTP→HTTPS w aplikacji tylko dla bezpośredniego HTTP z jawnym `HttpsRedirection__HttpsPort` (sondy `/health/*` wyłączone). HSTS w środowiskach innych niż Development (poza `localhost`).
 
-## 12. Limity (rate limiting)
+### Nagłówki bezpieczeństwa, cache i kompresja (v1.0)
+
+Aplikacja ustawia na każdej odpowiedzi (także błędach): `Content-Security-Policy` (bez `unsafe-eval`; skrypty z własnego
+origin + nonce dla dwóch skryptów inline `_Host` + hashe skryptów `error.html`; `frame-ancestors 'none'`; `media-src https:`
+dla strumieni radia; `connect-src` z WebSocketem tego samego hosta), `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (bez kamery/mikrofonu/
+geolokacji). `style-src` zawiera `'unsafe-inline'` (atrybuty `style` komponentów) — świadomy wyjątek, nie dotyczy skryptów.
+Proxy nie musi dodawać własnych nagłówków (duplikat CSP zaostrza politykę — nie wpisuj drugiej).
+
+Pliki statyczne: z wersją w adresie (`?v=` z `asp-append-version`) — `Cache-Control: public, max-age=31536000, immutable`;
+bez wersji (moduły scen 3D, Three.js, SignalR JS, HTML) — `no-cache` + ETag (304). Kompresja w Caddy: `encode zstd gzip`.
+
+`AllowedHosts` zostaje `*`: Caddy obsługuje wyłącznie blok `SANSPOST_SITE_ADDRESS`, więc żądania z innym `Host` nie docierają
+do aplikacji, a sonda HEALTHCHECK łączy się na `localhost`.
+
+## 12. Limity
+
+### Dzienne limity biznesowe (v1.0)
+
+Na użytkownika na dobę UTC: **10 postów, 20 komentarzy, 15 rozpoczętych gier** (stałe w `Features/Usage/DailyQuota`).
+Źródło prawdy: PostgreSQL (`dailyuserusages`, jeden wiersz na użytkownika i dzień) — liczniki przeżywają restart i działają
+przy wielu instancjach; reset to nowa data UTC (bez zadań w tle). Zużycie jest atomowe i w transakcji operacji: post/komentarz,
+który się nie zapisze, nie zużywa limitu; usunięcie nie zwraca limitu. Gra liczy się, gdy naprawdę się zaczyna (trening,
+start pojedynku po gotowości obu, rewanż, dołączenie do wyzwania REST); pojedynek zużywa limit obu graczy albo żadnego.
+Wysłane / odrzucone / wycofane / wygasłe wyzwanie nie jest grą. Odpowiedź: **429** + `Retry-After` do północy UTC, kody
+`daily-post-limit-reached`, `daily-comment-limit-reached`, `daily-game-limit-reached`, `duel-player-daily-limit-reached`.
+Plan Premium (panel admina) nie zmienia limitów.
+
+### Limity HTTP (rate limiting)
 
 W pamięci procesu. **1 instancja:** limity działają zgodnie z konfiguracją (`RateLimiting__Auth|Search|Writes__PermitLimit`, okno 1 min). **N instancji:** efektywny limit ≈ N × skonfigurowany. Rozproszony limiter (np. Redis) — przyszłość, nie ma go w tym wdrożeniu.
 
@@ -128,7 +163,8 @@ W pamięci procesu. **1 instancja:** limity działają zgodnie z konfiguracją (
 
 Pojedynki 1v1 (`/hubs/duel`, uwierzytelnienie cookie sesji albo JWT) trzymają stan w pamięci procesu — tak jak limity:
 **jedna instancja** (bez backplane Redis). Przy wielu instancjach potrzebny byłby sticky routing i backplane — poza tym wdrożeniem.
-Restart aplikacji kończy trwające pojedynki (nie ma trwałej historii gier). Czasy (sekundy, zakres 1–300, walidowane przy starcie):
+Restart aplikacji kończy trwające pojedynki; wyniki zakończonych pojedynków na żywo są w bazie (`duelresults` — gwiazdki,
+ranking, Mistrz Stołu). Czasy (sekundy, zakres 1–300, walidowane przy starcie):
 `Duels__ChallengeSeconds` (ważność wyzwania, domyślnie 30), `Duels__RoundSeconds` (czas na ruch, 15),
 `Duels__GraceSeconds` (okno powrotu po zerwaniu połączenia, 20). Keep-alive huba 5 s / limit 12 s — proxy nie może zamykać
 bezczynnych WebSocketów szybciej niż po ~15 s (Caddy domyślnie ich nie zamyka).
@@ -142,11 +178,13 @@ bezczynnych WebSocketów szybciej niż po ~15 s (Caddy domyślnie ich nie zamyka
 **Wolumen Docker to NIE jest backup** (ginie z `down -v`, awarią dysku, błędem operatora).
 
 ```bash
-mkdir -p backups
-docker compose exec -T postgres pg_dump -U sanspost -d sanspost -Fc > backups/sanspost-$(date +%F-%H%M).dump
+./deploy/backup.sh              # backups/sanspost-<czas UTC>.dump, retencja: 14 najnowszych (KEEP=14, BACKUP_DIR=./backups)
+crontab -e                      # codziennie 03:15:
+# 15 3 * * * cd <katalog-projektu> && ./deploy/backup.sh >> backups/backup.log 2>&1
 ```
 
-Format custom (`-Fc`): skompresowany, odtwarzany `pg_restore`. Kopiuj poza serwer; regularnie testuj odtworzenie. Klucze `dpkeys` (sesje) można odtworzyć — utrata wymusza tylko ponowne logowanie.
+`pg_dump -Fc` z kontenera bazy do katalogu na hoście (poza kontenerem i wolumenem), najpierw plik `.partial`, potem zmiana nazwy.
+Kopiuj `backups/` poza serwer. Klucze `dpkeys` (sesje) można odtworzyć — utrata wymusza tylko ponowne logowanie.
 
 ## 15. Restore
 
@@ -157,7 +195,8 @@ docker compose exec -T postgres pg_restore -U sanspost -d sanspost --no-owner < 
 docker compose start sanspost   # migracje: tylko brakujące
 ```
 
-Test odtworzenia na osobnej bazie: `CREATE DATABASE restore_check;` + `pg_restore -d restore_check` i porównanie liczności tabel.
+Test odtworzenia bez dotykania produkcji: `./deploy/restore-check.sh backups/<plik>.dump` — odtwarza do tymczasowej bazy
+`restore_check`, porównuje liczności (użytkownicy / posty / komentarze / migracje) z bazą bieżącą i usuwa bazę tymczasową.
 
 ## 16. Aktualizacja
 
@@ -181,7 +220,11 @@ Pojedyncza instancja = kilka sekund przerwy (proxy zwraca 502 w trakcie restartu
 docker compose logs -f sanspost
 ```
 
-JSON w Production (`Timestamp`, `LogLevel`, `Category`, `Message`, `State`, `Scopes` z `RequestId`/`TraceId`). Odpowiedzi mają nagłówek `X-Request-Id`, a błędy API — `requestId` w ProblemDetails: ten sam identyfikator jest w logu. Logi nie zawierają haseł, tokenów, cookie, connection stringu ani hasha hasła. Zdarzenia: start/migracje, nieudane logowanie (kanał + IP), odrzucenia limitów, działania moderacji, seed demo, nieobsłużone wyjątki. 404 nie jest błędem.
+Rotacja logów Dockera w `docker-compose.yml` (`json-file`, 5 × 10 MB na kontener). Obrazy: po aktualizacji usuń stare tagi
+ręcznie (`docker image ls sanspost`, `docker image rm sanspost:<stary>`) — bez automatycznego `docker system prune`.
+
+JSON w Production (`Timestamp`, `LogLevel`, `Category`, `Message`, `State`, `Scopes` z `RequestId`/`TraceId`). Odpowiedzi mają nagłówek `X-Request-Id`, a błędy API — `requestId` w ProblemDetails: ten sam identyfikator jest w logu. Logi nie zawierają haseł, tokenów, cookie, connection stringu ani hasha hasła. Zdarzenia: start z wersją wydania i środowiskiem (`SansPost 1.0.0 starting in Production.`), migracje, nieudane logowanie (kanał + IP), odrzucenia limitów, działania moderacji, seed demo, błędy Radio Browser, stół gry (dołączenie/odejście gracza — tylko pierwsze połączenie i ostatnie rozłączenie), start i wynik pojedynku na żywo (bez kart), nieobsłużone wyjątki. 404 nie jest błędem.
+Structured logging to wbudowany formatter JSON .NET — bez dodatkowej biblioteki (Serilog nie jest potrzebny w tym wdrożeniu).
 
 Metryki (`System.Diagnostics.Metrics`): meter `SansPost` (`sanspost.rate_limit.rejections`, `sanspost.auth.failed_logins`, `sanspost.notifications.created`, `sanspost.moderation.actions`, `sanspost.db.failures`) + wbudowany `Microsoft.AspNetCore.Hosting` (`http.server.request.duration` — liczba, czas, kody 5xx). Odczyt: `dotnet-counters` lub eksporter OpenTelemetry (nie wbudowany w obraz).
 
@@ -204,3 +247,21 @@ Metryki (`System.Diagnostics.Metrics`): meter `SansPost` (`sanspost.rate_limit.r
 Pomiar lokalny (nie SLA): spoczynek ~110 MB, stały ruch ~240 MB, szczyt w teście 100 użytkowników: 433 MB (pula 100) / 322 MB (pula 30).
 - **Minimum:** 512 MB RAM, 1 vCPU dla aplikacji; PostgreSQL 512 MB.
 - **Zalecane:** limit 1 GB (domyślny `mem_limit`), 2 vCPU; PostgreSQL 1 GB.
+
+## Serwer docelowy (v1.0): mały VPS
+
+Konfiguracja nie jest związana z dostawcą — ten sam `docker compose` działa na większym serwerze.
+Przed instalacją sprawdź serwer (nic nie usuwaj z istniejących usług):
+
+```bash
+cat /etc/os-release; uname -a; uname -m      # obraz jest linux/amd64 — na ARM zbuduj obraz na serwerze
+free -h; df -h; ip addr; ss -tulpn          # zajęte porty 80/443? publiczny IPv4/IPv6?
+docker --version; docker compose version    # Docker 24+, Compose v2
+```
+
+Jeśli serwer nie ma publicznego IPv4 z portami 80/443 (np. tylko IPv6 albo przekierowane porty), Let's Encrypt i ruch
+z internetu wymagają rozwiązania dostawcy (proxy / przekierowanie domeny) — sprawdź jego dokumentację przed konfiguracją DNS.
+Zapora: otwarte tylko 22 (SSH), 80, 443. PostgreSQL i aplikacja nie publikują portów.
+
+Pomiar lokalnego stacku produkcyjnego v1.0 w spoczynku: SansPost ~150 MB, PostgreSQL ~50 MB, Caddy ~50 MB (razem ~250 MB),
+CPU < 1%, obraz aplikacji 339 MB, baza demo ~9 MB. Na 4 GB RAM / 40 GB dysku zostaje duży zapas (logi i backupy z retencją).

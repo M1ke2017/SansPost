@@ -173,6 +173,20 @@ namespace SansPost.Tests.Localization
                 Assert.Equal(english, Loc.Translate(polish, Loc.English));
         }
 
+        // Razor usuwa sam biały znak na początku i na końcu elementu: "<span> @L[…]</span>" albo "@L[…] </span>" gubi
+        // spację między słowami (Sprint 24: „CopperWrenpod”, „Miejsce#2”, „150znaków” dla czytnika). Spacja ma być w wyrażeniu.
+        [Fact]
+        public void Razor_NoSpaceAtElementEdgeNextToExpression()
+        {
+            var offenders = SourceFiles("*.razor")
+                .SelectMany(file => File.ReadAllLines(file).Select((line, i) => (file, line, i)))
+                .Where(x => !x.line.TrimStart().StartsWith("@*")
+                    && (Regex.IsMatch(x.line, @"<[a-z][^<>]*> +@[A-Za-z(]") || Regex.IsMatch(x.line, @"@(L\[""[^""]*""\]|[A-Za-z.]+(\([^()]*\))?) +</[a-z]")))
+                .Select(x => $"{Path.GetFileName(x.file)}:{x.i + 1}: {x.line.Trim()}")
+                .ToList();
+            Assert.True(offenders.Count == 0, string.Join("\n", offenders));
+        }
+
         // Klucze różniące się wielkością liter są w zasobach raz; wielkość liter tłumaczenia idzie za tekstem źródłowym.
         [Fact]
         public void Translate_FollowsSourceCasing()
@@ -199,7 +213,8 @@ namespace SansPost.Tests.Localization
             var polish = UiErrors.RateLimited(TimeSpan.FromSeconds(12));
             Assert.Equal(polish, Loc.TranslateMessage(polish, Loc.Polish));
             Assert.Equal("Too many actions in a short time. Try again in 12 s.", Loc.TranslateMessage(polish, Loc.English));
-            Assert.Equal("Post limit reached (5).", Loc.TranslateMessage("Osiągnięto limit postów (5).", Loc.English));
+            Assert.Equal("Daily post limit reached (10). You can add more after midnight UTC.",
+                Loc.TranslateMessage("Wykorzystano dzisiejszy limit postów (10). Kolejne możesz dodać po północy UTC.", Loc.English));
             Assert.Equal("Coś zupełnie nowego.", Loc.TranslateMessage("Coś zupełnie nowego.", Loc.English));
         }
 

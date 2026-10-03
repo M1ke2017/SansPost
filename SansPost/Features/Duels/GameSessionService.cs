@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using SansPost.Features.Identity;
+using SansPost.Features.Usage;
 using SansPost.Game.Core;
 
 namespace SansPost.Features.Duels
@@ -49,6 +50,75 @@ namespace SansPost.Features.Duels
         {
             await using var scope = _scopes.CreateAsyncScope();
             return await scope.ServiceProvider.GetRequiredService<WriteGuard>().CheckActiveAccountAsync(userId, cancellationToken);
+        }
+
+        // Dzienny limit gier (v1.0): liczy się gra, która naprawdę się zaczęła (trening, dołączenie do wyzwania REST,
+        // start pojedynku na żywo po gotowości obu — także rewanż). Rezerwacja w transakcji w osobnym scope: zużycie u
+        // wszystkich uczestników (w kolejności UserId — bez zakleszczeń), start gry w pamięci pod blokadą, commit dopiero
+        // po starcie. Brak limitu u któregokolwiek gracza = rollback, nikt nic nie traci (obaj albo żaden).
+        private sealed class GameQuotaLease : IAsyncDisposable
+        {
+            public required AsyncServiceScope Scope { get; init; }
+            public required Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction Transaction { get; init; }
+            public int? ExceededUserId { get; set; }
+            public bool Granted => ExceededUserId is null;
+
+            public async ValueTask DisposeAsync()
+            {
+                await Transaction.DisposeAsync();   // bez Commit = rollback
+                await Scope.DisposeAsync();
+            }
+        }
+
+        private async Task<GameQuotaLease> ReserveGamesAsync(IEnumerable<int> userIds, CancellationToken cancellationToken)
+        {
+            var scope = _scopes.CreateAsyncScope();
+            try
+            {
+                var context = scope.ServiceProvider.GetRequiredService<Infrastructure.Persistence.ApplicationDbContext>();
+                var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+                var lease = new GameQuotaLease { Scope = scope, Transaction = transaction };
+                var now = _time.GetUtcNow();
+                foreach (var id in userIds.Distinct().OrderBy(id => id))
+                {
+                    if (!await context.TryConsumeAsync(id, QuotaKind.Game, now, cancellationToken))
+                    {
+                        lease.ExceededUserId = id;
+                        break;
+                    }
+                }
+                return lease;
+            }
+            catch
+            {
+                await scope.DisposeAsync();
+                throw;
+            }
+        }
+
+        // Commit po starcie gry. Błąd zapisu nie cofa rozpoczętej gry (gracze już grają) — tylko nie zostaje policzona.
+        private async Task CommitGamesAsync(GameQuotaLease lease)
+        {
+            try
+            {
+                await lease.Transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Nie udało się zapisać dziennego limitu gier.");
+            }
+        }
+
+        private static ServiceResult<T> GameLimit<T>(GameQuotaLease lease, int userId, DateTimeOffset now) =>
+            ServiceResult<T>.From(lease.ExceededUserId == userId ? DailyQuota.LimitReached(QuotaKind.Game, now) : DailyQuota.OpponentLimitReached());
+
+        // Wstępne sprawdzenie (bez zużycia) przed wyzwaniem i przyjęciem — żeby nie zaczynać czegoś, co i tak nie wystartuje.
+        // Źródłem prawdy zostaje rezerwacja przy starcie gry.
+        public async Task<bool> HasGamesLeftAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            await using var scope = _scopes.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<Infrastructure.Persistence.ApplicationDbContext>();
+            return await context.UsedTodayAsync(userId, QuotaKind.Game, _time.GetUtcNow(), cancellationToken) < DailyQuota.Games;
         }
 
         public int SessionCount => _duels.Count;
@@ -122,19 +192,27 @@ namespace SansPost.Features.Duels
             if (await CheckParticipationAsync(userId, cancellationToken) is { } denied)
                 return ServiceResult<DuelSnapshot>.From(denied);
 
+            // Najpierw warunki bez skutków ubocznych (trwający pojedynek, miejsce) — odmowa nie dotyka limitu.
             lock (UserGate(userId))
             {
                 Sweep();
-                if (ActiveFor(userId) is { } current)
-                {
-                    // Trwający pojedynek z człowiekiem nie znika po cichu; trening albo niepodjęte wyzwanie — tak.
-                    if (current.HumanOpponent)
-                        return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Masz trwający pojedynek.", "duel-already-active");
-                    Remove(current);
-                }
+                if (CreateBlocked(userId) is { } blocked)
+                    return blocked;
+            }
 
-                if (_duels.Count >= MaxSessions)
-                    return Capacity();
+            // Trening startuje od razu (liczy się jako gra); wyzwanie REST — dopiero gdy dołączy drugi gracz (JoinAsync).
+            await using var lease = mode == DuelMode.Training ? await ReserveGamesAsync(new[] { userId }, cancellationToken) : null;
+            if (lease is { Granted: false })
+                return GameLimit<DuelSnapshot>(lease, userId, _time.GetUtcNow());
+
+            ServiceResult<DuelSnapshot> created;
+            lock (UserGate(userId))
+            {
+                Sweep();
+                if (CreateBlocked(userId) is { } blocked)
+                    return blocked;
+                if (ActiveFor(userId) is { } current)
+                    Remove(current);   // trening albo niepodjęte wyzwanie ustępuje nowemu
 
                 var session = new DuelSession
                 {
@@ -146,8 +224,20 @@ namespace SansPost.Features.Duels
                     LastActivity = _time.GetUtcNow()
                 };
                 _duels[session.Id] = session;
-                return ServiceResult<DuelSnapshot>.Success(SnapshotFor(session, Player.PlayerOne));
+                created = ServiceResult<DuelSnapshot>.Success(SnapshotFor(session, Player.PlayerOne));
             }
+            if (lease is not null)
+                await CommitGamesAsync(lease);
+            return created;
+        }
+
+        // Trwający pojedynek z człowiekiem nie znika po cichu (trening albo niepodjęte wyzwanie — tak); brak miejsca przy stole.
+        private ServiceResult<DuelSnapshot>? CreateBlocked(int userId)
+        {
+            var current = ActiveFor(userId);
+            if (current is { HumanOpponent: true })
+                return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Masz trwający pojedynek.", "duel-already-active");
+            return _duels.Count - (current is null ? 0 : 1) >= MaxSessions ? Capacity() : null;
         }
 
         public async Task<ServiceResult<DuelSnapshot>> JoinAsync(Guid duelId, int userId, string alias, CancellationToken cancellationToken = default)
@@ -155,33 +245,61 @@ namespace SansPost.Features.Duels
             if (await CheckParticipationAsync(userId, cancellationToken) is { } denied)
                 return ServiceResult<DuelSnapshot>.From(denied);
 
+            // Odmowa albo powtórzone dołączenie nie dotyka limitu. Gra zaczyna się, gdy drugi gracz siada do stołu —
+            // wtedy limit obu graczy razem (obaj albo żaden).
+            int ownerId;
             lock (UserGate(userId))
             {
                 if (!_duels.TryGetValue(duelId, out var session) || session.Mode != DuelMode.Challenge)
                     return NotFound<DuelSnapshot>();
-
                 lock (session.Gate)
                 {
-                    if (session.PlayerOneId == userId)
-                        return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Nie możesz dołączyć do własnego pojedynku.", "duel-own");
-                    if (session.PlayerTwoId == userId)
-                        return ServiceResult<DuelSnapshot>.Success(SnapshotFor(session, Player.PlayerTwo));   // powtórzone dołączenie
-                    if (session.PlayerTwoId is not null || session.Finished)
-                        return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Ten pojedynek ma już dwóch graczy.", "duel-full");
+                    if (JoinRefused(session, userId) is { } refused)
+                        return refused;
+                    ownerId = session.PlayerOneId;
+                }
+            }
 
+            await using var lease = await ReserveGamesAsync(new[] { ownerId, userId }, cancellationToken);
+            if (!lease.Granted)
+                return GameLimit<DuelSnapshot>(lease, userId, _time.GetUtcNow());
+
+            ServiceResult<DuelSnapshot> joined;
+            var started = false;
+            lock (UserGate(userId))
+            {
+                if (!_duels.TryGetValue(duelId, out var session) || session.Mode != DuelMode.Challenge)
+                    return NotFound<DuelSnapshot>();
+                lock (session.Gate)
+                {
+                    if (JoinRefused(session, userId) is { } refused)
+                        return refused;
                     if (ActiveFor(userId) is { } current && current.Id != duelId)
-                    {
-                        if (current.HumanOpponent)
-                            return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Masz trwający pojedynek.", "duel-already-active");
-                        Remove(current);
-                    }
-
+                        Remove(current);   // trening albo niepodjęte wyzwanie ustępuje
                     session.PlayerTwoId = userId;
                     session.PlayerTwoAlias = alias;
                     Touch(session);
-                    return ServiceResult<DuelSnapshot>.Success(SnapshotFor(session, Player.PlayerTwo));
+                    started = true;
+                    joined = ServiceResult<DuelSnapshot>.Success(SnapshotFor(session, Player.PlayerTwo));
                 }
             }
+            if (started)
+                await CommitGamesAsync(lease);
+            return joined;
+        }
+
+        // Warunki dołączenia do wyzwania REST (pod blokadą pojedynku). Powtórzone dołączenie — sukces bez zmian stanu.
+        private ServiceResult<DuelSnapshot>? JoinRefused(DuelSession session, int userId)
+        {
+            if (session.PlayerOneId == userId)
+                return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Nie możesz dołączyć do własnego pojedynku.", "duel-own");
+            if (session.PlayerTwoId == userId)
+                return ServiceResult<DuelSnapshot>.Success(SnapshotFor(session, Player.PlayerTwo));   // powtórzone dołączenie
+            if (session.PlayerTwoId is not null || session.Finished)
+                return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Ten pojedynek ma już dwóch graczy.", "duel-full");
+            if (ActiveFor(userId) is { HumanOpponent: true } current && current.Id != session.Id)
+                return ServiceResult<DuelSnapshot>.Fail(ServiceError.Conflict, "Masz trwający pojedynek.", "duel-already-active");
+            return null;
         }
 
         public ServiceResult<DuelSnapshot> Get(Guid duelId, int userId)
@@ -199,10 +317,12 @@ namespace SansPost.Features.Duels
         // Trwający (albo ostatnio zakończony) pojedynek użytkownika — powrót do stołu po odświeżeniu strony.
         // Trwający ma pierwszeństwo (np. rewanż przed pojedynkiem, z którego powstał); zakończony pojedynek, od którego
         // gracz już odszedł ("Wróć do sali"), nie wraca.
+        // Pojedynek do pokazania przy stole: trwający, a po zakończeniu — ten, którego gracz nie opuścił. Zakończony pojedynek
+        // zastąpiony rewanżem (RematchId) nie jest już bieżący — inaczej po rewanżu stół wracałby do starego wyniku.
         public ServiceResult<DuelSnapshot> GetActive(int userId)
         {
             var session = _duels.Values
-                .Where(s => s.SeatOf(userId) is { } seat && !(s.Finished && s.Left[Index(seat)]))
+                .Where(s => s.SeatOf(userId) is { } seat && !(s.Finished && (s.Left[Index(seat)] || s.RematchId is not null)))
                 .OrderBy(s => s.Finished)
                 .ThenByDescending(s => s.LastActivity)
                 .FirstOrDefault();

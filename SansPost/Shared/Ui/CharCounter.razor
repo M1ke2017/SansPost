@@ -1,7 +1,7 @@
 @* Licznik znaków. Twardy limit wymusza maxlength pola; licznik tylko informuje (od 90% w kolorze + tekst).
    Podczas pisania aktualizuje go przeglądarka (sanspost.js, zdarzenie input pola "For") — bez round-tripu do serwera
    na każdy znak; serwer renderuje wartość po zdarzeniu change i przy walidacji. *@
-<span class="counter @StateClass" data-counter-for="@For" data-max="@Max"><span data-counter-value>@UiText.Number(L, Length)</span> / @UiText.Number(L, Max)<span class="visually-hidden"> @L["znaków"]</span></span>
+<span class="counter @StateClass" data-counter-for="@For" data-max="@Max"><span data-counter-value>@UiText.Number(L, Length)</span> / @UiText.Number(L, Max)<span class="visually-hidden">@(" " + L["znaków"])</span></span>
 
 @code {
     [Parameter] public string? Value { get; set; }

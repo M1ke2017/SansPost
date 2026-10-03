@@ -63,6 +63,14 @@ namespace SansPost.Tests.Duels
             context.SaveChanges();
         }
 
+        // Wyzerowanie dziennych limitów gier — testy wielu pojedynków tej samej pary w jednej "dobie" (limit 15 sprawdzają
+        // osobno DailyGameQuotaTests).
+        public void ClearDailyUsage()
+        {
+            using var context = CreateContext();
+            context.DailyUserUsages.ExecuteDelete();
+        }
+
         public T WithScope<T>(Func<IServiceProvider, T> use)
         {
             using var scope = _services.CreateScope();

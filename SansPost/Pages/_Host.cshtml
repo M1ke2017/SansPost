@@ -12,6 +12,8 @@
     var sceneHint = SansPost.Shared.ScenePreference.Parse(HttpContext.Request.Cookies[SansPost.Shared.ScenePreference.CookieName]);
     // Język interfejsu (cookie "sp-lang" albo Accept-Language) — prerender i circuit startują w tym samym języku.
     var language = SansPost.Localization.Loc.FromRequest(HttpContext);
+    // Nonce CSP (Sprint 25) dla dwóch skryptów inline tej strony — bez 'unsafe-inline' dla skryptów.
+    var cspNonce = SansPost.Infrastructure.Security.SecurityHeaders.Nonce(HttpContext);
     // Moduł sceny 3D strony (Entrance albo Main Hall) — tylko te strony dostają wczesny start renderera.
     var scenePage = HttpContext.Request.Path.Value?.ToLowerInvariant() switch
     {
@@ -31,7 +33,7 @@
     <meta name="description" content="@SansPost.Localization.Loc.Translate("SansPost — publiczna przestrzeń rozmów o technologii, grach, podróżach, pomysłach i projektach.", language)" />
     <base href="~/" />
     @* Motyw ustawiany przed pierwszym malowaniem (bez mignięcia). Wyłącznie preferencja wyglądu. *@
-    <script>
+    <script nonce="@cspNonce">
         (function () {
             var theme = null;
             try { theme = localStorage.getItem("sp-theme"); } catch (e) { }
@@ -55,7 +57,7 @@
             {
                 <link rel="modulepreload" href="lib/three/three.module.min.js" />
             }
-            <script type="module">
+            <script type="module" nonce="@cspNonce">
                 const scene = new URLSearchParams(location.search).get("scene");
                 if (scene !== "css") import("./js/scene3d-common.js").then(m => m.warmUp(scene === "3d"));
             </script>
@@ -89,11 +91,11 @@
             <p class="muted text-sm when-show">@SansPost.Localization.Loc.Translate("Połączenie zostało przerwane. Próbujemy je przywrócić.", language)</p>
             <div class="stack-sm when-failed">
                 <p class="muted text-sm">@SansPost.Localization.Loc.Translate("Nie udało się połączyć ponownie.", language)</p>
-                <button type="button" class="btn btn-primary" onclick="location.reload()">@SansPost.Localization.Loc.Translate("Odśwież stronę", language)</button>
+                <button type="button" class="btn btn-primary" data-reload>@SansPost.Localization.Loc.Translate("Odśwież stronę", language)</button>
             </div>
             <div class="stack-sm when-rejected">
                 <p class="muted text-sm">@SansPost.Localization.Loc.Translate("Sesja strony wygasła.", language)</p>
-                <button type="button" class="btn btn-primary" onclick="location.reload()">@SansPost.Localization.Loc.Translate("Odśwież stronę", language)</button>
+                <button type="button" class="btn btn-primary" data-reload>@SansPost.Localization.Loc.Translate("Odśwież stronę", language)</button>
             </div>
         </div>
     </div>

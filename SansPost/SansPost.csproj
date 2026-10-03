@@ -10,6 +10,8 @@
     <!-- Sprint 23: w publikacji tylko satelity zasobów języków interfejsu (EN; PL jest neutralny) — bez 13 katalogów
          komunikatów FSharp.Core (cs, de, ja, …), których aplikacja nie pokazuje. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Wersja wydania: w logu startu i w assembly (InformationalVersion). -->
+    <Version>1.0.0</Version>
     <!-- Server GC z dynamiczną adaptacją (DATAS, .NET 8): liczba stert GC rośnie z obciążeniem zamiast jednej na rdzeń —
          mniejszy working set małej instancji przy tej samej przepustowości. -->
     <GarbageCollectionAdaptationMode>1</GarbageCollectionAdaptationMode>

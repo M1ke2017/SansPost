@@ -18,11 +18,11 @@
                     <span class="game-card-text" id="@($"game-card-{action.Card}-text")">
                         @L[action.Description]@if (chosen)
                         {
-                            <span class="game-card-reason"> @L["Twój wybór — zakryty przed przeciwnikiem."]</span>
+                            <span class="game-card-reason">@(" " + L["Twój wybór — zakryty przed przeciwnikiem."])</span>
                         }
                         else if (Current is not null && reason is not null)
                         {
-                            <span class="game-card-reason"> @reason</span>
+                            <span class="game-card-reason">@(" " + reason)</span>
                         }
                     </span>
                 </button>

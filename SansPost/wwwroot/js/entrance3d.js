@@ -127,6 +127,8 @@ function materials() {
         brass: std("#b98a3e", null, 1, { roughness: 0.35, metalness: 0.7 }),
         sand: std("#d2a676", noiseTexture(1, 190, 1400), 10),
         mesa: std("#bf7a50", null, 1, { flatShading: true }),
+        mesaNear: std("#a8613c", null, 1, { flatShading: true }),
+        cactus: std("#5d7c43", null, 1, { roughness: 0.85 }),
         glass: glow("#44505a"),
         saloonGlass: glow("#51402f"),
         bulb: glow("#fff1cf"),
@@ -380,7 +382,7 @@ function buildTown(root, b, M, font) {
     b.box(M.townTrim, 0.16, 1.1, 0.16, -5.7, 0.55, 9.2);
     b.box(M.townTrim, 0.12, 0.12, 3.4, -5.7, 1.02, 7.7);
     b.box(M.board, 0.7, 0.5, 2.2, -5.3, 0.25, 11.2);
-    for (const [x, z] of [[5.7, 5.3], [6.15, 6.1], [5.55, 6.6]]) {
+    for (const [x, z] of [[5.7, 4.7], [6.15, 5.5], [6.35, 6.15]]) {   // za tablicą informacyjną (także cofniętą)
         b.add(M.door, new THREE.CylinderGeometry(0.36, 0.33, 0.95, 12), x, 0.475, z);
         b.add(M.metal, new THREE.CylinderGeometry(0.375, 0.375, 0.06, 12), x, 0.72, z);
         b.add(M.metal, new THREE.CylinderGeometry(0.36, 0.36, 0.06, 12), x, 0.22, z);
@@ -395,6 +397,161 @@ function buildTown(root, b, M, font) {
     for (const [x, z, rt, rb, h] of [[-70, -120, 14, 20, 16], [-28, -150, 9, 16, 22], [30, -135, 18, 24, 13], [85, -110, 10, 15, 19], [140, -160, 22, 30, 15], [-130, -150, 16, 24, 12]]) {
         b.add(M.mesa, new THREE.CylinderGeometry(rt, rb, h, 7), x, h / 2, z);
     }
+}
+
+// Głębia miasta (Final Visual Polish): druga linia prostszych fasad za saloonem i za pierzejami (mgła przyciemnia je
+// z odległością), wiatrak i wieża po bokach, bliższe warstwy mes, kaktusy na skraju ulicy, koło od wozu i płot.
+// Proste bryły w partiach materiałów — bez nowych siatek na obiekt i bez animacji.
+function buildOutskirts(root, b, M) {
+    const P = M.paints;
+    // Druga linia fasad (fałszywe fronty) — sylwetki nad dachami pierzei i po bokach saloonu.
+    for (const [x, z, w, h, paint, ry] of [[-13, -14, 6, 5.5, P[1], 0.15], [-20, -10, 7, 4.2, P[3], 0.3], [13.5, -15, 6.5, 6.2, P[0], -0.12],
+                                           [21, -9, 6, 4.4, P[2], -0.3], [-6, -19, 5.5, 6.8, P[4], 0], [6.5, -20, 6, 5.6, P[3], 0]]) {
+        b.box(paint, w, h, 4, x, h / 2, z, 0, ry);
+        b.box(M.townTrim, w + 0.3, 0.2, 0.4, x, h, z + 2 * Math.cos(ry), 0, ry);
+    }
+    // Wiatrak (kratownica, łopaty, ster) — po prawej za zabudową; wieża ciśnień zostaje po lewej.
+    const wx = 19, wz = -26, top = 11;
+    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) b.box(M.townTrim, 0.16, top + 0.3, 0.16, wx + dx * 0.9, top / 2, wz + dz * 0.9, dz * 0.07, 0, -dx * 0.07);
+    for (const y of [2.5, 5.5, 8.5]) for (const s of [-1, 1]) {
+        b.box(M.townTrim, 1.9, 0.08, 0.08, wx, y, wz + s * 0.8);
+        b.box(M.townTrim, 0.08, 0.08, 1.9, wx + s * 0.8, y, wz);
+    }
+    b.box(M.metal, 0.5, 0.4, 0.9, wx, top + 0.5, wz);
+    for (let i = 0; i < 12; i++) {
+        const a = i / 12 * Math.PI * 2;
+        b.box(M.board, 0.28, 2.1, 0.04, wx + Math.cos(a) * 1.15, top + 0.5 + Math.sin(a) * 1.15, wz + 0.5, 0, 0, a - Math.PI / 2);
+    }
+    b.box(M.board, 0.05, 0.9, 1.8, wx, top + 0.6, wz - 1.4);
+    // Bliższe mesy i buty (warstwa pośrednia między miastem a odległymi mesami) — w lukach nad zabudową po obu stronach
+    // saloonu (kadr "porch"), mgła rozjaśnia je z odległością.
+    for (const [x, z, rt, rb, h] of [[-36, -62, 7, 12, 19], [38, -66, 8, 13, 17], [-20, -85, 5, 9, 15], [70, -66, 6, 10, 13]]) {
+        b.add(M.mesaNear, new THREE.CylinderGeometry(rt, rb, h, 6), x, h / 2, z);
+    }
+    // Kaktusy (saguaro) w lukach przy saloonie (między gankiem a pierwszymi budynkami) i za miastem.
+    for (const [x, z, h, s] of [[-7.3, 1.2, 2.2, 1], [7.35, 0.9, 1.9, -1], [-24, -16, 2.8, 1], [25, -18, 2.4, -1]]) {
+        b.add(M.cactus, new THREE.CylinderGeometry(0.2, 0.24, h, 8), x, h / 2, z);
+        b.add(M.cactus, new THREE.CylinderGeometry(0.12, 0.14, h * 0.32, 8), x + s * 0.42, h * 0.62, z);
+        b.add(M.cactus, new THREE.CylinderGeometry(0.12, 0.14, 0.4, 8), x + s * 0.24, h * 0.45, z, 0, 0, s * Math.PI / 2);
+    }
+    // Koło od wozu oparte o ganek lewej pierzei.
+    b.add(M.townTrim, new THREE.TorusGeometry(0.62, 0.06, 6, 24), -6.55, 0.64, 9.8, 0, Math.PI / 2, 0);
+    for (let i = 0; i < 8; i++) b.box(M.townTrim, 0.05, 1.18, 0.05, -6.55, 0.64, 9.8, i / 8 * Math.PI, Math.PI / 2, 0);
+}
+
+// ---- Tablica informacyjna: zajęte miejsca (Final Visual Polish) -----------------------------------------------------
+// Napisy tabliczki przychodzą z serwera (init options.labels, setLanguage); liczby — z serwera (setOccupancy):
+// zajęte konta publicznej wersji demo / limit kont (PublicDemo:MaxPublicAccounts). Bez danych — sam napis.
+const LABELS_PL = { seatsTitle: "ZAJĘTE MIEJSCA", guests: "GOŚĆ MOŻE CZYTAĆ" };
+let labels = { ...LABELS_PL };
+let occupancy = null;
+
+function drawOccupancySign(ctx, w, h, font) {
+    const rnd = random(87);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.letterSpacing = "0px";
+    // Deski (pionowe), ciemniejsze fugi, gwoździe w rogach.
+    for (let i = 0; i < 5; i++) {
+        const t = 92 + Math.round((rnd() - 0.5) * 22);
+        ctx.fillStyle = `rgb(${t},${Math.round(t * 0.62)},${Math.round(t * 0.38)})`;
+        ctx.fillRect(i * w / 5, 0, w / 5, h);
+        ctx.fillStyle = "rgba(20,10,4,0.55)";
+        ctx.fillRect(i * w / 5, 0, 3, h);
+    }
+    ctx.strokeStyle = "#2a160a";
+    ctx.lineWidth = 10;
+    ctx.strokeRect(5, 5, w - 10, h - 10);
+    const panel = (y, ph) => {
+        ctx.fillStyle = "#ead9b3";
+        ctx.fillRect(24, y, w - 48, ph);
+        ctx.strokeStyle = "rgba(70,40,18,0.55)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(32, y + 8, w - 64, ph - 16);
+        ctx.fillStyle = "#3a2414";
+        for (const [nx, ny] of [[34, y + 10], [w - 34, y + 10], [34, y + ph - 10], [w - 34, y + ph - 10]]) { ctx.beginPath(); ctx.arc(nx, ny, 4, 0, Math.PI * 2); ctx.fill(); }
+    };
+    const ink = "#3a2414";
+    const fit = (text, maxWidth, size, weight = 700) => {
+        let px = size;
+        ctx.font = `${weight} ${px}px ${font}`;
+        while (px > 14 && ctx.measureText(text).width > maxWidth) ctx.font = `${weight} ${px -= 2}px ${font}`;
+        return text;
+    };
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Górny panel: ikona dwóch postaci, napis, liczby.
+    panel(26, 214);
+    ctx.fillStyle = ink;
+    for (const [cx, r] of [[66, 1], [96, 0.85]]) {
+        ctx.beginPath(); ctx.arc(cx, 110, 15 * r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx, 152, 25 * r, 22 * r, 0, Math.PI, 0); ctx.fill();
+    }
+    const textX = (124 + w - 34) / 2, textW = w - 34 - 124;
+    ctx.fillText(fit(String(labels.seatsTitle ?? LABELS_PL.seatsTitle), textW, 48), textX, 78);
+    const value = occupancy ? `${occupancy.used} / ${occupancy.limit}` : "…";
+    ctx.fillText(fit(value, textW, 100), textX, 168);
+
+    // Dolny panel: ikona książki i "GOŚĆ MOŻE CZYTAĆ" (do dwóch linii).
+    panel(258, 156);
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(80, 314); ctx.quadraticCurveTo(64, 304, 48, 308); ctx.lineTo(48, 358); ctx.quadraticCurveTo(64, 354, 80, 364); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(80, 314); ctx.quadraticCurveTo(96, 304, 112, 308); ctx.lineTo(112, 358); ctx.quadraticCurveTo(96, 354, 80, 364); ctx.closePath(); ctx.stroke();
+    // Dwie linie (pół na pół słów), czcionka dopasowana do szerokości panelu.
+    const words = String(labels.guests ?? LABELS_PL.guests).split(" ");
+    const half = Math.ceil(words.length / 2);
+    const lines = words.length < 2 ? [words.join(" ")] : [words.slice(0, half).join(" "), words.slice(half).join(" ")];
+    let px = 46;
+    ctx.font = `700 ${px}px ${font}`;
+    while (px > 14 && lines.some(l => ctx.measureText(l).width > textW)) ctx.font = `700 ${px -= 2}px ${font}`;
+    lines.forEach((l, i) => ctx.fillText(l, textX, 336 + (i - (lines.length - 1) / 2) * (px + 4)));
+    ctx.restore();
+}
+
+// Tablica na dwóch słupkach z daszkiem przed gankiem, obok — skrzynka z latarnią (nocą świeci jak latarnie ganku:
+// ten sam materiał żarówki, siłę ustawia motyw). Bez własnego światła i bez animacji.
+function buildInfoSign(root, font, S) {
+    const group = new THREE.Group();
+    const b = new Batch();
+    const wood = new THREE.MeshStandardMaterial({ color: "#6a4227", roughness: 0.85, metalness: 0 });
+
+    // Tabliczka (z = 0 — front w +z). Deska z teksturą 2 cm przed tylną płytą.
+    const signX = 0.65, signY = 1.0, signW = 1.25, signH = 1.07;
+    for (const dx of [-0.55, 0.55]) b.box(wood, 0.08, 1.62, 0.08, signX + dx, 0.81, -0.02);
+    b.box(wood, 1.32, 1.14, 0.04, signX, signY, -0.01);
+    b.box(wood, 1.48, 0.06, 0.22, signX, 1.64, 0.0);
+    const texture = canvasTexture(512, 440, (ctx, w, h) => drawOccupancySign(ctx, w, h, font), false);
+    const board = sign(texture, signW, signH, "info");
+    board.position.set(signX, signY, 0.03);
+    group.add(board);
+
+    // Skrzynka z listwami i latarnia naftowa na niej — po lewej stronie tablicy.
+    const [cx, cz, cr] = [-0.36, 0.1, 0.22];
+    b.box(S.board, 0.52, 0.44, 0.46, cx, 0.22, cz, 0, cr);
+    for (const y of [0.06, 0.38]) b.box(S.townTrim, 0.54, 0.05, 0.48, cx, y, cz, 0, cr);
+    b.box(S.townTrim, 0.05, 0.42, 0.48, cx - 0.2 * Math.cos(cr), 0.22, cz + 0.2 * Math.sin(cr), 0, cr);
+    b.box(S.townTrim, 0.05, 0.42, 0.48, cx + 0.2 * Math.cos(cr), 0.22, cz - 0.2 * Math.sin(cr), 0, cr);
+    const lx = cx + 0.06, lz = cz + 0.04, base = 0.44;
+    b.box(S.metal, 0.17, 0.03, 0.17, lx, base + 0.015, lz);
+    b.box(S.bulb, 0.11, 0.17, 0.11, lx, base + 0.115, lz);
+    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) b.box(S.metal, 0.015, 0.17, 0.015, lx + dx * 0.06, base + 0.115, lz + dz * 0.06);
+    b.add(S.metal, new THREE.ConeGeometry(0.1, 0.07, 4), lx, base + 0.235, lz, 0, Math.PI / 4, 0);
+    b.add(S.metal, new THREE.TorusGeometry(0.045, 0.008, 6, 14, Math.PI), lx, base + 0.27, lz);
+    b.build(group);
+
+    group.position.set(4.0, 0, 7.0);
+    group.rotation.y = -0.3;
+    group.scale.setScalar(1.35);
+    root.add(group);
+    const redraw = () => {
+        drawOccupancySign(texture.image.getContext("2d"), texture.image.width, texture.image.height, font);
+        texture.needsUpdate = true;
+    };
+    return { group, redraw };
 }
 
 function buildSky(root) {
@@ -452,7 +609,9 @@ function buildScene(font) {
 
     const saloon = buildSaloon(scene, b, M, font);
     buildTown(scene, b, M, font);
+    buildOutskirts(scene, b, M);
     b.build(scene);
+    const info = buildInfoSign(scene, font, M);
 
     const hemi = new THREE.HemisphereLight("#fff", "#000", 1);
     const sun = new THREE.DirectionalLight("#fff", 1);
@@ -465,7 +624,7 @@ function buildScene(font) {
     scene.add(hemi, sun, sun.target);
     scene.fog = new THREE.Fog("#fff", 40, 200);
 
-    return { scene, M, hemi, sun, ...saloon, ...buildSky(scene) };
+    return { scene, M, hemi, sun, ...saloon, infoSign: info.group, redrawSign: info.redraw, ...buildSky(scene) };
 }
 
 // ---- Kadr, tabliczki, motyw ---------------------------------------------------------------------------------------
@@ -483,23 +642,35 @@ function frameCamera(s) {
     }
     s.layout = layout;
     s.debug.layout = layout;
+    // Tablica informacyjna stoi na ulicy przed gankiem — w układzie "stack" (wąskie ekrany) to miejsce zajmują
+    // tabliczki HTML, więc tablica znika (CTA mają pierwszeństwo); na węższym ekranie przesuwa się w stronę schodów.
+    s.debug.infoSign = layout === "porch" && placeInfoSign(s, w, h);
+    if (s.infoSign) s.infoSign.visible = s.debug.infoSign;
     s.debug.porchY = Math.round(toScreen(s, 0, 0, 4.3, w, h)[1]);   // dolna krawędź stopni ganku (px) — testy układu
     s.debug.saloonTopY = Math.round(toScreen(s, 0, SALOON_TOP, 0, w, h)[1]);
 }
 
+// "porch" (Final Visual Polish): kamera dalej — saloon zajmuje ok. 46–60% szerokości (zamiast 56–80%), przed gankiem
+// widać ulicę (tablica informacyjna), po bokach Hotel i Post Office, w tle dalsze pierzeje i mesy. Dolna granica:
+// tabliczki HTML (rzut tablic ogłoszeń) mają co najmniej ~150 px szerokości — CTA zostają czytelne.
 function pose(s, aspect, layout) {
     const stack = layout === "stack";
-    const fill = stack ? (aspect < 0.62 ? 1.08 : 1.0) : Math.min(0.8, Math.max(0.56, 0.62 + (1.6 - aspect) * 0.4));
-    const groundAt = stack ? stackGround(s) : 0.86;
+    const width = s.host.clientWidth || 1;
+    const minFill = 150 / (PLAQUE_W / SALOON_W * width);
+    const fill = stack ? (aspect < 0.62 ? 1.08 : 1.0) : Math.min(0.8, Math.max(minFill, Math.max(0.46, 0.5 + (1.6 - aspect) * 0.4)));
+    // Linia ganku na 74% wysokości (ulica przed saloonem); gdy szczyt fasady nie mieści się w kadrze, najpierw ganek
+    // schodzi niżej (do 86%, jak wcześniej), dopiero potem kamera się odsuwa — tabliczki nie maleją bez potrzeby.
+    let groundAt = stack ? stackGround(s) : 0.74;
     const tanV = Math.tan(THREE.MathUtils.degToRad(s.camera.fov / 2));
     const eye = 2.3;
     let d = (SALOON_W / 2) / (fill * tanV * aspect);
     let pitch = 0;
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 24; i++) {
         pitch = Math.atan(-eye / (d - 3.4)) - Math.atan((1 - 2 * groundAt) * tanV);
         const top = Math.tan(Math.atan((SALOON_TOP - eye) / d) - pitch) / tanV;
         if (top <= (stack ? 0.84 : 0.9)) break;
-        d *= 1.05;
+        if (!stack && groundAt < 0.86) groundAt = Math.min(0.86, groundAt + 0.02);
+        else d *= 1.05;
     }
     s.start.position.set(0, eye, d);
     s.start.target.set(0, eye + Math.tan(pitch) * d, 0);
@@ -507,6 +678,47 @@ function pose(s, aspect, layout) {
     s.camera.lookAt(s.start.target);
     s.camera.updateProjectionMatrix();
     s.camera.updateMatrixWorld();
+}
+
+// Położenie tablicy: najpierw na ulicy (z = 7), na niższych oknach bliżej ganku (wyżej w kadrze, nad tekstem prowadzącym).
+// Dla każdej głębokości — najdalej w prawo, gdzie cała tablica mieści się w kadrze (prawy górny róg: lokalnie x 1.29,
+// y 1.67), a rzut tablicy ze skrzynką mija tekst prowadzący. Gdy żadne ustawienie nie mija tekstu — pierwsze mieszczące się.
+const INFO_X = 4.0, INFO_MIN_X = 2.6, INFO_Z = [7.0, 6.6, 6.2, 5.8];
+function placeInfoSign(s, w, h) {
+    const g = s.infoSign;
+    if (!g) return false;
+    const corner = new THREE.Vector3();
+    const lead = s.signs?.querySelector(".entrance-lead")?.getBoundingClientRect();
+    const host = s.host.getBoundingClientRect();
+    const clearOfLead = () => {
+        if (!lead || !lead.height) return true;
+        const xs = [], ys = [];
+        for (const [lx, ly] of [[-0.66, 0], [1.32, 0], [1.32, 1.67], [-0.66, 1.67]]) {
+            corner.set(lx, ly, 0.1).applyMatrix4(g.matrixWorld).project(s.camera);
+            xs.push((corner.x + 1) / 2 * w);
+            ys.push((1 - corner.y) / 2 * h);
+        }
+        const [l, r, t, bottom] = [lead.left - host.left - 6, lead.right - host.left + 6, lead.top - host.top - 6, lead.bottom - host.top + 6];
+        return Math.max(...xs) < l || Math.min(...xs) > r || Math.max(...ys) < t || Math.min(...ys) > bottom;
+    };
+    let fallback = null;
+    for (const z of INFO_Z) {
+        for (let x = INFO_X; x >= INFO_MIN_X - 0.001; x -= 0.2) {
+            g.position.set(x, 0, z);
+            g.updateMatrixWorld(true);
+            corner.set(1.29, 1.67, 0).applyMatrix4(g.matrixWorld).project(s.camera);
+            if ((corner.x + 1) / 2 * w > w - 12) continue;
+            if (clearOfLead()) return true;
+            fallback ??= [x, z];
+            break;   // dalej w lewo tablica tylko bardziej wchodzi na tekst — następna głębokość
+        }
+    }
+    if (fallback) {
+        g.position.set(fallback[0], 0, fallback[1]);
+        return true;
+    }
+    g.position.set(INFO_X, 0, INFO_Z[0]);
+    return false;
 }
 
 // "stack": linia ganku tuż nad blokiem tabliczek (tekst + trzy tabliczki na drogowskazie) — bez pustej ulicy między nimi.
@@ -597,7 +809,7 @@ export async function init(host, options) {
     const result = await startScene({
         force,
         known3d: !!options?.known3d,
-        build: () => { setup(host, options?.signs, force); return state; },
+        build: () => { setup(host, options?.signs, force, options?.labels); return state; },
         isCurrent: () => token === generation,
         fail: dispose
     });
@@ -605,7 +817,8 @@ export async function init(host, options) {
     return { renderer: result.renderer, reason: result.reason };
 }
 
-function setup(host, signs, force) {
+function setup(host, signs, force, sceneLabels) {
+    labels = { ...LABELS_PL, ...(sceneLabels ?? {}) };
     const renderer = createRenderer(host, force);
     try {
         const width = host.clientWidth || 1, height = host.clientHeight || 1;
@@ -719,6 +932,26 @@ export function enter(durationMs) {
     s.wake();
     try { sessionStorage.setItem("sp-through-door", String(Date.now())); } catch { /* bez storage — sala bez "settle" */ }
     return promise;
+}
+
+// Zmiana języka: nowe napisy tabliczki w tej samej teksturze — scena i kamera zostają.
+export function setLanguage(next) {
+    labels = { ...LABELS_PL, ...(next ?? {}) };
+    const s = state;
+    if (!s) return;
+    s.redrawSign();
+    s.debug.signLabels = { ...labels };
+    s.dirty = true;
+}
+
+// Zajęte miejsca: { used, limit } — konta publicznej wersji demo i ich limit (z serwera). Jedna klatka renderu.
+export function setOccupancy(next) {
+    const s = state;
+    occupancy = next && Number.isFinite(next.used) && Number.isFinite(next.limit) ? { used: next.used, limit: next.limit } : null;
+    if (!s) return;
+    s.redrawSign();
+    s.debug.occupancy = occupancy ? `${occupancy.used}/${occupancy.limit}` : null;
+    s.dirty = true;
 }
 
 // Opuszczenie "/": pętla, obserwatory, geometrie, materiały, tekstury, kontekst WebGL.

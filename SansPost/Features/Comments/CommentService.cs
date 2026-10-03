@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SansPost.Features.Identity;
 using SansPost.Features.Notifications;
+using SansPost.Features.Usage;
 using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Comments
@@ -97,8 +98,8 @@ namespace SansPost.Features.Comments
                 .ToListAsync(cancellationToken);
         }
 
-        // Bez jawnej transakcji: komentarz i (opcjonalnie) powiadomienie dla autora posta w JEDNYM SaveChanges —
-        // atomowo: nie ma powiadomienia bez komentarza. FK comments→posts jest ostatecznym zabezpieczeniem integralności.
+        // Komentarz i (opcjonalnie) powiadomienie dla autora posta w JEDNYM SaveChanges — nie ma powiadomienia bez komentarza;
+        // razem z dziennym limitem w jednej transakcji. FK comments→posts jest ostatecznym zabezpieczeniem integralności.
         public async Task<ServiceResult<CommentResponse>> AddAsync(int actorUserId, int postId, CommentRequest request, CancellationToken cancellationToken = default)
         {
             var normalized = Normalize(request);
@@ -114,12 +115,19 @@ namespace SansPost.Features.Comments
             if (postAuthorId is null)
                 return ServiceResult<CommentResponse>.Fail(ServiceError.NotFound, PostNotFoundMessage);
 
+            // Dzienny limit (v1.0) zużywany w tej samej transakcji co INSERT komentarza i powiadomienia: komentarz, który
+            // się nie zapisze, nie zużywa limitu (rollback przy Dispose).
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            var now = _time.GetUtcNow();
+            if (!await _context.TryConsumeAsync(actorUserId, QuotaKind.Comment, now, cancellationToken))
+                return ServiceResult<CommentResponse>.From(DailyQuota.LimitReached(QuotaKind.Comment, now));
+
             var comment = new Comment
             {
                 PostId = postId,
                 UserId = actorUserId,
                 Content = normalized.Content,
-                CreatedAt = _time.GetUtcNow().UtcDateTime,
+                CreatedAt = now.UtcDateTime,
                 Version = 1,
                 Status = ContentStatus.Published
             };
@@ -129,10 +137,13 @@ namespace SansPost.Features.Comments
             try
             {
                 await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
             }
             catch (DbUpdateException)
             {
-                // Post fizycznie usunięty między sprawdzeniem a INSERT → naruszenie FK. Komentarz nie powstał.
+                // Post fizycznie usunięty między sprawdzeniem a INSERT → naruszenie FK. Komentarz nie powstał, limit wraca
+                // (rollback przed kolejnymi zapytaniami — przerwanej transakcji PostgreSQL nie da się dalej używać).
+                await transaction.RollbackAsync(CancellationToken.None);
                 _context.ChangeTracker.Clear();
                 if (await _context.Posts.AnyAsync(p => p.Id == postId, cancellationToken))
                     throw;

@@ -1,3 +1,4 @@
+using SansPost.Features.Usage;
 using SansPost.Game.Core;
 
 namespace SansPost.Features.Duels
@@ -62,6 +63,7 @@ namespace SansPost.Features.Duels
                     outbox = Updated(session);
                     snapshot = SnapshotFor(session, Player.PlayerTwo);
                 }
+                _logger.LogInformation("Live duel {DuelId} started (users {PlayerOneId} vs {PlayerTwoId}).", session.Id, challengerId, accepterId);
             }
 
             outbox.Add(DuelEvent.Presence);
@@ -79,6 +81,7 @@ namespace SansPost.Features.Duels
 
             List<DuelEvent> outbox = new();
             DuelSnapshot snapshot;
+            var bothReady = false;
             lock (session.Gate)
             {
                 var seat = session.SeatOf(userId)!;
@@ -91,23 +94,65 @@ namespace SansPost.Features.Duels
                 {
                     session.StartReady[Index(seat)] = true;
                     Touch(session);
-                    if (session.StartReady[0] && session.StartReady[1])
-                    {
-                        session.Started = true;
-                        StartRound(session);
-                        outbox = RoundStartedEvents(session);
-                    }
-                    else
-                    {
+                    // Drugi "GOTOWY" — start dopiero po rezerwacji dziennego limitu obu graczy (poniżej, poza blokadą).
+                    bothReady = session.StartReady[0] && session.StartReady[1];
+                    if (!bothReady)
                         outbox = Updated(session);
-                    }
                 }
 
                 snapshot = SnapshotFor(session, seat);
             }
 
+            if (!bothReady)
+            {
+                await PublishAsync(outbox);
+                return ServiceResult<DuelSnapshot>.Success(snapshot);
+            }
+            return await StartWithQuotaAsync(session, userId, cancellationToken);
+        }
+
+        // Start pojedynku na żywo (gotowość obu, także rewanż): dzienny limit gier obu graczy w jednej transakcji, potem
+        // runda 1 pod blokadą, commit po starcie. Gdy któryś gracz nie ma już limitu — gra nie startuje, nikt nic nie traci,
+        // a gracz bez limitu przestaje być "gotowy" (drugi zostaje). Przeciwnik dostaje ogólny komunikat, bez jego licznika.
+        private async Task<ServiceResult<DuelSnapshot>> StartWithQuotaAsync(DuelSession session, int userId, CancellationToken cancellationToken)
+        {
+            var players = new[] { session.PlayerOneId, session.PlayerTwoId!.Value };
+            await using var lease = await ReserveGamesAsync(players, cancellationToken);
+            List<DuelEvent> outbox;
+            DuelSnapshot snapshot;
+            var started = false;
+            lock (session.Gate)
+            {
+                var seat = session.SeatOf(userId)!;
+                if (!lease.Granted)
+                {
+                    var blocked = session.SeatOf(lease.ExceededUserId!.Value);
+                    if (blocked is not null)
+                        session.StartReady[Index(blocked)] = false;
+                    Touch(session);
+                    outbox = Updated(session);
+                }
+                else if (!session.Started && !session.Finished && session.StartReady[0] && session.StartReady[1])
+                {
+                    session.Started = true;
+                    started = true;
+                    StartRound(session);
+                    outbox = RoundStartedEvents(session);
+                }
+                else
+                {
+                    outbox = Updated(session);   // w międzyczasie oddany / już wystartowany — limit nie jest zużyty
+                }
+                snapshot = SnapshotFor(session, seat);
+            }
+
+            if (started)
+            {
+                await CommitGamesAsync(lease);
+                _logger.LogInformation("Live duel {DuelId} round 1 started.", session.Id);
+            }
             await PublishAsync(outbox);
-            return ServiceResult<DuelSnapshot>.Success(snapshot);
+            return lease.Granted ? ServiceResult<DuelSnapshot>.Success(snapshot) : GameLimit<DuelSnapshot>(lease, userId, _time.GetUtcNow());
         }
 
         // Świadome oddanie pojedynku. Bez polityki konta: oddanie tylko kończy własny udział (korzysta przeciwnik),
@@ -488,7 +533,12 @@ namespace SansPost.Features.Duels
             {
                 await using var scope = _scopes.CreateAsyncScope();
                 if (await scope.ServiceProvider.GetRequiredService<DuelStandingsService>().RecordAsync(record))
+                {
                     outbox.Add(DuelEvent.Standings);
+                    // Cykl życia pojedynku w logach: tylko wynik (bez kart — historia rund jest w stanie pojedynku).
+                    _logger.LogInformation("Duel {DuelId} finished: {ResultType} by {FinishReason} after {RoundCount} rounds.",
+                        record.DuelId, record.ResultType, record.FinishReason, record.RoundCount);
+                }
             }
             catch (Exception ex)
             {

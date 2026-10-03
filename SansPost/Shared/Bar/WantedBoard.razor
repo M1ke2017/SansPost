@@ -33,7 +33,7 @@
     {
         var main = posters[0];
         <article @key="main.PostId" class="wanted-poster is-featured" aria-labelledby="wanted-title-@main.PostId" aria-describedby="wanted-alias-@main.PostId">
-            <p class="wanted-poster-kicker">Most Wanted</p>
+            <p class="wanted-poster-kicker">@L["Najbardziej poszukiwany"]</p>
             <p class="wanted-poster-alias" id="wanted-alias-@main.PostId">@main.Alias</p>
             <p class="wanted-poster-reason">@L["za rozmowę, która rozpaliła Saloon"]</p>
             <h3 class="wanted-poster-title" id="wanted-title-@main.PostId">

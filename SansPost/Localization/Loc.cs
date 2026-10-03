@@ -89,6 +89,8 @@ namespace SansPost.Localization
         private sealed record EnglishDictionary(
             IReadOnlyDictionary<string, string> Exact, IReadOnlyDictionary<string, string> IgnoreCase, IReadOnlyList<(Regex Pattern, string English)> Patterns);
 
+        private static readonly Regex Placeholder = new(@"\{\d\}", RegexOptions.CultureInvariant);
+
         private static readonly Lazy<EnglishDictionary> Dictionary = new(() =>
         {
             var exact = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -112,8 +114,6 @@ namespace SansPost.Localization
             }
             return new EnglishDictionary(exact, ignoreCase, patterns);
         });
-
-        private static readonly Regex Placeholder = new(@"\{\d\}", RegexOptions.CultureInvariant);
 
         // Komunikat błędu z serwera: logika zawsze po stabilnym kodzie (np. "account-suspended"), tekst dla człowieka
         // z zasobów po kodzie ("code:account-suspended"), potem po polskim komunikacie, a na końcu sam komunikat.

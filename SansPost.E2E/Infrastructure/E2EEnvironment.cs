@@ -88,8 +88,11 @@ namespace SansPost.E2E.Infrastructure
             return server;
         }
 
+        // BypassCSP: sterowanie testem (EvaluateAsync z argumentami, axe) wykonuje kod przez new Function, który CSP aplikacji
+        // (bez 'unsafe-eval', Sprint 25) słusznie blokuje. Zgodność samej aplikacji z CSP sprawdza SecurityHeadersE2ETests
+        // w kontekście bez tego obejścia (enforceCsp: true).
         public async Task<IBrowserContext> NewContextAsync(SansPostServer? server = null, int width = 1280, int height = 800,
-            ColorScheme colorScheme = ColorScheme.Light, bool reducedMotion = false)
+            ColorScheme colorScheme = ColorScheme.Light, bool reducedMotion = false, bool enforceCsp = false)
         {
             var context = await Browser.NewContextAsync(new BrowserNewContextOptions
             {
@@ -97,7 +100,8 @@ namespace SansPost.E2E.Infrastructure
                 ViewportSize = new ViewportSize { Width = width, Height = height },
                 ColorScheme = colorScheme,
                 ReducedMotion = reducedMotion ? ReducedMotion.Reduce : ReducedMotion.NoPreference,
-                Locale = "pl-PL"
+                Locale = "pl-PL",
+                BypassCSP = !enforceCsp
             });
             context.SetDefaultTimeout(15_000);
             return context;

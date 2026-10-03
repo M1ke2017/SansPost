@@ -13,7 +13,7 @@
    rozmowę, a powrót prowadzi do tablicy, nie do baru. Sprint 18: Kącik muzyczny (radio) — mała karta, jeden poziom.
    Strefę wyznacza stan (BarState.Zone). *@
 <Modal @ref="modal" Title="@(Zone switch { "wanted" => "Tablica Wanted", "music" => "Muzyka w Saloonie", "game" => "Śladem Rewolwerowca", _ => "Karta rozmów" })"
-       Kicker="@(Zone switch { "wanted" => "Most Wanted · SansPost Saloon", "music" => "Kącik muzyczny", "game" => "Stół gry", _ => "Bar · SansPost Saloon" })"
+       Kicker="@(Zone switch { "wanted" => "Najbardziej poszukiwani · SansPost Saloon", "music" => "Kącik muzyczny", "game" => "Stół gry", _ => "Bar · SansPost Saloon" })"
        Class="@(Zone switch { "wanted" => "dialog-panel bar-panel wanted-panel", "music" => "dialog-panel bar-panel music-panel", "game" => "dialog-panel bar-panel game-panel", _ => "dialog-panel bar-panel" })"
        OnDismiss="OnDismissAsync" OnClosed="OnClosed">
     @if (State is { } state)

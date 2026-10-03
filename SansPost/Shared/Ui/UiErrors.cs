@@ -25,9 +25,15 @@ namespace SansPost.Shared.Ui
             },
             ServiceError.Conflict => result.Message ?? "Operacja koliduje z aktualnym stanem. Odśwież stronę.",
             ServiceError.PreconditionFailed => stale ?? StaleContent,
+            // Dzienne limity (posty / komentarze / gry): stały kod, tekst z serwera (EN z zasobów).
+            ServiceError.RateLimited when IsDailyLimit(result.Code) => result.Message ?? Generic,
             ServiceError.RateLimited => RateLimited(result.RetryAfter),
             _ => Generic
         };
+
+        public static bool IsDailyLimit(string? code) => code is SansPost.Features.Usage.DailyQuota.PostLimitCode
+            or SansPost.Features.Usage.DailyQuota.CommentLimitCode or SansPost.Features.Usage.DailyQuota.GameLimitCode
+            or SansPost.Features.Usage.DailyQuota.OpponentGameLimitCode;
 
         public static string RateLimited(TimeSpan? retryAfter) => retryAfter is { } wait && wait > TimeSpan.Zero
             ? $"Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie za {Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds))} s."

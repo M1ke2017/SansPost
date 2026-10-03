@@ -61,15 +61,15 @@
                         {
                             <div class="stack-sm">
                                 <div class="spread text-sm">
-                                    <span>@L["Limit postów"]</span>
+                                    <span>@L["Dzienny limit postów"]</span>
                                     <span class="muted">@quota.Used / @quota.Limit</span>
                                 </div>
-                                <div class="meter" role="progressbar" aria-label="@L["Wykorzystany limit postów"]"
+                                <div class="meter" role="progressbar" aria-label="@L["Wykorzystany dzienny limit postów"]"
                                      aria-valuemin="0" aria-valuemax="@quota.Limit" aria-valuenow="@quota.Used">
                                     <span style="width: @(QuotaPercent)%"></span>
                                 </div>
                                 <span class="text-xs subtle">
-                                    @(quota.Remaining > 0 ? L.Format("Możesz opublikować jeszcze {0}.", UiText.Posts(L, quota.Remaining)) : L["Limit wykorzystany — usuń starszy post, aby dodać nowy."])
+                                    @(quota.Remaining > 0 ? L.Format("Dziś możesz opublikować jeszcze {0}.", UiText.Posts(L, quota.Remaining)) : L["Dzisiejszy limit wykorzystany — kolejne posty po północy UTC."])
                                 </span>
                             </div>
                         }

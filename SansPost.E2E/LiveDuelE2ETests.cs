@@ -61,6 +61,11 @@ namespace SansPost.E2E
             }
         }
 
+        // Wejście stroną (odświeżenie, nowa karta, link) otwiera stół dopiero po pełnym starcie sceny 3D. W headless
+        // Chromium z programowym WebGL zajmuje to ok. 5 s (zmierzone: kompilacja shaderów ~3,1–3,6 s + obwód Blazor),
+        // czyli tyle, ile domyślny limit asercji — stąd wspólny limit dla tej ścieżki.
+        private const float SceneStartTimeout = 20_000;
+
         private static ILocator Panel(IPage page) => page.Locator("dialog[open].game-panel");
         private static ILocator Card(IPage page, string card) => Panel(page).Locator($".game-card[data-card='{card}']");
         private static ILocator Status(IPage page) => Panel(page).Locator(".game-status");
@@ -76,10 +81,20 @@ namespace SansPost.E2E
             return session;
         }
 
+        // Stół gry w sali, która jest już na stronie (np. po przekierowaniu z logowania).
+        private static async Task OpenTableInLoadedHallAsync(IPage page)
+        {
+            await Expect(page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = SceneStartTimeout });
+            await page.WaitForFunctionAsync("() => window.__sansPostHall && window.__sansPostHall.moving === false");
+            await page.Locator(".hall-zone[data-zone='game']").ClickAsync();
+            await Expect(Panel(page)).ToBeVisibleAsync();
+            await ConnectedAsync(page);
+        }
+
         private static async Task OpenTableAsync(IPage page)
         {
             await Ui.GotoAsync(page, "/saloon?scene=3d");
-            await Expect(page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = 20_000 });
+            await Expect(page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = SceneStartTimeout });
             await page.WaitForFunctionAsync("() => window.__sansPostHall && window.__sansPostHall.moving === false");
             await page.Locator(".hall-zone[data-zone='game']").ClickAsync();
             await Expect(Panel(page)).ToBeVisibleAsync();
@@ -172,7 +187,7 @@ namespace SansPost.E2E
 
             // B odświeża stronę przed startem — ten sam pojedynek wraca (ramki huba liczone od nowego połączenia).
             await b.Page.ReloadAsync();
-            await Expect(Panel(b.Page)).ToBeVisibleAsync();
+            await Expect(Panel(b.Page)).ToBeVisibleAsync(new() { Timeout = SceneStartTimeout });
             await ConnectedAsync(b.Page);
             await Panel(b.Page).Locator(".game-ready-button:not([disabled])").ClickAsync();
             await Expect(Panel(a.Page).Locator(".game-timer")).ToHaveTextAsync(new Regex(@"^\d+ s$"));
@@ -228,7 +243,7 @@ namespace SansPost.E2E
             await Expect(Panel(b.Page).Locator(".game-opponent .game-ready")).ToHaveTextAsync("Karta wybrana");
 
             await a.Page.ReloadAsync();
-            await Expect(Panel(a.Page)).ToBeVisibleAsync();
+            await Expect(Panel(a.Page)).ToBeVisibleAsync(new() { Timeout = SceneStartTimeout });
             await ConnectedAsync(a.Page);
             await Expect(Panel(a.Page).Locator(".game-board-title")).ToContainTextAsync("Runda 1 z 12");
             await Expect(Card(a.Page, "block")).ToContainTextAsync("Twój wybór");          // własna karta — tylko u siebie
@@ -238,7 +253,7 @@ namespace SansPost.E2E
             // Druga karta przeglądarki tego samego gracza: ten sam stan; zamknięcie jej nie rozłącza gracza.
             var tab = await a.Context.NewPageAsync();
             await Ui.GotoAsync(tab, "/saloon?game=table&scene=3d");
-            await Expect(Panel(tab)).ToBeVisibleAsync(new() { Timeout = 20_000 });
+            await Expect(Panel(tab)).ToBeVisibleAsync(new() { Timeout = SceneStartTimeout });
             await ConnectedAsync(tab);
             await Expect(Card(tab, "block")).ToContainTextAsync("Twój wybór");
             await tab.CloseAsync();
@@ -268,7 +283,7 @@ namespace SansPost.E2E
 
             var back = await a.Context.NewPageAsync();
             await Ui.GotoAsync(back, "/saloon?game=table&scene=3d");
-            await Expect(Panel(back)).ToBeVisibleAsync(new() { Timeout = 20_000 });
+            await Expect(Panel(back)).ToBeVisibleAsync(new() { Timeout = SceneStartTimeout });
             await ConnectedAsync(back);
 
             await Expect(Panel(b.Page).Locator(".game-opponent .game-connection-state")).ToHaveTextAsync("połączony");
@@ -336,7 +351,9 @@ namespace SansPost.E2E
 
             await Api.AdminAsync(_env.Main, $"/api/moderation/users/{b.User!.Id}/suspend");
             await Ui.LoginAsync(b.Page, b.User.Email, E2EEnvironment.UserPassword);   // stara sesja unieważniona
-            await OpenTableAsync(b.Page);
+            // Logowanie wraca do sali (/saloon) — stół w tej samej, już załadowanej sali, bez drugiego startu sceny 3D:
+            // B musi wrócić w oknie powrotu (20 s), a każdy start sceny w WebGL programowym to ~8 s.
+            await OpenTableInLoadedHallAsync(b.Page);
 
             await Expect(Panel(b.Page).Locator(".game-restricted")).ToHaveTextAsync("Możesz przeglądać Stół gry, ale udział w pojedynkach jest obecnie niedostępny.");
             await Expect(Panel(b.Page).Locator(".game-board-title")).ToContainTextAsync("Runda 1 z 12");   // odczyt własnego pojedynku
@@ -584,7 +601,7 @@ namespace SansPost.E2E
 
             // Sala: plakietka Mistrza Stołu w scenie (canvas) i ten sam tekst dla czytnika przy strefie "Stół gry".
             await Ui.GotoAsync(b.Page, "/saloon?scene=3d");
-            await Expect(b.Page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = 20_000 });
+            await Expect(b.Page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = SceneStartTimeout });
             await b.Page.WaitForFunctionAsync("() => !!window.__sansPostHall.champion");
             await Expect(b.Page.Locator("#hall-champion")).ToContainTextAsync("Mistrz Stołu:");
             await Expect(b.Page.Locator(".hall-zone[data-zone='game']")).ToHaveAttributeAsync("aria-describedby", "hall-champion");

@@ -78,7 +78,7 @@ namespace SansPost.Features.Duels
                     Wins = g.Count(r => r.WinnerId == userId),
                     Draws = g.Count(r => r.ResultType == DuelResultType.Draw)
                 })
-                .FirstOrDefaultAsync(cancellationToken);
+                .SingleOrDefaultAsync(cancellationToken);   // grupa po stałej: najwyżej jeden wiersz (bez ostrzeżenia EF o First bez OrderBy)
 
             return row is null ? DuelStats.None : new DuelStats(row.Games, row.Wins, row.Games - row.Wins - row.Draws, row.Draws);
         }

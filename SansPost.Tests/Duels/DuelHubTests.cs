@@ -400,6 +400,8 @@ namespace SansPost.Tests.Duels
 
             for (var cycle = 0; cycle < 30; cycle++)
             {
+                // 30 pojedynków tej samej pary w jednej dobie — powyżej dziennego limitu (15), który nie jest tematem pomiaru.
+                _factory.WithScope(db => db.DailyUserUsages.ExecuteDelete());
                 var watch = Stopwatch.StartNew();
                 await using var anna = await PlayerAsync(annaAlias, annaToken);
                 connect.Add(watch.Elapsed.TotalMilliseconds);

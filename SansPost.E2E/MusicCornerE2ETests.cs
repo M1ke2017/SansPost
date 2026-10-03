@@ -239,7 +239,8 @@ namespace SansPost.E2E
             await WaitRadioAsync(page, "paused");
             await Expect(Status(page)).ToHaveTextAsync("Radio zatrzymane");
             Assert.Null(await Src(page));
-            await page.WaitForFunctionAsync("() => window.__sansPostHall.spinning === false");
+            // Zatrzymanie gramofonu rysuje jeszcze jedną klatkę (płyta w spoczynku) — liczymy od uśpienia pętli renderu.
+            await page.WaitForFunctionAsync("() => window.__sansPostHall.spinning === false && window.__sansPostHall.looping === false");
             var frames = await page.EvaluateAsync<int>("() => window.__sansPostHall.frames");
             await page.WaitForTimeoutAsync(600);
             Assert.Equal(frames, await page.EvaluateAsync<int>("() => window.__sansPostHall.frames"));
@@ -378,6 +379,218 @@ namespace SansPost.E2E
             await Mini(page).Locator(".mini-player-toggle").ClickAsync();
             await WaitRadioAsync(page, "playing");
             Assert.Equal(1, await AudioElements(page));
+        }
+
+        // ---- Limit 2 h aktywnego grania (v1.0) — bez czekania 2 godzin: zegar przeglądarki przesuwany w teście --------
+        // Skrypt testowy podmienia Date.now() na zegar z przesunięciem (music.js mierzy czas różnicą Date.now();
+        // timeupdate odtwarzacza sprawdza limit kilka razy na sekundę). Aplikacja nie ma do tego żadnego publicznego API.
+
+        private const string ShiftableClock = @"(() => {
+            const realNow = Date.now.bind(Date);
+            let offset = 0;
+            Date.now = () => realNow() + offset;
+            Object.defineProperty(window, '__e2eAdvanceClock', { value: ms => { offset += ms; } });
+        })()";
+
+        private const double LimitMs = 2 * 60 * 60 * 1000;
+
+        private async Task<(IBrowserContext Context, FakeRadio.StreamLog Streams)> ClockContextAsync(bool english = false)
+        {
+            var (context, streams) = await NewContextAsync();
+            await context.AddInitScriptAsync(ShiftableClock);
+            if (english)
+                await context.AddCookiesAsync(new[] { new Cookie { Name = "sp-lang", Value = "en", Url = _env.Main.BaseUrl } });
+            return (context, streams);
+        }
+
+        private static Task AdvanceClockAsync(IPage page, TimeSpan by) => page.EvaluateAsync("ms => window.__e2eAdvanceClock(ms)", by.TotalMilliseconds);
+        private static Task<double> PlayedMsAsync(IPage page) => page.EvaluateAsync<double>("() => window.__sansPostMusic.playedMs");
+
+        [Fact]
+        public async Task RadioLimit_CountsOnlyPlaying_KeepsCountAcrossStationAndNavigation_StopsAt2h_RestartStartsNew()
+        {
+            var (context, streams) = await ClockContextAsync();
+            await using var __ = context;
+            var page = await context.NewPageAsync();
+            await OpenHallAsync(page);
+            await OpenMusicAsync(page);
+            await PlayAsync(page);
+            await page.WaitForFunctionAsync("() => window.__sansPostMusic.playedMs > 0");
+
+            // Pauza nie nalicza czasu: 3 godziny na zegarze w pauzie — licznik bez zmian.
+            await Toggle(page).ClickAsync();
+            await WaitRadioAsync(page, "paused");
+            var beforePause = await PlayedMsAsync(page);
+            await AdvanceClockAsync(page, TimeSpan.FromHours(3));
+            await page.WaitForTimeoutAsync(300);
+            Assert.Equal(beforePause, await PlayedMsAsync(page));
+            Assert.Equal("paused", await RadioStatus(page));
+
+            // Wznowienie kontynuuje licznik (bez zerowania, bez doliczenia pauzy); granie nalicza czas.
+            await PlayAsync(page);
+            var resumed = await PlayedMsAsync(page);
+            Assert.InRange(resumed, beforePause, beforePause + 10_000);
+            await AdvanceClockAsync(page, TimeSpan.FromMinutes(30));
+            Assert.True(await PlayedMsAsync(page) >= beforePause + TimeSpan.FromMinutes(30).TotalMilliseconds);
+
+            // Zmiana stacji w trakcie grania nie zeruje licznika.
+            var beforeStation = await PlayedMsAsync(page);
+            await StationButton(page, Second).ClickAsync();
+            await page.WaitForFunctionAsync($"() => document.getElementById('sp-radio').getAttribute('src') === '{Second.Stream}'");
+            await WaitRadioAsync(page, "playing");
+            Assert.True(await PlayedMsAsync(page) >= beforeStation);
+
+            // Nawigacja (sala → inna strona → sala) nie zeruje licznika i nie przerywa grania.
+            await CloseToHallAsync(page);
+            await page.EvaluateAsync("() => Blazor.navigateTo('/categories')");
+            await Expect(page).ToHaveURLAsync(Ui.Path("/categories"));
+            Assert.Equal("playing", await RadioStatus(page));
+            var beforeBack = await PlayedMsAsync(page);
+            Assert.True(beforeBack >= beforeStation);
+            await page.EvaluateAsync("() => Blazor.navigateTo('/saloon?scene=3d')");
+            await Expect(page.Locator(".saloon-hall.is-ready")).ToHaveCountAsync(1, new() { Timeout = 20_000 });
+            await WaitCameraStillAsync(page);
+            await OpenMusicAsync(page);
+            Assert.True(await PlayedMsAsync(page) >= beforeBack);
+
+            // 1:59:59 — nadal gra.
+            var nearLimit = await page.EvaluateAsync<double>(@"limit => {
+                window.__e2eAdvanceClock(limit - 1000 - window.__sansPostMusic.playedMs);
+                return window.__sansPostMusic.playedMs;
+            }", LimitMs);
+            Assert.InRange(nearLimit, LimitMs - 1000, LimitMs - 500);
+            await page.WaitForTimeoutAsync(300);
+            Assert.Equal("playing", await RadioStatus(page));
+            Assert.Equal(Second.Stream, await Src(page));
+
+            // 2:00:00 — radio zatrzymuje się samo i zrywa połączenie ze stacją; stacja zostaje wybrana; informacja, nie błąd.
+            await AdvanceClockAsync(page, TimeSpan.FromSeconds(1.5));
+            await WaitRadioAsync(page, "limit");
+            Assert.Null(await Src(page));
+            Assert.True(await page.EvaluateAsync<bool>("() => { const a = document.getElementById('sp-radio'); return a.paused && a.networkState === HTMLMediaElement.NETWORK_EMPTY; }"));
+            var hits = streams["prairie.mp3"];
+            await Expect(Status(page)).ToContainTextAsync("Radio zostało zatrzymane po 2 godzinach odtwarzania.");
+            await Expect(Status(page)).ToContainTextAsync("Dalsze słuchanie wymaga ponownego uruchomienia.");
+            await Expect(Status(page)).Not.ToHaveClassAsync(new System.Text.RegularExpressions.Regex("is-error"));
+            await Expect(Toggle(page)).ToContainTextAsync("Uruchom ponownie");
+            await Expect(Panel(page).Locator("#music-station-name")).ToHaveTextAsync(Second.Name);
+            await Expect(Mini(page).Locator(".mini-player-kicker")).ToHaveTextAsync("Zatrzymane po 2 godzinach");
+            await Expect(Panel(page).Locator(".music-live")).ToHaveCountAsync(0);
+            await page.WaitForTimeoutAsync(500);
+            Assert.Equal("limit", await RadioStatus(page));   // bez autoplay
+            Assert.Equal(hits, streams["prairie.mp3"]);        // bez pobierania strumienia w tle
+
+            // Ręczne "Uruchom ponownie" — ta sama stacja, nowa 2-godzinna sesja.
+            await Toggle(page).ClickAsync();
+            await WaitRadioAsync(page, "playing");
+            Assert.Equal(Second.Stream, await Src(page));
+            Assert.InRange(await PlayedMsAsync(page), 0, 10_000);
+            Assert.Equal(1, await AudioElements(page));
+
+            // Odświeżenie strony nie zeruje licznika (sessionStorage); po odświeżeniu nic nie gra samo.
+            await AdvanceClockAsync(page, TimeSpan.FromMinutes(10));
+            await OpenHallAsync(page);
+            Assert.Equal("idle", await RadioStatus(page));
+            Assert.True(await PlayedMsAsync(page) >= TimeSpan.FromMinutes(10).TotalMilliseconds);
+        }
+
+        [Fact]
+        public async Task RadioLimit_English_InformsAndOffersRestart()
+        {
+            var (context, _) = await ClockContextAsync(english: true);
+            await using var __ = context;
+            var page = await context.NewPageAsync();
+            await OpenHallAsync(page);
+            await OpenMusicAsync(page);
+            await Toggle(page).ClickAsync();
+            await WaitRadioAsync(page, "playing");
+
+            await AdvanceClockAsync(page, TimeSpan.FromHours(2));
+            await WaitRadioAsync(page, "limit");
+            Assert.Null(await Src(page));
+            await Expect(Status(page)).ToContainTextAsync("Radio stopped after 2 hours of playback.");
+            await Expect(Status(page)).ToContainTextAsync("Start it again if you want to continue listening.");
+            await Expect(Toggle(page)).ToContainTextAsync("Start again");
+            await Expect(Mini(page).Locator(".mini-player-kicker")).ToHaveTextAsync("Stopped after 2 hours");
+
+            await Toggle(page).ClickAsync();
+            await WaitRadioAsync(page, "playing");
+            Assert.InRange(await PlayedMsAsync(page), 0, 10_000);
+        }
+
+        // ---- Przejazd kamery sala ↔ Kącik: łuk przez punkt pośredni omija wiszącą lampę nad stołem gry -----------------
+        // Wcześniej prosty przejazd szedł przez klosz lampy nad stołem gry. Pozycja kamery z każdej narysowanej klatki
+        // (window.__sansPostHall), odstęp od sfery otaczającej klosz (środek 2,5 / 2,5 / −5,9, r 0,42). Kadr Kącika i kadr
+        // główny bez zmian; po przejeździe scena wraca do rysowania na żądanie.
+
+        private static readonly double[] LampCenter = { 2.5, 2.5, -5.9 };
+        private const double LampRadius = 0.42;
+
+        private static double LampClearance(double[] p) =>
+            Math.Sqrt(Enumerable.Range(0, 3).Sum(i => (p[i] - LampCenter[i]) * (p[i] - LampCenter[i]))) - LampRadius;
+
+        private static Task<double[]> CameraAsync(IPage page) =>
+            page.EvaluateAsync<double[]>("() => [window.__sansPostHall.cameraX, window.__sansPostHall.cameraY, window.__sansPostHall.cameraZ]");
+
+        private static async Task<double[][]> RecordCameraPathAsync(IPage page, Func<Task> start, string? area)
+        {
+            await page.EvaluateAsync(@"() => {
+                const path = window.__e2eCameraPath = [];
+                let last = -1;
+                window.__e2eCameraDone = false;
+                const step = () => {
+                    const h = window.__sansPostHall;
+                    if (h.frames !== last) { last = h.frames; path.push([h.cameraX, h.cameraY, h.cameraZ]); }
+                    if (!window.__e2eCameraDone) requestAnimationFrame(step);
+                };
+                requestAnimationFrame(step);
+            }");
+            await start();
+            // Przejazd startuje po obsłudze kliknięcia (strefa ustawiana razem z początkiem przejazdu).
+            await page.WaitForFunctionAsync("a => window.__sansPostHall.area === a", area);
+            await WaitCameraStillAsync(page);
+            // Koniec: pozycja spoczynkowa (ostatnia klatka mogła zostać narysowana po ostatnim odczycie rejestratora).
+            return await page.EvaluateAsync<double[][]>(@"() => {
+                const h = window.__sansPostHall;
+                window.__e2eCameraDone = true;
+                window.__e2eCameraPath.push([h.cameraX, h.cameraY, h.cameraZ]);
+                return window.__e2eCameraPath;
+            }");
+        }
+
+        [Fact]
+        public async Task CameraPath_MainHallToMusicAndBack_ClearsGameTableLamp_FinalViewsUnchanged()
+        {
+            var (context, _) = await NewContextAsync(1440, 900);
+            await using var __ = context;
+            var page = await context.NewPageAsync();
+            await OpenHallAsync(page);
+            var main = await CameraAsync(page);
+
+            var there = await RecordCameraPathAsync(page, () => MusicButton(page).ClickAsync(), "music");
+            await Expect(page).ToHaveURLAsync(Ui.Path("/saloon?music=radio"));
+            await Expect(Toggle(page)).ToBeFocusedAsync();
+            Assert.True(await page.EvaluateAsync<bool>("() => Array.isArray(window.__sansPostHall.via)"), "Przejazd do Kącika idzie przez punkt pośredni.");
+            Assert.Equal(new[] { 3.3, 2.45, -7.2 }, there[^1].Select(v => Math.Round(v, 2)));   // kadr Kącika bez zmian (ZONES.music.view)
+            var thereMin = there.Min(LampClearance);
+            _output.WriteLine($"Sala → Kącik: {there.Length} klatek, min. odstęp od lampy {thereMin:0.00} m");
+            Assert.True(there.Length >= 4, "Przejazd ma klatki pośrednie (bez teleportu).");
+            Assert.True(thereMin >= 0.6, $"Kamera za blisko lampy nad stołem gry: {thereMin:0.00} m.");
+
+            var back = await RecordCameraPathAsync(page, () => page.Keyboard.PressAsync("Escape"), null);
+            await Expect(page.Locator("dialog[open]")).ToHaveCountAsync(0);
+            Assert.True(await page.EvaluateAsync<bool>("() => Array.isArray(window.__sansPostHall.via)"), "Powrót do sali idzie przez punkt pośredni.");
+            Assert.Equal(main.Select(v => Math.Round(v, 2)), back[^1].Select(v => Math.Round(v, 2)));   // kadr główny bez zmian
+            var backMin = back.Min(LampClearance);
+            _output.WriteLine($"Kącik → sala: {back.Length} klatek, min. odstęp od lampy {backMin:0.00} m");
+            Assert.True(back.Length >= 4, "Przejazd ma klatki pośrednie (bez teleportu).");
+            Assert.True(backMin >= 0.6, $"Kamera za blisko lampy nad stołem gry: {backMin:0.00} m.");
+
+            // Po przejeździe scena wraca do rysowania na żądanie: pętla renderu usypia, w spoczynku bez klatek.
+            await page.WaitForFunctionAsync("() => window.__sansPostHall.looping === false");
+            var frames = await page.EvaluateAsync<int>("() => window.__sansPostHall.frames");
+            await page.WaitForTimeoutAsync(600);
+            Assert.Equal(frames, await page.EvaluateAsync<int>("() => window.__sansPostHall.frames"));
         }
 
         // ---- 14, 15. Cykl życia: wiele wejść/wyjść i zmian stacji — jeden element audio, bez przyrostu nasłuchów ------

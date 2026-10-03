@@ -225,18 +225,22 @@ namespace SansPost.Tests.Posts
             Assert.Equal(HttpStatusCode.PreconditionFailed, (await client.SendAsync(request)).StatusCode);
         }
 
+        // Dzienny limit (v1.0): 10 postów na dobę UTC — 11. odrzucony jako 429 ze stałym kodem i Retry-After do północy UTC.
         [Fact]
-        public async Task FreeUser_CannotExceedPostLimit()
+        public async Task DailyPostLimit_TenAccepted_EleventhRejectedWith429()
         {
             var client = await _factory.CreateAuthenticatedApiClientAsync(TestUsers.UniqueName());
 
-            for (var i = 0; i < PostLimits.FreePostLimit; i++)
+            for (var i = 0; i < SansPost.Features.Usage.DailyQuota.Posts; i++)
                 Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/posts", Body($"Post {i}"))).StatusCode);
 
             var overLimit = await client.PostAsJsonAsync("/api/posts", Body("Jedenasty"));
+            var problem = await overLimit.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
             var quota = await client.GetFromJsonAsync<PostQuotaResponse>("/api/posts/quota");
 
-            Assert.Equal(HttpStatusCode.Forbidden, overLimit.StatusCode);
+            Assert.Equal(HttpStatusCode.TooManyRequests, overLimit.StatusCode);
+            Assert.Equal("daily-post-limit-reached", problem.GetProperty("code").GetString());
+            Assert.InRange(int.Parse(overLimit.Headers.GetValues("Retry-After").Single()), 1, 86_400);
             Assert.Equal(new PostQuotaResponse(10, 10, 0), quota);
         }
     }

@@ -22,8 +22,10 @@ let generation = 0;
 const LABELS_PL = {
     bar: "BAR", game: "STÓŁ GRY", music: "MUZYKA",
     wantedFor: "za rozmowę, która rozpaliła Saloon", wantedEmpty: "Tablica czeka na pierwszą rozmowę.",
+    wantedTitle: "POSZUKIWANI", wantedMost: "NAJBARDZIEJ|POSZUKIWANY", wantedSmall: "POSZUKIWANY",
     round: "RUNDA", rulesTitle: "ŚLADEM|REWOLWEROWCA", rules: "3 prestiżu · 1 nabój · 12 rund",
-    shoot: "Strzał", dodge: "Unik", reload: "Przeładuj", block: "Blok", taunt: "Prowokacja"
+    shoot: "Strzał", dodge: "Unik", reload: "Przeładowanie", block: "Blok", taunt: "Prowokacja",
+    history: "Tak wyglądaliśmy, gdy zaczynaliśmy."
 };
 let labels = { ...LABELS_PL };
 let relabel = [];          // przerysowania tekstur z napisami (wypełniane przy budowie sceny)
@@ -134,11 +136,13 @@ function zoneView(zone, aspect) {
 // Light: ciepłe światło dzienne od okien, bar i tak najjaśniejszy. Dark: lampy i szyldy, ciemniejsze boki i narożniki.
 const PALETTE = {
     light: { hemiSky: "#fff1dc", hemiGround: "#8a6040", hemi: 3.4, sun: "#ffe0b0", sunIntensity: 7, sunPosition: [3, 4.6, 12],
-             outside: "#f3d7ab", windowGlow: 2.2, windowColor: "#fff1d6", barKey: 24, bar: 2.4, chandelier: 1.4, accent: 3.2,
-             bulbs: 1.1, signGlow: 0.14, mirrorGlow: 0.3, halo: 0.25, exposure: 1.3, wall: "#eadbd2", wood: "#ffffff" },
+             outside: "#f3d7ab", windowGlow: 2.2, windowColor: "#fff1d6", barKey: 24, bar: 3.8, chandelier: 1.4, accent: 3.2,
+             bulbs: 1.1, signGlow: 0.14, mirrorGlow: 0.3, halo: 0.25, exposure: 1.3, wall: "#eadbd2", wood: "#ffffff",
+             lamp: 0.3, flame: 0.8, chimneyGlow: 0.08 },
     dark:  { hemiSky: "#35304a", hemiGround: "#120a06", hemi: 0.34, sun: "#9fb2ff", sunIntensity: 0.25, sunPosition: [-5, 9, 12],
-             outside: "#0c1020", windowGlow: 0.45, windowColor: "#26365f", barKey: 60, bar: 5.5, chandelier: 4.2, accent: 9,
-             bulbs: 3.2, signGlow: 0.5, mirrorGlow: 0.45, halo: 0.85, exposure: 1.0, wall: "#c9b2aa", wood: "#e6dcd6" }
+             outside: "#0c1020", windowGlow: 0.45, windowColor: "#26365f", barKey: 60, bar: 11, chandelier: 4.2, accent: 9,
+             bulbs: 3.2, signGlow: 0.5, mirrorGlow: 0.45, halo: 0.85, exposure: 1.0, wall: "#c9b2aa", wood: "#e6dcd6",
+             lamp: 4.2, flame: 2.8, chimneyGlow: 0.65 }
 };
 
 // ---- Tekstury proceduralne (kolorowe — lekkie zróżnicowanie tonów, bez ciężkiego szumu) ---------------------------------
@@ -468,42 +472,95 @@ function drawWanted(ctx, w, h, font, posters) {
         const y = rnd() * h;
         ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(w * 0.3, y + 4, w * 0.7, y - 4, w, y + (rnd() - 0.5) * 6); ctx.stroke();
     }
+    // Nagłówek tablicy w języku interfejsu ("POSZUKIWANI" / "WANTED"), dopasowany do szerokości deski.
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `700 76px ${font}`;
-    ctx.letterSpacing = "16px";
+    ctx.letterSpacing = "14px";
+    const heading = fitText(ctx, label("wantedTitle"), w - 120, 76, 44, "700", font);
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillText("WANTED", w / 2 + 3, 62);
+    ctx.fillText(heading, w / 2 + 3, 62);
     ctx.fillStyle = "#f0d08a";
-    ctx.fillText("WANTED", w / 2, 58);
+    ctx.fillText(heading, w / 2, 58);
+    // Ozdobne gwiazdki po bokach nagłówka (szerokość mierzona z tym samym odstępem liter co napis).
+    const headingHalf = ctx.measureText(heading).width / 2;
     ctx.letterSpacing = "0px";
+    for (const side of [-1, 1]) star(ctx, w / 2 + side * (headingHalf + 34), 58, 13, 5.5, "rgba(240,208,138,0.75)");
 
     const list = Array.isArray(posters) ? posters : null;
     const ink = "rgba(60,36,18,0.92)";
 
-    // Kartka listu gończego: papier, cień, pinezka; rysunek treści w układzie środka kartki.
-    const paper = ({ x, y, w: pw, h: ph, angle }, faded, content) => {
+    // Kartka listu gończego: papier w odcieniu zależnym od miejsca (każdy list trochę inny), przetarcia, zagięty róg,
+    // cień na desce, pinezka; rysunek treści w układzie środka kartki. Wyblakłe (wolne) miejsca są jaśniejsze i płaskie.
+    const PAPERS = [["#f3e4c2", "#e3cb97", "#b98f58"], ["#efdcb4", "#ddc28c", "#b08650"], ["#f4e6c6", "#e6cf9c", "#bd955c"],
+                    ["#ead6ab", "#d8bd87", "#a97f4a"], ["#f1e0ba", "#e0c792", "#b48b55"]];
+    const paper = ({ x, y, w: pw, h: ph, angle }, faded, index, content) => {
+        const wear = random(53 + index * 17);
+        const [L, T, R, B] = [-pw / 2, -ph / 2, pw / 2, ph / 2];
+        const fold = 18 + wear() * 10;   // zagięty róg (prawy dolny albo lewy dolny)
+        const foldRight = index % 2 === 0;
+        const jag = Array.from({ length: Math.ceil(pw / 9) + 1 }, () => wear() * 3);
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(angle);
-        ctx.shadowColor = "rgba(0,0,0,0.45)";
-        ctx.shadowBlur = 12;
-        ctx.shadowOffsetY = 6;
-        const tone = ctx.createRadialGradient(0, 0, pw * 0.2, 0, 0, Math.max(pw, ph) * 0.75);
-        tone.addColorStop(0, faded ? "#e4d4b2" : "#f3e4c2");
-        tone.addColorStop(0.75, faded ? "#d2bd8e" : "#e3cb97");
-        tone.addColorStop(1, faded ? "#a98458" : "#b98f58");
+        // Obrys z lekko postrzępioną dolną krawędzią i ściętym rogiem.
+        const outline = () => {
+            ctx.beginPath();
+            ctx.moveTo(L, T);
+            ctx.lineTo(R, T);
+            ctx.lineTo(R, foldRight ? B - fold : B);
+            if (foldRight) ctx.lineTo(R - fold, B);
+            for (let px = foldRight ? R - fold : R, i = 0; px > (foldRight ? L : L + fold); px -= 9, i++) ctx.lineTo(px, B - jag[i]);
+            if (!foldRight) ctx.lineTo(L + fold, B);
+            ctx.lineTo(L, foldRight ? B : B - fold);
+            ctx.closePath();
+        };
+        ctx.shadowColor = "rgba(0,0,0,0.55)";
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 8;
+        const [c0, c1, c2] = PAPERS[index % PAPERS.length];
+        const tone = ctx.createRadialGradient(-pw * 0.08, -ph * 0.06, pw * 0.15, 0, 0, Math.max(pw, ph) * 0.75);
+        tone.addColorStop(0, faded ? "#e4d4b2" : c0);
+        tone.addColorStop(0.75, faded ? "#d2bd8e" : c1);
+        tone.addColorStop(1, faded ? "#a98458" : c2);
         ctx.fillStyle = tone;
-        ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+        outline();
+        ctx.fill();
         ctx.shadowColor = "transparent";
+        ctx.save();
+        outline();
+        ctx.clip();
+        // Plamy i przetarcia (subtelne), jedno zgięcie kartki w poprzek.
+        for (let s = 0; s < 3; s++) {
+            const sx = L + wear() * pw, sy = T + wear() * ph, r = 18 + wear() * 34;
+            const stain = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+            stain.addColorStop(0, `rgba(120,78,36,${faded ? 0.05 : 0.09})`);
+            stain.addColorStop(1, "rgba(120,78,36,0)");
+            ctx.fillStyle = stain;
+            ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+        }
+        const creaseY = T + ph * (0.38 + wear() * 0.3);
+        ctx.strokeStyle = "rgba(90,58,28,0.13)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(L, creaseY); ctx.lineTo(R, creaseY + (wear() - 0.5) * 14); ctx.stroke();
+        ctx.strokeStyle = "rgba(255,248,230,0.22)";
+        ctx.beginPath(); ctx.moveTo(L, creaseY + 2); ctx.lineTo(R, creaseY + 2 + (wear() - 0.5) * 14); ctx.stroke();
+        ctx.restore();
+        // Zagięty róg: spód kartki (ciemniejszy trójkąt).
+        ctx.fillStyle = faded ? "#bfa77a" : "#c9ab74";
+        ctx.beginPath();
+        if (foldRight) { ctx.moveTo(R, B - fold); ctx.lineTo(R - fold, B - fold); ctx.lineTo(R - fold, B); }
+        else { ctx.moveTo(L, B - fold); ctx.lineTo(L + fold, B - fold); ctx.lineTo(L + fold, B); }
+        ctx.closePath();
+        ctx.fill();
         ctx.strokeStyle = "rgba(60,36,18,0.35)";
         ctx.lineWidth = 2;
-        ctx.strokeRect(-pw / 2 + 8, -ph / 2 + 8, pw - 16, ph - 16);
+        ctx.strokeRect(L + 8, T + 8, pw - 16, ph - 16 - fold * 0.5);
         content(pw, ph);
         ctx.fillStyle = "#a3342a";
-        ctx.beginPath(); ctx.arc(0, -ph / 2 + 9, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, T + 9, 7, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "rgba(255,255,255,0.5)";
-        ctx.beginPath(); ctx.arc(-2, -ph / 2 + 7, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-2, T + 7, 2.4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     };
 
@@ -536,45 +593,56 @@ function drawWanted(ctx, w, h, font, posters) {
 
     // Główny list gończy.
     const main = list?.[0];
-    paper(WANTED_MAIN, !main, (pw, ph) => {
+    paper(WANTED_MAIN, !main, 0, (pw, ph) => {
         const top = -ph / 2, inner = pw - 60;
+        // "NAJBARDZIEJ|POSZUKIWANY" — dwie linie; "MOST WANTED" — jedna. Dwie linie przesuwają resztę listu w dół (dy).
+        const headLines = label("wantedMost").split("|").filter(Boolean);
+        const dy = headLines.length > 1 ? 18 : 0;
         ctx.fillStyle = ink;
         ctx.letterSpacing = "3px";
-        ctx.fillText(fitText(ctx, "MOST WANTED", inner, 44, 26, "700", font), 0, top + 52);
+        if (headLines.length > 1) headLines.forEach((text, i) => ctx.fillText(fitText(ctx, text, inner, 34, 22, "700", font), 0, top + 40 + i * 36));
+        else ctx.fillText(fitText(ctx, headLines[0] ?? "", inner, 44, 26, "700", font), 0, top + 52);
         ctx.letterSpacing = "0px";
-        rule(top + 82, inner / 2);
-        sketch(0, top + 98, 150, 118, !main);
+        rule(top + 82 + dy, inner / 2);
+        sketch(0, top + 98 + dy, 150, 118, !main);
         if (main) {
             ctx.fillStyle = "#2c180b";
-            ctx.fillText(fitText(ctx, main.alias, inner, 52, 24, "700", font), 0, top + 262);
+            ctx.fillText(fitText(ctx, main.alias, inner, 52, 24, "700", font), 0, top + 262 + dy);
             ctx.fillStyle = "rgba(60,36,18,0.85)";
-            ctx.fillText(fitText(ctx, label("wantedFor"), inner, 22, 14, "italic 400", WANTED_SERIF), 0, top + 300);
-            rule(top + 322, inner / 2 - 40);
+            ctx.fillText(fitText(ctx, label("wantedFor"), inner, 22, 14, "italic 400", WANTED_SERIF), 0, top + 300 + dy);
+            rule(top + 322 + dy, inner / 2 - 40);
             ctx.fillStyle = "#2c180b";
             ctx.font = `700 27px ${WANTED_SERIF}`;
             const lines = wrapText(ctx, `„${main.title}”`, inner, 4);
-            lines.forEach((text, i) => ctx.fillText(text, 0, top + 360 + i * 34));
+            lines.forEach((text, i) => ctx.fillText(text, 0, top + 360 + dy + i * 34));
         } else {
             ctx.fillStyle = "rgba(60,36,18,0.8)";
             ctx.font = `italic 700 28px ${WANTED_SERIF}`;
             const message = list ? label("wantedEmpty") : "";
-            wrapText(ctx, message, inner, 3).forEach((text, i) => ctx.fillText(text, 0, top + 280 + i * 36));
+            wrapText(ctx, message, inner, 3).forEach((text, i) => ctx.fillText(text, 0, top + 280 + dy + i * 36));
         }
     });
 
-    // Pozostali poszukiwani (#2–#5); wolne miejsca — anonimowe, wyblakłe listy.
+    // Pozostali poszukiwani (#2–#5); wolne miejsca — anonimowe, wyblakłe listy. Nagłówek "#2 POSZUKIWANY" / "#2 WANTED":
+    // numer w czerwieni, napis atramentem, razem wyśrodkowane i dopasowane do szerokości listu.
     WANTED_SMALL.forEach((slot, i) => {
         const poster = list?.[i + 1];
-        paper(slot, !poster, (pw, ph) => {
+        paper(slot, !poster, i + 1, (pw, ph) => {
             const top = -ph / 2, inner = pw - 36;
+            const number = `#${i + 2} `, word = label("wantedSmall");
+            ctx.letterSpacing = "1px";
+            let size = 24;
+            const measure = () => { ctx.font = `700 ${size}px ${font}`; return ctx.measureText(number + word).width; };
+            while (size > 13 && measure() > inner) size -= 1;
+            const total = measure(), start = -total / 2;
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#8f2d20";
+            ctx.fillText(number, start, top + 36);
             ctx.fillStyle = ink;
-            ctx.letterSpacing = "2px";
-            ctx.fillText(fitText(ctx, "WANTED", pw - 96, 24, 16, "700", font), 0, top + 38);
+            ctx.fillText(word, start + ctx.measureText(number).width, top + 36);
+            ctx.textAlign = "center";
             ctx.letterSpacing = "0px";
             sketch(0, top + 58, 98, 78, !poster);
-            ctx.fillStyle = "#8f2d20";
-            ctx.font = `700 19px ${font}`;
-            ctx.fillText(`#${i + 2}`, -pw / 2 + 28, top + 30);
             if (poster) {
                 ctx.fillStyle = "#2c180b";
                 ctx.fillText(fitText(ctx, poster.alias, inner, 30, 16, "700", font), 0, top + 166);
@@ -591,8 +659,9 @@ function drawWanted(ctx, w, h, font, posters) {
 
 // Rekwizyty stołu pojedynku (jedna tekstura, jedno wywołanie rysowania): pięć kart akcji, rewers, znacznik rundy,
 // notatka z zasadami i emblemat na suknie. Czysto wizualna zapowiedź gry "Śladem Rewolwerowca" — bez logiki.
+// Karty: klucz = identyfikator karty silnika (bez zmian w logice); widoczna nazwa — z napisów w języku interfejsu.
 const ATLAS = {
-    cards: ["SHOOT", "DODGE", "RELOAD", "BLOCK", "TAUNT"].map((title, i) => ({ title, x: i * 204, y: 0, w: 200, h: 280 })),
+    cards: ["shoot", "dodge", "reload", "block", "taunt"].map((key, i) => ({ key, x: i * 204, y: 0, w: 200, h: 280 })),
     back: { x: 0, y: 292, w: 200, h: 280 },
     round: { x: 212, y: 292, w: 256, h: 256 },
     rules: { x: 480, y: 292, w: 360, h: 280 },
@@ -602,23 +671,23 @@ const ATLAS = {
 function propsTexture(font) {
     return labelTexture(1024, 1024, (ctx) => {
         const rounded = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
-        const icon = (title, cx, cy, s) => {
+        const icon = (key, cx, cy, s) => {
             ctx.strokeStyle = "#5a2a16";
             ctx.fillStyle = "#5a2a16";
             ctx.lineWidth = s * 0.08;
             ctx.lineCap = "round";
-            if (title === "SHOOT") {            // celownik
+            if (key === "shoot") {              // celownik
                 ctx.beginPath(); ctx.arc(cx, cy, s * 0.42, 0, Math.PI * 2); ctx.stroke();
                 ctx.beginPath(); ctx.arc(cx, cy, s * 0.14, 0, Math.PI * 2); ctx.fill();
                 for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.beginPath(); ctx.moveTo(cx + dx * s * 0.28, cy + dy * s * 0.28); ctx.lineTo(cx + dx * s * 0.6, cy + dy * s * 0.6); ctx.stroke(); }
-            } else if (title === "DODGE") {     // łuk uniku ze strzałką
+            } else if (key === "dodge") {       // łuk uniku ze strzałką
                 ctx.beginPath(); ctx.arc(cx, cy + s * 0.1, s * 0.42, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(cx + s * 0.42, cy - s * 0.12); ctx.lineTo(cx + s * 0.18, cy - s * 0.2); ctx.lineTo(cx + s * 0.36, cy + s * 0.08); ctx.fill();
                 ctx.beginPath(); ctx.arc(cx - s * 0.1, cy + s * 0.3, s * 0.12, 0, Math.PI * 2); ctx.fill();
-            } else if (title === "RELOAD") {    // bęben rewolweru
+            } else if (key === "reload") {      // bęben rewolweru
                 ctx.beginPath(); ctx.arc(cx, cy, s * 0.46, 0, Math.PI * 2); ctx.stroke();
                 for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * s * 0.26, cy + Math.sin(a) * s * 0.26, s * 0.09, 0, Math.PI * 2); ctx.fill(); }
-            } else if (title === "BLOCK") {     // tarcza
+            } else if (key === "block") {       // tarcza
                 ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.5); ctx.lineTo(cx + s * 0.42, cy - s * 0.32); ctx.quadraticCurveTo(cx + s * 0.4, cy + s * 0.3, cx, cy + s * 0.52);
                 ctx.quadraticCurveTo(cx - s * 0.4, cy + s * 0.3, cx - s * 0.42, cy - s * 0.32); ctx.closePath(); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.3); ctx.lineTo(cx, cy + s * 0.3); ctx.stroke();
@@ -628,9 +697,11 @@ function propsTexture(font) {
                 ctx.font = `700 ${Math.round(s * 0.5)}px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("!", cx, cy - s * 0.06);
             }
         };
-        // Karty akcji: kremowy papier, podwójna ramka, tytuł, ikona, podpis w języku interfejsu (pomijany, gdy powtarza tytuł).
+        // Karty akcji: kremowy papier, podwójna ramka, nazwa karty w języku interfejsu (STRZAŁ / SHOOT…, dłuższe nazwy
+        // pomniejszone do szerokości karty), ikona i ozdobna linia z gwiazdką.
         for (const card of ATLAS.cards) {
-            const { x, y, w, h, title } = card;
+            const { x, y, w, h, key } = card;
+            const title = label(key).toUpperCase();
             ctx.fillStyle = "#3a2213";
             rounded(x, y, w, h, 14); ctx.fill();
             const paper = ctx.createLinearGradient(x, y, x, y + h);
@@ -642,15 +713,14 @@ function propsTexture(font) {
             rounded(x + 14, y + 14, w - 28, h - 28, 8); ctx.stroke();
             ctx.fillStyle = "#5a2a16";
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.font = `700 30px ${font}`;
-            ctx.letterSpacing = "3px";
-            ctx.fillText(title, x + w / 2, y + 44);
+            ctx.letterSpacing = "2px";
+            ctx.fillText(fitText(ctx, title, w - 40, 32, 17, "700", font), x + w / 2, y + 46);
             ctx.letterSpacing = "0px";
-            icon(title, x + w / 2, y + 140, 100);
-            ctx.fillStyle = "#7a4a26";
-            ctx.font = `italic 600 22px ${font}`;
-            const subtitle = label(title.toLowerCase());
-            if (subtitle.toUpperCase() !== title) ctx.fillText(subtitle, x + w / 2, y + h - 40);
+            icon(key, x + w / 2, y + 146, 100);
+            ctx.fillStyle = "rgba(122,74,38,0.75)";
+            ctx.fillRect(x + 40, y + h - 46, w / 2 - 54, 2);
+            ctx.fillRect(x + w / 2 + 14, y + h - 46, w / 2 - 54, 2);
+            star(ctx, x + w / 2, y + h - 45, 9, 4, "#9a5a2a");
         }
         // Rewers: bordo z romboidalnym wzorem i gwiazdą.
         {
@@ -761,6 +831,43 @@ function keysTexture() {
     }, false);
 }
 
+// Tablica kredowa przy barze: ciemny łupek, ślady starcia, kredowe szkice (kufel, butelka, gwiazda, kreski "cennika").
+// Bez słów — dekoracja, która nie wymaga tłumaczenia.
+function chalkboardTexture() {
+    return canvasTexture(256, 352, (ctx, w, h) => {
+        const rnd = random(61);
+        ctx.fillStyle = "#23271f";
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 14; i++) {
+            const smear = ctx.createRadialGradient(rnd() * w, rnd() * h, 0, rnd() * w, rnd() * h, 40 + rnd() * 60);
+            smear.addColorStop(0, "rgba(220,220,205,0.05)");
+            smear.addColorStop(1, "rgba(220,220,205,0)");
+            ctx.fillStyle = smear;
+            ctx.fillRect(0, 0, w, h);
+        }
+        ctx.strokeStyle = "rgba(236,232,214,0.82)";
+        ctx.fillStyle = "rgba(236,232,214,0.82)";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        // Kufel z pianą.
+        ctx.strokeRect(70, 40, 62, 74);
+        ctx.beginPath(); ctx.arc(140, 77, 18, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+        ctx.beginPath(); for (let x = 66; x <= 136; x += 14) ctx.arc(x + 7, 40, 8, Math.PI, 0); ctx.stroke();
+        // Butelka.
+        ctx.beginPath(); ctx.moveTo(176, 114); ctx.lineTo(176, 70); ctx.lineTo(186, 58); ctx.lineTo(186, 40); ctx.lineTo(196, 40);
+        ctx.lineTo(196, 58); ctx.lineTo(206, 70); ctx.lineTo(206, 114); ctx.closePath(); ctx.stroke();
+        // Kreski "cennika" z kropkami i ceną (bez słów).
+        for (let r = 0; r < 6; r++) {
+            const y = 152 + r * 30;
+            ctx.lineWidth = 2.4;
+            ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(30 + 70 + rnd() * 40, y + (rnd() - 0.5) * 3); ctx.stroke();
+            for (let d = 150; d < 200; d += 9) ctx.fillRect(d, y, 2, 2);
+            ctx.beginPath(); ctx.moveTo(206, y - 8); ctx.lineTo(206, y + 6); ctx.moveTo(214, y - 8); ctx.lineTo(222, y + 6); ctx.stroke();
+        }
+        star(ctx, w / 2, h - 30, 12, 5, "rgba(236,232,214,0.7)");
+    }, false);
+}
+
 // Miękka poświata wokół źródeł światła (sprite'y jako Points: jedno wywołanie rysowania na grupę).
 function haloTexture() {
     return canvasTexture(64, 64, (ctx, w) => {
@@ -824,7 +931,15 @@ function materials(font) {
         clearGlass: new THREE.MeshStandardMaterial({ color: "#e8f0f0", roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.35 }),
         cactus: std("#4f7a3a", null, 1, { roughness: 0.8 }),
         pot: std("#a5552f", null, 1),
-        wax: new THREE.MeshStandardMaterial({ color: "#f3e6c8", emissive: "#ffb85c", emissiveIntensity: 0.6, roughness: 0.6 }),
+        // Drewno mebli w kilku tonach (blaty, beczki) — mniej identycznych powierzchni przy tej samej teksturze desek.
+        tableWood: wood("furniture", "#e2c8b4", 1, { roughness: 0.62 }),
+        barrel: wood("panel", "#c79a74", 1, { roughness: 0.82 }),
+        // Lampa naftowa: płomień (siłę świecenia ustawia motyw — w dzień przygaszony), klosz ze szkła, lina, kość.
+        flame: new THREE.MeshStandardMaterial({ color: "#ffd9a0", emissive: "#ffa23c", emissiveIntensity: 1, roughness: 0.6 }),
+        chimney: new THREE.MeshStandardMaterial({ color: "#f4ead2", emissive: "#ffb661", emissiveIntensity: 0.2, roughness: 0.1, metalness: 0.05, transparent: true, opacity: 0.42, depthWrite: false }),
+        rope: std("#9a7444", noiseTexture(6, 150, 900), 1, { roughness: 0.95 }),
+        bone: std("#e6dcc4", null, 1, { roughness: 0.7 }),
+        slate: new THREE.MeshStandardMaterial({ map: chalkboardTexture(), roughness: 0.92 }),
         window: glow("#fff1d6", "#fff1d6"),
         bulb: glow("#fff1cf", "#ffcf7a"),
         barBulb: glow("#fff1cf", "#ffc86e"),
@@ -1095,12 +1210,15 @@ function buildBar(root, b, M, font) {
     key.shadow.bias = -0.0006;
     key.shadow.normalBias = 0.02;
     root.add(key, key.target);
-    const fills = [-1.8, 1.8].map(x => {
-        const light = new THREE.PointLight("#ffbf6e", 1, 10, 1.5);
-        light.position.set(x, 2.9, -9.9);
-        root.add(light);
-        return light;
-    });
+    // Światło wypełniające baru: jeden szeroki reflektor skierowany w dół, na ladę, półki z butelkami i stołki. Wcześniej
+    // były to dwa światła wszechkierunkowe ~1,3 m pod belkami — przy wskazaniu baru (×1,8) rozświetlały sufit i belki
+    // całej sali. Oś 44° w dół, stożek 54° z miękką krawędzią (penumbra 0,6): krawędź stożka wygasa przed belkami
+    // i sufitem. Jedno światło zamiast dwóch — krótsza kompilacja shaderów (każde światło to kod w każdym programie).
+    const fill = new THREE.SpotLight("#ffbf6e", 1, 10, 0.95, 0.6, 1.4);
+    fill.position.set(0, 3.45, -8.3);
+    fill.target.position.set(0, 0.9, -10.9);
+    root.add(fill, fill.target);
+    const fills = [fill];
     return {
         glows: [sign.material, M.barBulb], lights: fills, key,
         halos: [...pendants.map(([x, y, z]) => [x, y - 0.14, z, 1]), [-0.9, 3.93, -11.88, 0.5], [0.9, 3.93, -11.88, 0.5]]
@@ -1121,7 +1239,7 @@ function buildWanted(root, b, M, font) {
     b.box(M.beam, 0.66, 0.06, w + 0.7, -6.1, roofY, z, 0, 0, -0.32);
     b.box(M.trim, 0.7, 0.04, w + 0.74, -6.1, roofY + 0.04, z, 0, 0, -0.32);
     for (const s of [-1, 1]) b.box(M.trim, 0.42, 0.06, 0.06, -6.2, roofY - 0.14, z + s * (w / 2 + 0.2), 0, 0, 0.6);
-    b.box(M.trim, 0.2, 0.07, w + 0.44, -6.26, y - h / 2 - 0.24, z);
+    b.box(M.trim, 0.26, 0.07, w + 0.44, -6.24, y - h / 2 - 0.24, z);   // półka (stoi na niej lampa naftowa)
 
     // Gwoździe: przy pinezce każdego listu gończego (układ tekstury WANTED_CANVAS) i w rogach tablicy.
     const nails = [];
@@ -1155,15 +1273,16 @@ function buildGame(root, b, M, font) {
     // znacznik rundy i notatka z zasadami.
     const t = top + 0.042;
     const planes = [atlasPlane(ATLAS.emblem, 0.92, 0.92, x, t, z)];
+    // Karty akcji większe niż rewersy talii — nazwy kart (PL/EN) czytelne z kadru stołu.
     ATLAS.cards.forEach((card, i) => {
         const k = i - 2;
-        planes.push(atlasPlane(card, 0.17, 0.24, x + k * 0.2, t + 0.004 + i * 0.001, z + 0.16 + Math.abs(k) * 0.03, -k * 0.1 + wobble(0.03)));
+        planes.push(atlasPlane(card, 0.2, 0.28, x + k * 0.23, t + 0.004 + i * 0.001, z + 0.18 + Math.abs(k) * 0.03, -k * 0.1 + wobble(0.03)));
     });
     for (const side of [-1, 1]) for (let k = 0; k < 3; k++) {
-        planes.push(atlasPlane(ATLAS.back, 0.17, 0.24, x + side * 0.6 + wobble(0.02), t + 0.004 + k * 0.002, z - 0.05 + wobble(0.02), side * Math.PI / 2 + wobble(0.12)));
+        planes.push(atlasPlane(ATLAS.back, 0.17, 0.24, x + side * 0.68 + wobble(0.02), t + 0.004 + k * 0.002, z - 0.06 + wobble(0.02), side * Math.PI / 2 + wobble(0.12)));
     }
     planes.push(atlasPlane(ATLAS.round, 0.2, 0.2, x, t + 0.006, z - 0.42));
-    planes.push(atlasPlane(ATLAS.rules, 0.3, 0.23, x + 0.52, t + 0.006, z + 0.5, -0.4));
+    planes.push(atlasPlane(ATLAS.rules, 0.26, 0.2, x + 0.48, t + 0.006, z + 0.58, -0.4));
     const propsMesh = new THREE.Mesh(mergeGeometries(planes), M.props);
     propsMesh.receiveShadow = true;
     root.add(propsMesh);
@@ -1319,27 +1438,29 @@ function buildMusic(root, b, M, font) {
 }
 
 function buildFurniture(root, b, M, gameChairs) {
-    // Stoliki z krzesłami (lekko wysunięte i obrócone), świece w butelkach na stolikach. Lewy tylny stolik odsunięty od
-    // tablicy Wanted, żeby jej nie zasłaniał.
+    // Stoliki z krzesłami (lekko wysunięte i obrócone), butelka i lampa naftowa na każdym stoliku. Lewy tylny stolik
+    // odsunięty od tablicy Wanted, żeby jej nie zasłaniał.
     const chairs = [...gameChairs];
-    const candles = [];
-    for (const [x, z] of [[-2.9, -4.1], [-3.3, -6.4], [4.9, -2.5]]) {
-        b.add(M.wood, cylinder(0.72, 0.72, 0.06, 20), x, 0.8, z);
+    const lamps = [];
+    for (const [x, z, lit] of [[-2.9, -4.1, true], [-3.3, -6.4, false], [4.9, -2.5, false]]) {
+        b.add(M.tableWood, cylinder(0.72, 0.72, 0.06, 20), x, 0.8, z);
         b.add(M.darkWood, cylinder(0.08, 0.14, 0.77, 8), x, 0.385, z);
         b.add(M.darkWood, cylinder(0.4, 0.45, 0.05, 12), x, 0.025, z);
         for (const a of [0.3, 2.4, 4.4]) {
             const angle = a + wobble(0.25), r = 1.05 + wobble(0.15);
             chairs.push([x + Math.sin(angle) * r, 0, z + Math.cos(angle) * r, angle + Math.PI + wobble(0.35)]);
         }
-        b.add(M.bottle, cylinder(0.05, 0.06, 0.2, 8), x + 0.15, 0.93, z - 0.1);
-        candles.push([x + 0.15, 1.08, z - 0.1]);
+        b.add(M.bottle, cylinder(0.05, 0.06, 0.2, 8), x - 0.22, 0.93, z + 0.12);
+        lamps.push([x + 0.15, 0.83, z - 0.1, lit]);
     }
+    // Lampy przy tablicy Wanted: na beczce obok tablicy (ze światłem) i na półce pod tablicą (sam płomień).
+    lamps.push([-5.6, 0.95, -11.1, true], [-6.2, 0.845, -7.95, false]);
     // Krzesło z oparciem na szczeblach (jedna scalona geometria dla wszystkich instancji).
     const leg = [-0.19, 0.19].flatMap(lx => [-0.19, 0.19].map(lz => [box(0.05, 0.48, 0.05), lx, 0.24, lz]));
     const slats = [-0.1, 0, 0.1].map(sx => [box(0.04, 0.42, 0.025), sx, 0.78, -0.2]);
     instanced(root, parts([[box(0.46, 0.06, 0.46), 0, 0.48, 0], [box(0.05, 0.62, 0.05), -0.2, 0.8, -0.2], [box(0.05, 0.62, 0.05), 0.2, 0.8, -0.2],
         [box(0.46, 0.08, 0.05), 0, 1.07, -0.2], ...slats, ...leg]), M.wood, chairs);
-    instanced(root, cylinder(0.022, 0.022, 0.1, 8), M.wax, candles);
+    const oil = buildOilLamps(root, M, lamps);
 
     // Żyrandol (pierścień + świece jako instancje) i kinkiety.
     b.add(M.brass, new THREE.TorusGeometry(0.8, 0.04, 6, 32), 0, 3.84, -6.2, Math.PI / 2);
@@ -1372,14 +1493,16 @@ function buildFurniture(root, b, M, gameChairs) {
         const painting = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.76), material);
         painting.position.set(x + nx * canvasAt, y, z + nz * canvasAt);
         painting.rotation.y = ry;
-        painting.userData.painting = { wallFace: ry ? x : z, frameFront: ry ? x + nx * FRAME_DEPTH : z + nz * FRAME_DEPTH, axis: ry ? "x" : "z", inward: ry ? nx : nz };
+        painting.userData.painting = { wallFace: ry ? x : z, frameFront: ry ? x + nx * FRAME_DEPTH : z + nz * FRAME_DEPTH, axis: ry ? "x" : "z", inward: ry ? nx : nz, width: 1.1, height: 0.76 };
         root.add(painting);
         const frame = ry ? [FRAME_DEPTH, 0.92, 1.26] : [1.26, 0.92, FRAME_DEPTH];
         b.box(M.brass, ...frame, x + nx * FRAME_DEPTH / 2, y, z + nz * FRAME_DEPTH / 2);
     }
+    // Beczki: brzuchate (toczone), dwie obręcze — zamiast prostych walców.
+    const stave = [[0.3, 0], [0.34, 0.12], [0.37, 0.3], [0.38, 0.475], [0.37, 0.65], [0.34, 0.83], [0.3, 0.95], [0, 0.95]];
     for (const [x, z, r] of [[-5.85, -11.85, 0.2], [-5.1, -11.95, -0.3], [-5.6, -11.1, 0.5]]) {
-        b.add(M.wood, cylinder(0.36, 0.33, 0.95, 14), x, 0.475, z, 0, r);
-        for (const y of [0.18, 0.72]) b.add(M.iron, cylinder(0.375, 0.375, 0.05, 14), x, y, z);
+        b.add(M.barrel, new THREE.LatheGeometry(stave.map(([sr, sy]) => new THREE.Vector2(sr, sy)), 16), x, 0, z, 0, r);
+        for (const y of [0.16, 0.79]) b.add(M.iron, cylinder(0.358, 0.358, 0.05, 16), x, y, z);
     }
     b.box(M.darkWood, 0.6, 0.5, 0.6, -4.5, 0.25, -11.9, 0, 0.3);
     b.box(M.darkWood, 0.45, 0.4, 0.45, -4.45, 0.7, -11.85, 0, -0.2);
@@ -1388,9 +1511,45 @@ function buildFurniture(root, b, M, gameChairs) {
     b.add(M.cactus, cylinder(0.08, 0.09, 0.4, 8), 5.62, 1.05, -0.9, 0, 0, 0.9);
     b.add(M.cactus, cylinder(0.08, 0.09, 0.35, 8), 5.98, 1.2, -0.9, 0, 0, -0.9);
     return {
-        chandelier,
-        halos: [...ring.map(([x, y, z]) => [x, y, z, 0.35]), ...sconces.map(([x, y, z]) => [x, y, z, 0.55]), ...candles.map(([x, y, z]) => [x, y + 0.06, z, 0.3])]
+        chandelier, lampLights: oil.lights,
+        halos: [...ring.map(([x, y, z]) => [x, y, z, 0.35]), ...sconces.map(([x, y, z]) => [x, y, z, 0.55]), ...oil.halos]
     };
+}
+
+// Lampa naftowa (Final Visual Polish): ciemna żelazna podstawa ze zbiornikiem, kołnierz, uchwyt, szklany klosz, płomień.
+// Wszystkie lampy dzielą geometrie i materiały (instancje: korpus, klosz, płomień — trzy wywołania rysowania na całą salę).
+// Światło (PointLight, bez cienia) mają tylko dwie lampy "lit" — przedni lewy stolik i beczka przy Wanted (każde światło
+// to dodatkowy kod we wszystkich programach shaderów, więc pozostałe lampy świecą samym płomieniem i poświatą); motyw ustawia jego siłę:
+// w dzień lampa jest przedmiotem z przygaszonym płomieniem, nocą oświetla stoliki i tablicę. Bez migotania (bez pętli klatek).
+const LAMP_FLAME_Y = 0.19;
+function buildOilLamps(root, M, lamps) {
+    const at = lamps.map(([x, y, z]) => [x, y, z, wobble(Math.PI)]);
+    const tank = [[0, 0.02], [0.07, 0.02], [0.078, 0.05], [0.068, 0.095], [0.032, 0.118], [0.024, 0.13], [0, 0.13]];
+    instanced(root, parts([
+        [cylinder(0.075, 0.085, 0.02, 16), 0, 0.01, 0],
+        [new THREE.LatheGeometry(tank.map(([r, y]) => new THREE.Vector2(r, y)), 16), 0, 0, 0],
+        [cylinder(0.034, 0.034, 0.03, 12), 0, 0.142, 0],
+        [new THREE.TorusGeometry(0.046, 0.006, 6, 12, Math.PI), 0.068, 0.07, 0, 0, 0, -Math.PI / 2],
+        [new THREE.TorusGeometry(0.026, 0.005, 6, 12), 0, 0.305, 0, Math.PI / 2]
+    ]), M.iron, at);
+    const glass = [[0.03, 0.155], [0.048, 0.19], [0.052, 0.225], [0.036, 0.265], [0.026, 0.305]];
+    const chimney = new THREE.InstancedMesh(new THREE.LatheGeometry(glass.map(([r, y]) => new THREE.Vector2(r, y)), 14), M.chimney, at.length);
+    const flame = new THREE.InstancedMesh(new THREE.SphereGeometry(0.013, 8, 6).scale(1, 2.3, 1), M.flame, at.length);
+    const m = new THREE.Matrix4();
+    at.forEach(([x, y, z, ry], i) => {
+        m.makeRotationY(ry).setPosition(x, y, z);
+        chimney.setMatrixAt(i, m);
+        flame.setMatrixAt(i, new THREE.Matrix4().setPosition(x, y + LAMP_FLAME_Y, z));
+    });
+    chimney.renderOrder = 1;   // przezroczysty klosz po bryłach nieprzezroczystych
+    root.add(chimney, flame);
+    const lights = lamps.filter(l => l[3]).map(([x, y, z]) => {
+        const light = new THREE.PointLight("#ffa652", 1, 6.5, 1.4);
+        light.position.set(x, y + LAMP_FLAME_Y + 0.02, z);
+        root.add(light);
+        return light;
+    });
+    return { lights, halos: lamps.map(([x, y, z]) => [x, y + LAMP_FLAME_Y, z, 0.3]) };
 }
 
 // Poświata lamp: dwie grupy Points (duże i małe) z addytywnym mieszaniem — tanie, a buduje nastrój.
@@ -1427,6 +1586,124 @@ function buildHitAreas(root) {
     });
 }
 
+// "Tak wyglądaliśmy, gdy zaczynaliśmy." (Sprint 24): pierwsza wersja SansPost (zrzut z pierwszych testów wizualnych)
+// w mosiężnej ramie nad pianinem w Kąciku muzycznym (prawa ściana) — widoczna z kadru głównego i przy Kąciku, nie zasłania
+// stref. Podpis na tabliczce pod spodem. Te same warstwy co obrazy (ściana → rama → zdjęcie 2 cm przed frontem ramy —
+// bez z-fightingu). Zdjęcie wczytywane leniwie po pierwszej klatce sali (do tego czasu — kolor papieru); podpis
+// przerysowywany przy zmianie języka jak pozostałe napisy.
+const HISTORY_PHOTO = { url: "img/saloon-history.jpg", aspect: 960 / 401 };
+function buildHistory(root, b, M, font) {
+    const WALL_FACE = 0.1, FRAME_DEPTH = 0.06, CANVAS_GAP = 0.02, inward = -1;   // prawa ściana: wnętrze w stronę −x
+    const x = HALF_W - WALL_FACE, y = 2.3, z = -10.2, w = 1.1, h = w / HISTORY_PHOTO.aspect;
+    // Placeholder 1×1 (kolor papieru) jako mapa od początku: ten sam wariant shadera co pozostałe obrazy — podmiana na
+    // wczytane zdjęcie nie wymaga kompilacji nowego programu.
+    const paper = new THREE.DataTexture(new Uint8Array([217, 203, 176, 255]), 1, 1);
+    paper.colorSpace = THREE.SRGBColorSpace;
+    paper.needsUpdate = true;
+    const material = window.__sansPostHallProbe
+        ? new THREE.MeshBasicMaterial({ color: "#ff00ff", toneMapped: false, fog: false })
+        : new THREE.MeshStandardMaterial({ map: paper, roughness: 0.75 });
+    const photo = new THREE.Mesh(new THREE.PlaneGeometry(w, h), material);
+    photo.position.set(x + inward * (FRAME_DEPTH + CANVAS_GAP), y, z);
+    photo.rotation.y = -Math.PI / 2;
+    photo.userData.painting = { wallFace: x, frameFront: x + inward * FRAME_DEPTH, axis: "x", inward, width: w, height: h };
+    root.add(photo);
+    b.box(M.brass, FRAME_DEPTH, h + 0.16, w + 0.16, x + inward * FRAME_DEPTH / 2, y, z);
+
+    const captionW = 0.96, captionH = 0.12;
+    const caption = plaque(plaqueTexture("history", font, { width: 1024, height: 128, size: 0.36 }), captionW, captionH);
+    caption.position.set(x + inward * 0.025, y - h / 2 - 0.08 - 0.03 - captionH / 2, z);
+    caption.rotation.y = -Math.PI / 2;
+    root.add(caption);
+    b.box(M.trim, 0.02, captionH + 0.04, captionW + 0.04, x + inward * 0.01, caption.position.y, z);
+    return { photo };
+}
+
+// Leniwe zdjęcie: dopiero po pierwszej klatce sali, poza ścieżką startu (sonda testów zostaje jednolitą magentą).
+function loadHistoryPhoto(s) {
+    const photo = s.history?.photo;
+    if (!photo || window.__sansPostHallProbe) return;
+    new THREE.TextureLoader().load(HISTORY_PHOTO.url, texture => {
+        if (state !== s) { texture.dispose(); return; }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 4;
+        photo.material.map?.dispose();   // placeholder 1×1
+        photo.material.map = texture;
+        s.debug.historyPhoto = true;
+        s.dirty = true;
+    }, undefined, () => { s.debug.historyPhoto = false; });
+}
+
+// Detale westernowe (Final Visual Polish): kilka rekwizytów na strefę zamiast dużych pustych płaszczyzn — bez zmiany
+// układu sali, poza kadrami stref i z dala od szyldów i przycisków. Wszystko w partiach materiałów (bez nowych siatek
+// na rekwizyt), statyczne — nie dokładają klatek renderu.
+function buildDetails(root, b, M) {
+    // Boazeria podzielona listwami na płyciny (ściany przestają być jednolitymi blokami). Bez listew za szafką baru,
+    // pod tablicą Wanted i za pianinem.
+    // Środek ściany ±0,1 → front boazerii 0,145 od środka ściany; listwa (3 cm) przylega do boazerii.
+    const stileY = 0.65, stileH = 0.98, inset = 0.16;
+    for (let x = -6.0; x <= 6.01; x += 1.1) if (Math.abs(x) > 3.9) b.box(M.trim, 0.06, stileH, 0.03, x, stileY, -DEPTH + inset);
+    for (const side of [-1, 1]) {
+        const wx = side * (HALF_W - inset);
+        for (let z = -0.8; z >= -12.01; z -= 1.1) {
+            const hidden = side < 0 ? z < -7.5 && z > -11.5 : z < -6.7 && z > -11.0;
+            if (!hidden) b.box(M.trim, 0.03, stileH, 0.06, wx, stileY, z);
+        }
+    }
+
+    // Wsporniki pod końcami belek stropowych (przy ścianach bocznych).
+    for (const z of [-1.4, -4.1, -6.8, -9.5]) {
+        for (const side of [-1, 1]) {
+            b.box(M.beam, 0.2, 0.3, 0.24, side * (HALF_W - 0.2), HEIGHT - 0.45, z);
+            b.box(M.beam, 0.12, 0.34, 0.1, side * (HALF_W - 0.34), HEIGHT - 0.42, z, 0, 0, side * 0.75);
+        }
+    }
+
+    // WANTED: lasso na kołku obok tablicy, kapelusz na beczce, podkowa nad skrzyniami w rogu.
+    const lx = -HALF_W + 0.17, ly = 1.85, lz = -6.6;
+    for (const [r, dz, dy] of [[0.19, 0, 0], [0.205, 0.02, -0.015], [0.18, -0.015, 0.01]]) {
+        b.add(M.rope, new THREE.TorusGeometry(r, 0.017, 6, 28), lx + 0.02, ly + dy, lz + dz, 0, Math.PI / 2, 0);
+    }
+    b.add(M.rope, cylinder(0.014, 0.014, 0.4, 6), lx + 0.03, ly - 0.33, lz + 0.12, 0.35, 0, 0);
+    b.add(M.iron, cylinder(0.018, 0.018, 0.1, 8), lx - 0.02, ly + 0.19, lz, 0, 0, Math.PI / 2);
+    const hat = [-5.85, 0.95, -11.85];
+    b.add(M.felt, cylinder(0.25, 0.25, 0.014, 24), hat[0], hat[1] + 0.008, hat[2], 0.06, 0, -0.04);
+    b.add(M.felt, cylinder(0.095, 0.12, 0.13, 16), hat[0], hat[1] + 0.08, hat[2], 0.06, 0, -0.04);
+    b.add(M.leather, cylinder(0.122, 0.122, 0.028, 16), hat[0], hat[1] + 0.035, hat[2], 0.06, 0, -0.04);
+    b.add(M.iron, new THREE.TorusGeometry(0.085, 0.018, 6, 14, Math.PI * 1.45), -3.98, 1.64, -DEPTH + 0.12, 0, 0, -Math.PI * 0.225 + Math.PI);
+
+    // BAR: kufle przy kranie, mała beczułka z kranikiem na końcu lady, tablica kredowa na tylnej ścianie (pod kinkietem).
+    for (const [x, z] of [[2.28, -10.34], [2.47, -10.16]]) {
+        b.add(M.brass, cylinder(0.042, 0.047, 0.11, 14), x, 1.215, z);
+        b.add(M.brass, new THREE.TorusGeometry(0.03, 0.007, 6, 10, Math.PI), x + 0.047, 1.215, z, 0, 0, -Math.PI / 2);
+    }
+    const kx = -3.02, ky = 1.36, kz = -10.25;
+    for (const dx of [-0.1, 0.1]) b.box(M.trim, 0.05, 0.08, 0.26, kx + dx, 1.2, kz);
+    b.add(M.barrel, new THREE.LatheGeometry([[0, -0.17], [0.12, -0.17], [0.14, -0.08], [0.145, 0], [0.14, 0.08], [0.12, 0.17], [0, 0.17]].map(([r, y]) => new THREE.Vector2(r, y)), 14), kx, ky, kz, 0, 0, Math.PI / 2);
+    for (const dx of [-0.11, 0.11]) b.add(M.iron, cylinder(0.142, 0.142, 0.02, 14), kx + dx, ky, kz, 0, 0, Math.PI / 2);
+    b.add(M.brass, cylinder(0.014, 0.014, 0.08, 8), kx + 0.21, ky - 0.04, kz, 0, 0, Math.PI / 2);
+    b.add(M.brass, cylinder(0.01, 0.01, 0.05, 6), kx + 0.25, ky - 0.065, kz);
+    const chalk = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.86), M.slate);
+    chalk.position.set(4.7, 1.92, -DEPTH + 0.15);   // 2 cm przed ramą (bez z-fightingu)
+    chalk.receiveShadow = true;
+    root.add(chalk);
+    b.box(M.trim, 0.72, 0.96, 0.03, 4.7, 1.92, -DEPTH + 0.115);
+    b.box(M.trim, 0.5, 0.04, 0.06, 4.7, 1.47, -DEPTH + 0.15);   // półka na kredę
+
+    // MUSIC: futerał na instrument oparty o ścianę pod gitarą.
+    b.add(M.leather, parts([[box(0.11, 0.7, 0.36), 0, 0.35, 0], [box(0.09, 0.36, 0.15), 0, 0.88, 0], [box(0.02, 0.06, 0.12), -0.06, 0.4, 0]]),
+        HALF_W - 0.27, 0.18, -7.5, 0, 0, -0.09);
+
+    // Ogólne: czaszka bizona z rogami na prawej ścianie, na drewnianej tarczy (między obrazem a kącikiem muzycznym).
+    const sx = HALF_W - 0.1, sy = 2.78, sz = -6.4;
+    b.box(M.trim, 0.03, 0.32, 0.44, sx - 0.015, sy, sz);
+    b.add(M.bone, new THREE.SphereGeometry(0.1, 12, 8).scale(0.75, 1.1, 0.95), sx - 0.1, sy + 0.03, sz);
+    b.box(M.bone, 0.08, 0.17, 0.1, sx - 0.12, sy - 0.1, sz);
+    for (const side of [-1, 1]) {
+        b.add(M.bone, new THREE.ConeGeometry(0.032, 0.34, 8), sx - 0.1, sy + 0.12, sz + side * 0.2, side * (Math.PI / 2 - 0.45), 0, 0);
+    }
+}
+
 function buildScene(font) {
     const scene = new THREE.Scene();
     const M = materials(font);
@@ -1439,6 +1716,8 @@ function buildScene(font) {
         music: buildMusic(scene, b, M, font)
     };
     const furniture = buildFurniture(scene, b, M, zones.game.chairs);
+    const history = buildHistory(scene, b, M, font);
+    buildDetails(scene, b, M);
     b.build(scene);
     const halos = buildHalos(scene, [...Object.values(zones).flatMap(z => z.halos), ...furniture.halos]);
 
@@ -1452,7 +1731,7 @@ function buildScene(font) {
     sun.target.position.set(0, 0, -6);
     scene.add(hemi, sun, sun.target);
 
-    return { scene, M, zones, chandelier: furniture.chandelier, halos, hemi, sun, hits: buildHitAreas(scene) };
+    return { scene, M, zones, history, chandelier: furniture.chandelier, lampLights: furniture.lampLights, halos, hemi, sun, hits: buildHitAreas(scene) };
 }
 
 function applyTheme(s, colors) {
@@ -1470,6 +1749,9 @@ function applyTheme(s, colors) {
     const woodTone = new THREE.Color(colors.wood);
     for (const material of Object.values(s.M)) if (material.userData?.tint) material.color.copy(material.userData.tint).multiply(woodTone);
     s.M.mirror.emissiveIntensity = colors.mirrorGlow;
+    s.M.flame.emissiveIntensity = colors.flame;
+    s.M.chimney.emissiveIntensity = colors.chimneyGlow;
+    for (const light of s.lampLights) light.intensity = colors.lamp;
     s.zones.bar.key.intensity = colors.barKey;
     for (const material of s.halos) material.opacity = colors.halo;
     s.colors = colors;
@@ -1509,6 +1791,64 @@ function setView(s, view) {
     s.dirty = true;
 }
 
+// Wisząca lampa nad stołem gry (klosz r 0,4 m na wysokości 2,37–2,63, linka do sufitu, nad nią szyld i plakietka Mistrza
+// Stołu — w promieniu ~1,05 m od osi lampy) to jedyna przeszkoda na wysokości kamery między kadrami. Prosty przejazd
+// sala ↔ Kącik muzyczny szedł przez klosz (a Kącik ↔ stół gry tuż obok niego). Taki przejazd idzie łukiem przez jeden
+// punkt pośredni na okręgu "clear" wokół osi lampy: z 36 kierunków wybrany najkrótszy łuk, który trzyma kamerę co
+// najmniej tak daleko od osi jak oba końce przejazdu (kadry stref bez zmian). Liczone raz na przejazd, bez pętli klatek.
+const HANGING = { x: 2.5, z: -5.9, bottom: 2.37, clear: 1.35 };
+const PATH_SAMPLES = 40;
+
+const axisDistance = p => Math.hypot(p[0] - HANGING.x, p[2] - HANGING.z);
+
+// Punkt toru dla postępu e ∈ [0, 1]: odcinek albo krzywa Hermite'a przez "via" (ciągła prędkość w punkcie pośrednim,
+// postęp podzielony proporcjonalnie do długości obu części — bez zatrzymania w połowie).
+function pathPoint(from, via, to, e) {
+    if (!via) return from.map((v, i) => v + (to[i] - v) * e);
+    const l1 = Math.hypot(...via.map((v, i) => v - from[i])), l2 = Math.hypot(...to.map((v, i) => v - via[i]));
+    const u = l1 / (l1 + l2);
+    const [a, b, span, t] = e <= u ? [from, via, u, e / u] : [via, to, 1 - u, (e - u) / (1 - u)];
+    const va = a === from ? via.map((v, i) => (v - from[i]) / u) : to.map((v, i) => v - from[i]);
+    const vb = b === to ? to.map((v, i) => (v - via[i]) / (1 - u)) : to.map((v, i) => v - from[i]);
+    const t2 = t * t, t3 = t2 * t;
+    const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+    return a.map((v, i) => h00 * v + h10 * span * va[i] + h01 * b[i] + h11 * span * vb[i]);
+}
+
+// Najmniejsza odległość toru od osi lampy (tylko na wysokości lampy i niżej o 0,6 m) i długość toru.
+function scanPath(from, via, to) {
+    let min = Infinity, length = 0, prev = from;
+    for (let i = 0; i <= PATH_SAMPLES; i++) {
+        const p = pathPoint(from, via, to, i / PATH_SAMPLES);
+        if (p[1] > HANGING.bottom - 0.6) min = Math.min(min, axisDistance(p));
+        length += Math.hypot(...p.map((v, k) => v - prev[k]));
+        prev = p;
+    }
+    return { min, length };
+}
+
+function detourVia(from, to) {
+    const goal = Math.min(HANGING.clear, axisDistance(from), axisDistance(to)) - 0.02;
+    if (scanPath(from, null, to).min >= goal) return null;
+    let best = null;
+    for (let k = 0; k < 36; k++) {
+        const a = k * Math.PI / 18;
+        const x = HANGING.x + Math.cos(a) * HANGING.clear, z = HANGING.z + Math.sin(a) * HANGING.clear;
+        const l1 = Math.hypot(x - from[0], z - from[2]), l2 = Math.hypot(to[0] - x, to[2] - z);
+        const via = [x, from[1] + (to[1] - from[1]) * l1 / (l1 + l2), z];
+        const { min, length } = scanPath(from, via, to);
+        const safe = Math.min(min, goal);
+        // Najpierw odstęp od lampy (do celu "goal"), przy równym — krótszy łuk.
+        if (!best || safe > best.safe + 1e-6 || (safe > best.safe - 1e-6 && length < best.length)) best = { via, safe, length };
+    }
+    return best.via;
+}
+
+function startPath(s) {
+    s.move.via = detourVia(s.move.from.position, s.move.to.position);
+    s.debug.via = s.move.via;
+}
+
 // Płynny przejazd (easeInOut); przy reduced motion — od razu. Promise kończy się po dojechaniu.
 function moveTo(s, view, duration) {
     s.move?.resolve();
@@ -1524,6 +1864,7 @@ function moveTo(s, view, duration) {
             from: { position: s.camera.position.toArray(), target: s.target.toArray(), fov: s.camera.fov },
             to: view, start: performance.now(), duration, resolve
         };
+        startPath(s);
         s.dirty = true;
     });
 }
@@ -1628,6 +1969,7 @@ export async function init(host, options) {
     window.__sansPostHallTimings = result.timings;
     if (result.renderer === "3d" && state) {
         state.debug.initMs = result.timings.total;
+        loadHistoryPhoto(state);
         // Wejście przez drzwi Entrance: z progu krótki settle do kadru głównego (reduced motion — od razu).
         if (options?.arrived && !options?.area) {
             moveTo(state, mainView(aspectOf(state)), 1100);
@@ -1709,7 +2051,10 @@ function setup(host, options, force) {
             s.size = size;
             s.renderer.setSize(host.clientWidth || 1, host.clientHeight || 1, false);
             s.camera.aspect = aspectOf(s);
-            if (s.move) s.move.to = targetView(s);
+            if (s.move) {
+                s.move.to = targetView(s);
+                startPath(s);
+            }
             else setView(s, targetView(s));
             placeZoneButtons(s);
         });
@@ -1782,10 +2127,10 @@ function tick(time) {
     s.dirty = false;
 
     if (s.move) {
-        const { from, to, start, duration } = s.move;
+        const { from, to, via, start, duration } = s.move;
         const t = Math.min(1, Math.max(0, (time - start) / duration));
         const e = easeInOutCubic(t);
-        s.camera.position.set(...from.position.map((v, i) => v + (to.position[i] - v) * e));
+        s.camera.position.set(...pathPoint(from.position, via, to.position, e));
         s.target.set(...from.target.map((v, i) => v + (to.target[i] - v) * e));
         s.camera.fov = from.fov + (to.fov - from.fov) * e;
         s.camera.updateProjectionMatrix();
@@ -1820,12 +2165,13 @@ function paintingRects(s) {
     return s.scene.children.filter(o => o.userData.painting).map(o => {
         const xs = [], ys = [];
         for (const [u, v] of [[-0.3, -0.3], [0.3, -0.3], [0.3, 0.3], [-0.3, 0.3]]) {
-            probeCorner.set(u * 1.1, v * 0.76, 0).applyMatrix4(o.matrixWorld).project(s.camera);
+            probeCorner.set(u * o.userData.painting.width, v * o.userData.painting.height, 0).applyMatrix4(o.matrixWorld).project(s.camera);
             if (probeCorner.z > 1) return null;   // za kamerą
             xs.push(rect.left + (probeCorner.x + 1) / 2 * rect.width);
             ys.push(rect.top + (1 - probeCorner.y) / 2 * rect.height);
         }
-        return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+        // Prostokąt otaczający i sam czworokąt (poly): przy widoku z ukosa prostokąt obejmuje też ścianę obok obrazu.
+        return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), poly: xs.map((x, i) => [x, ys[i]]) };
     });
 }
 

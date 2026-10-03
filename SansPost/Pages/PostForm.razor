@@ -21,8 +21,9 @@
 
     @if (quota is { Remaining: <= 0 })
     {
-        <EmptyState Title="Wykorzystano limit postów" IconName="@Icons.FileText" Variant="AlertVariant.Warning"
-                    Text="@L.Format("Twoje konto może mieć jednocześnie {0}. Usuń któryś ze starszych, aby opublikować nowy.", UiText.Posts(L, quota.Limit))">
+        @* Dzienny limit postów (v1.0): liczba utworzonych dziś (UTC) — usunięcie posta nie zwalnia miejsca. *@
+        <EmptyState Title="Wykorzystano dzisiejszy limit postów" IconName="@Icons.FileText" Variant="AlertVariant.Warning"
+                    Text="@L.Format("Dziś możesz opublikować najwyżej {0}. Kolejne dodasz po północy UTC.", UiText.Posts(L, quota.Limit))">
             <a class="btn btn-primary" href="/me">@L["Przejdź do swoich postów"]</a>
         </EmptyState>
     }
@@ -47,7 +48,7 @@
                             @if (quota is not null)
                             {
                                 <span class="spacer"></span>
-                                <span class="text-sm subtle">@L.Format("Wykorzystano {0} z {1} postów", quota.Used, quota.Limit)</span>
+                                <span class="text-sm subtle">@L.Format("Dziś {0} z {1} postów", quota.Used, quota.Limit)</span>
                             }
                         </Actions>
                     </PostEditor>

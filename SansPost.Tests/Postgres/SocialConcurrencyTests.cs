@@ -147,11 +147,13 @@ namespace SansPost.Tests.Postgres
         [DockerFact]
         public async Task PostDeleteVsCommentCreate_NeverLeavesOrphanComment()
         {
-            var authorId = await _pg.CreateUserAsync("pd");
-            var commenterId = await _pg.CreateUserAsync("pc");
-
+            // Nowa para kont w każdej iteracji — 15 postów i 45 komentarzy jednej osoby przekroczyłoby dzienne limity (10 / 20).
+            var commenters = new List<int>();
             for (var i = 0; i < 15; i++)
             {
+                var authorId = await _pg.CreateUserAsync("pd");
+                var commenterId = await _pg.CreateUserAsync("pc");
+                commenters.Add(commenterId);
                 var post = await CreatePostAsync(authorId);
 
                 var comments = Enumerable.Range(0, 3).Select(_ => Task.Run(() => AddCommentAsync(commenterId, post.Id))).ToArray();
@@ -166,9 +168,12 @@ namespace SansPost.Tests.Postgres
             var orphans = await CountAsync(context => context.Comments.CountAsync(c => !context.Posts.Any(p => p.Id == c.PostId)));
             Assert.Equal(0, orphans);
             // Soft delete: komentarze mogą fizycznie istnieć przy usuniętym poście, ale żaden nie jest publicznie widoczny.
-            var visible = await WithContextAsync(context =>
-                SansPost.Tests.TestInfrastructure.TestServices.Comments(context).GetRecentByAuthorAsync(commenterId, 50));
-            Assert.Empty(visible);
+            foreach (var commenterId in commenters)
+            {
+                var visible = await WithContextAsync(context =>
+                    SansPost.Tests.TestInfrastructure.TestServices.Comments(context).GetRecentByAuthorAsync(commenterId, 50));
+                Assert.Empty(visible);
+            }
         }
 
         // Stabilna paginacja przy identycznych znacznikach czasu (tie-breaker = Id).
@@ -274,11 +279,11 @@ namespace SansPost.Tests.Postgres
         [DockerFact]
         public async Task LikeVsPostDelete_NeverLeavesOrphanLike_OrRawException()
         {
-            var authorId = await _pg.CreateUserAsync("lp");
             var fanId = await _pg.CreateUserAsync("lq");
 
             for (var i = 0; i < 15; i++)
             {
+                var authorId = await _pg.CreateUserAsync("lp");   // nowy autor — 15 postów jednej osoby przekroczyłoby dzienny limit (10)
                 var post = await CreatePostAsync(authorId);
 
                 var like = Task.Run(() => LikesAsync(s => s.LikeAsync(fanId, post.Id)));

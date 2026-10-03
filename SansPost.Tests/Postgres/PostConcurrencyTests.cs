@@ -94,14 +94,16 @@ namespace SansPost.Tests.Postgres
             Assert.Equal(results.Single(r => r.Succeeded).Value!.Title, final.Title);
         }
 
-        // Test B — obowiązkowy acceptance test limitu postów.
+        // Test B — dzienny limit postów (v1.0) pod równoległymi requestami: licznik w PostgreSQL nigdy nie przekracza 10,
+        // a postów powstaje dokładnie tyle, ile sukcesów (zużycie limitu i INSERT w jednej transakcji).
         [DockerTheory]
-        [InlineData(9, 10, 1)]
+        [InlineData(9, 5, 1)]
         [InlineData(0, 25, 10)]
-        public async Task QuotaRace_ParallelCreates_NeverExceedFreeLimit(int existingPosts, int parallelRequests, int expectedSuccesses)
+        public async Task QuotaRace_ParallelCreates_NeverExceedDailyLimit(int usedToday, int parallelRequests, int expectedSuccesses)
         {
             var userId = await _pg.CreateUserAsync();
-            await _pg.SeedPostsAsync(userId, existingPosts);
+            if (usedToday > 0)
+                await _pg.SeedUsageAsync(userId, posts: usedToday);
 
             var results = await Task.WhenAll(Enumerable.Range(0, parallelRequests).Select(i => Task.Run(async () =>
             {
@@ -110,8 +112,13 @@ namespace SansPost.Tests.Postgres
             })));
 
             Assert.Equal(expectedSuccesses, results.Count(r => r.Succeeded));
-            Assert.All(results.Where(r => !r.Succeeded), r => Assert.Equal(ServiceError.Forbidden, r.Error));
-            Assert.Equal(PostLimits.FreePostLimit, await _pg.CountPostsAsync(userId));
+            Assert.All(results.Where(r => !r.Succeeded), r =>
+            {
+                Assert.Equal(ServiceError.RateLimited, r.Error);
+                Assert.Equal("daily-post-limit-reached", r.Code);
+            });
+            Assert.Equal(expectedSuccesses, await _pg.CountPostsAsync(userId));
+            Assert.Equal(SansPost.Features.Usage.DailyQuota.Posts, (await _pg.UsageAsync(userId)).Posts);
         }
 
         // Test C — usunięcie między odczytem a zapisem.
@@ -187,6 +194,7 @@ namespace SansPost.Tests.Postgres
             }
 
             Assert.Equal(3, await _pg.CountPostsAsync(userId));
+            Assert.Equal(0, (await _pg.UsageAsync(userId)).Posts);   // nieudana operacja nie zużywa dziennego limitu
 
             // Blokada nie wisi po anulowanej transakcji — kolejny request przechodzi od razu.
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

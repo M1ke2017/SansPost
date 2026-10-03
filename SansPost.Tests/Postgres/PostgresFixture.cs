@@ -64,6 +64,26 @@ namespace SansPost.Tests.Postgres
             return result.Value!.Id;
         }
 
+        // Dzienny licznik limitów (v1.0) ustawiony bezpośrednio — testy granic i wyścigów.
+        public async Task SeedUsageAsync(int userId, int posts = 0, int comments = 0, int games = 0)
+        {
+            await using var context = CreateContext();
+            context.DailyUserUsages.Add(new SansPost.Features.Usage.DailyUserUsage
+            {
+                UserId = userId, DateUtc = SansPost.Features.Usage.DailyQuota.Today(DateTimeOffset.UtcNow),
+                PostsCreated = posts, CommentsCreated = comments, GamesStarted = games
+            });
+            await context.SaveChangesAsync();
+        }
+
+        public async Task<(int Posts, int Comments, int Games)> UsageAsync(int userId)
+        {
+            await using var context = CreateContext();
+            var today = SansPost.Features.Usage.DailyQuota.Today(DateTimeOffset.UtcNow);
+            var row = await context.DailyUserUsages.AsNoTracking().SingleOrDefaultAsync(u => u.UserId == userId && u.DateUtc == today);
+            return row is null ? (0, 0, 0) : (row.PostsCreated, row.CommentsCreated, row.GamesStarted);
+        }
+
         public async Task SeedPostsAsync(int userId, int count)
         {
             await using var context = CreateContext();

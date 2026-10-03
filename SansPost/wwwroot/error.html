@@ -26,7 +26,7 @@
             <h1 class="state-title" data-en="Something went wrong">Coś poszło nie tak</h1>
             <p class="state-text" data-en="This page couldn't be displayed. Try again in a moment.">Nie udało się wyświetlić tej strony. Spróbuj ponownie za chwilę.</p>
             <div class="state-actions">
-                <button type="button" class="btn btn-primary" onclick="location.reload()" data-en="Try again">Spróbuj ponownie</button>
+                <button type="button" class="btn btn-primary" data-reload data-en="Try again">Spróbuj ponownie</button>
                 <a class="btn" href="/" data-en="Back to SansPost">Wróć do SansPost</a>
             </div>
         </div>
@@ -38,6 +38,8 @@
             document.documentElement.lang = "en";
             document.querySelectorAll("[data-en]").forEach(function (el) { el.textContent = el.getAttribute("data-en"); });
         })();
+        // Bez inline onclick (CSP): "Spróbuj ponownie" przeładowuje stronę.
+        document.querySelectorAll("[data-reload]").forEach(function (el) { el.addEventListener("click", function () { location.reload(); }); });
     </script>
 </body>
 </html>

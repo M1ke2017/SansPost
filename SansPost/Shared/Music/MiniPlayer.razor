@@ -13,7 +13,7 @@
                 {
                     <span class="mini-player-live">LIVE</span>
                 }
-                @(radio.Status == "error" ? L["Stacja nie odpowiada"] : "Country Radio")
+                @(radio.Status switch { "error" => L["Stacja nie odpowiada"], "limit" => L["Zatrzymane po 2 godzinach"], _ => "Country Radio" })
             </span>
             <span class="mini-player-name" title="@radio.Name">@radio.Name</span>
         </span>

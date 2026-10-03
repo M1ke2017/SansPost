@@ -134,6 +134,11 @@ public class Program
         {
             app.Services.GetRequiredService<IStartupValidator>().Validate();
             await DatabaseStartup.MigrateDatabaseAsync(app.Services, startupLogger);
+            // Wersja wdrożenia w logach (korelacja zgłoszeń z wydaniem): InformationalVersion z <Version> projektu.
+            var version = typeof(Program).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "unknown";
+            startupLogger.LogInformation("SansPost {Version} starting in {Environment}.", version, app.Environment.EnvironmentName);
         }
         catch (Exception ex)
         {
@@ -152,6 +157,7 @@ public class Program
         // ---- 7. Middleware -------------------------------------------------------------------------------------
         // Za reverse proxy: prawdziwy adres klienta i schemat (https) zanim cokolwiek je odczyta (limity, cookie, HTTPS).
         app.UseForwardedHeaders();
+        app.UseSansPostSecurityHeaders(app.Environment);
 
         // Korelacja: X-Request-Id w każdej odpowiedzi (OnStarting — przetrwa też 500, bo handler wyjątków czyści nagłówki).
         app.Use((context, next) =>

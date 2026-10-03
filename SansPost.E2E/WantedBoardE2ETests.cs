@@ -173,7 +173,7 @@ namespace SansPost.E2E
 
             // Główny plakat: MOST WANTED, przydomek, tytuł, kategoria, czas, reakcje, komentarze, fragment.
             var main = Panel(page).Locator(".wanted-poster.is-featured");
-            await Expect(main.Locator(".wanted-poster-kicker")).ToHaveTextAsync("Most Wanted");
+            await Expect(main.Locator(".wanted-poster-kicker")).ToHaveTextAsync("Najbardziej poszukiwany");   // EN: "Most Wanted"
             await Expect(main.Locator(".wanted-poster-alias")).ToHaveTextAsync(seeded.A.Alias);
             await Expect(main.Locator(".wanted-poster-reason")).ToHaveTextAsync("za rozmowę, która rozpaliła Saloon");
             await Expect(main.GetByRole(AriaRole.Heading, new() { Name = seeded.Titles[0], Level = 3 })).ToBeVisibleAsync();

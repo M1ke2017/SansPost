@@ -20,6 +20,79 @@ namespace SansPost.Tests.Identity
             });
         }
 
+        // Tabliczka "Zajęte miejsca" przy wejściu: ta sama reguła co limit rejestracji (zwykłe konta, bez adminów) i limit z konfiguracji.
+        [Fact]
+        public async Task Capacity_CountsPublicAccountsOnly_AgainstConfiguredLimit()
+        {
+            Assert.True((await RegisterAsync("DustyFox", "a@example.com")).Succeeded);
+            Assert.True((await RegisterAsync("CopperWren", "b@example.com")).Succeeded);
+            Assert.True((await RegisterAsync("LonePine", "c@example.com")).Succeeded);
+            using (var context = _db.CreateContext())
+            {
+                (await context.Users.SingleAsync(u => u.Username == "LonePine")).Role = UserRole.Admin;
+                await context.SaveChangesAsync();
+            }
+
+            using var read = _db.CreateContext();
+            var capacity = await TestServices.Auth(read, new PublicDemoOptions { MaxPublicAccounts = 7 }).GetCapacityAsync();
+
+            Assert.Equal(new RegistrationCapacity(2, 7), capacity);
+        }
+
+        // Świeże wdrożenie: 8 kont demo (seed) i administrator — 0 / 100. Dwa zwykłe konta z rejestracji — 2 / 100.
+        private async Task SeedDemoAuthorsAndAdminAsync()
+        {
+            using var context = _db.CreateContext();
+            foreach (var author in SansPost.Features.Demo.DemoContent.Authors)
+            {
+                var email = $"{author.ToLowerInvariant()}@{SansPost.Features.Demo.DemoContent.EmailDomain}";
+                context.Users.Add(new User { Username = author, NormalizedUsername = IdentityNormalizer.Normalize(author), Email = email,
+                    NormalizedEmail = IdentityNormalizer.Normalize(email), PasswordHash = PasswordHasher.Hash(TestUsers.Password), Role = UserRole.User });
+            }
+            context.Users.Add(new User { Username = "Sheriff", NormalizedUsername = "SHERIFF", Email = "admin@example.com",
+                NormalizedEmail = "ADMIN@EXAMPLE.COM", PasswordHash = PasswordHasher.Hash(TestUsers.Password), Role = UserRole.Admin });
+            await context.SaveChangesAsync();
+        }
+
+        private async Task<RegistrationCapacity> CapacityAsync(int max = 100)
+        {
+            using var read = _db.CreateContext();
+            return await TestServices.Auth(read, new PublicDemoOptions { MaxPublicAccounts = max }).GetCapacityAsync();
+        }
+
+        [Fact]
+        public async Task Capacity_DemoAccountsAndAdmin_DoNotCount_RegisteredUsersDo()
+        {
+            await SeedDemoAuthorsAndAdminAsync();
+            Assert.Equal(new RegistrationCapacity(0, 100), await CapacityAsync());
+
+            Assert.True((await RegisterAsync("DustyFox", "a@example.com")).Succeeded);
+            Assert.Equal(new RegistrationCapacity(1, 100), await CapacityAsync());
+
+            Assert.True((await RegisterAsync("CopperWren", "b@example.com")).Succeeded);
+            Assert.Equal(new RegistrationCapacity(2, 100), await CapacityAsync());
+        }
+
+        // Ta sama reguła w bramce rejestracji: konta demo nie zajmują miejsc — limit 2 = dwa prawdziwe konta, trzecie odrzucone.
+        [Fact]
+        public async Task RegistrationLimit_DemoAccountsAndAdmin_DoNotTakeSlots()
+        {
+            await SeedDemoAuthorsAndAdminAsync();
+            async Task<ServiceResult<UserResponse>> RegisterWithLimitAsync(string alias, string email)
+            {
+                using var context = _db.CreateContext();
+                return await TestServices.Auth(context, new PublicDemoOptions { MaxPublicAccounts = 2 }).RegisterAsync(new RegisterRequest
+                {
+                    Username = alias, Email = email, Password = TestUsers.Password
+                });
+            }
+
+            Assert.True((await RegisterWithLimitAsync("DustyFox", "a@example.com")).Succeeded);
+            Assert.True((await RegisterWithLimitAsync("CopperWren", "b@example.com")).Succeeded);
+            Assert.Equal(AuthService.CapacityReachedCode, (await RegisterWithLimitAsync("SilverHawk", "c@example.com")).Code);
+            Assert.Equal(new RegistrationCapacity(2, 2), await CapacityAsync(max: 2));
+        }
+
         [Fact]
         public async Task Register_StoresBcryptHash_NotPlaintext()
         {

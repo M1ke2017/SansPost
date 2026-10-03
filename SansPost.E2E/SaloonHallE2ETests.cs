@@ -501,10 +501,31 @@ namespace SansPost.E2E
                         if (w < 6 || h < 6) return;
                         const px = new Uint8Array(w * h * 4);
                         gl.readPixels(x0, canvas.height - y1, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
-                        let off = 0;
-                        for (let k = 0; k < px.length; k += 4) if (!(px[k] > 200 && px[k + 1] < 70 && px[k + 2] > 200)) off++;
+                        // Tylko piksele wewnątrz rzutowanego czworokąta płótna (przy widoku z ukosa prostokąt otaczający
+                        // obejmuje też ścianę obok obrazu — to nie jest z-fighting). Czworokąt wypukły: ten sam znak iloczynów.
+                        const quad = p.poly.map(([qx, qy]) => [(qx - r.left) * sx, (qy - r.top) * sy]);
+                        const inside = (x, y) => {
+                            let sign = 0;
+                            for (let k = 0; k < 4; k++) {
+                                const [ax, ay] = quad[k], [bx, by] = quad[(k + 1) % 4];
+                                const cross = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+                                if (cross !== 0) { if (sign === 0) sign = Math.sign(cross); else if (Math.sign(cross) !== sign) return false; }
+                            }
+                            return true;
+                        };
+                        let off = 0, count = 0;
+                        for (let row = 0; row < h; row++) {
+                            const y = canvas.height - (canvas.height - y1 + row) - 0.5;   // readPixels: od dołu
+                            for (let col = 0; col < w; col++) {
+                                if (!inside(x0 + col + 0.5, y)) continue;
+                                const k = (row * w + col) * 4;
+                                count++;
+                                if (!(px[k] > 200 && px[k + 1] < 70 && px[k + 2] > 200)) off++;
+                            }
+                        }
+                        if (count < 36) return;
                         window.__pic.sampled++;
-                        if (off / (w * h) > window.__pic.worst) { window.__pic.worst = off / (w * h); window.__pic.worstAt = { painting: i, area: d.area, moving: d.moving, w, h, off }; }
+                        if (off / count > window.__pic.worst) { window.__pic.worst = off / count; window.__pic.worstAt = { painting: i, area: d.area, moving: d.moving, w, h, count, off }; }
                     });
                 }
                 requestAnimationFrame(tick);
@@ -526,7 +547,7 @@ namespace SansPost.E2E
             // Geometria: rama ma własną głębokość od ściany, płótno wyraźnie przed frontem ramy; płótno nieprzezroczyste,
             // bez cieni (dekoracja nie daje cienia, a cień na płaskiej teksturze dawał tylko artefakty).
             var paintings = await page.EvaluateAsync<System.Text.Json.JsonElement>("() => window.__sansPostHall.paintings");
-            Assert.Equal(2, paintings.GetArrayLength());
+            Assert.Equal(3, paintings.GetArrayLength());   // dwa obrazy + zdjęcie "Tak wyglądaliśmy…" (Sprint 24)
             foreach (var painting in paintings.EnumerateArray())
             {
                 Assert.InRange(painting.GetProperty("canvasGap").GetDouble(), 0.01, 0.03);

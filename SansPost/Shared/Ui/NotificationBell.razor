@@ -56,7 +56,7 @@
                                         @L["Nowy komentarz od"] <strong>@notification.ActorUsername</strong>
                                         @if (notification.TargetAvailable && notification.PostTitle is not null)
                                         {
-                                            <span> @L.Format("pod Twoim postem „{0}”", notification.PostTitle)</span>
+                                            <span>@(" " + L.Format("pod Twoim postem „{0}”", notification.PostTitle))</span>
                                         }
                                         else
                                         {

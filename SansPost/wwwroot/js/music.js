@@ -9,6 +9,12 @@
 //   [data-music-retry] — ponów bieżącą stację,  input[data-music-volume] — głośność 0–100.
 // Pauza zatrzymuje strumień (bez pobierania w tle); "Graj" łączy się ze stacją od nowa — to radio na żywo.
 // Audio z adresu stacji gra przeglądarka bezpośrednio (serwer SansPost tylko podaje listę stacji).
+// Limit (v1.0): najwyżej 2 godziny aktywnego grania w jednej sesji słuchania — potem radio zatrzymuje się samo (pauza
+// i zerwanie połączenia ze stacją), stacja zostaje wybrana, dalej gra dopiero po świadomym "Graj". Liczy się tylko czas
+// w stanie "playing" (nie pauza, nie łączenie, nie po błędzie); zmiana stacji i nawigacja po Saloonie nie zerują licznika.
+// Czas mierzony różnicą Date.now() (playingSince + playedMs), nie liczbą ticków — dławienie timerów w tle nie przedłuża
+// limitu; jeden timeout na pozostały czas + sprawdzenie przy timeupdate / powrocie do karty. Licznik w sessionStorage
+// (odświeżenie strony go nie zeruje). Bez pętli klatek.
 (function () {
     "use strict";
 
@@ -17,6 +23,54 @@
     let nextId = 1;
     let audio = null;
     const debug = { status: "idle", audioCreated: 0, audioListeners: 0, documentListeners: 0, subscribers: 0, playRequests: 0 };
+
+    const PLAY_LIMIT_MS = 2 * 60 * 60 * 1000;
+    const PLAYED_KEY = "sp-radio-played-ms";
+    let playedMs = safeGetPlayed();   // zgrany czas grania tej sesji słuchania (bez bieżącego odcinka)
+    let playingSince = null;          // Date.now() wejścia w stan "playing"
+    let limitTimer = null;
+
+    function safeGetPlayed() {
+        try {
+            const stored = Number(sessionStorage.getItem(PLAYED_KEY));
+            return Number.isFinite(stored) && stored > 0 ? stored : 0;
+        } catch { return 0; }
+    }
+
+    function playedNow() {
+        return playedMs + (playingSince === null ? 0 : Math.max(0, Date.now() - playingSince));
+    }
+
+    function savePlayed() {
+        try { sessionStorage.setItem(PLAYED_KEY, String(Math.round(playedNow()))); } catch { /* bez pamięci sesji */ }
+    }
+
+    // Przy każdej zmianie stanu: zamknięcie bieżącego odcinka grania, nowy odcinek tylko w stanie "playing".
+    function syncPlayback() {
+        playedMs = playedNow();
+        playingSince = null;
+        clearTimeout(limitTimer);
+        limitTimer = null;
+        if (state.status === "playing") {
+            playingSince = Date.now();
+            limitTimer = setTimeout(checkLimit, Math.max(0, PLAY_LIMIT_MS - playedMs));
+        }
+        savePlayed();
+    }
+
+    function checkLimit() {
+        if (state.status !== "playing") return;
+        const left = PLAY_LIMIT_MS - playedNow();
+        if (left > 0) {
+            clearTimeout(limitTimer);
+            limitTimer = setTimeout(checkLimit, left);
+            return;
+        }
+        // Limit: zatrzymanie i zerwanie połączenia ze stacją (nie tylko wyciszenie); stacja zostaje wybrana.
+        stopStream();
+        state.status = "limit";
+        publish();
+    }
 
     function safeGetVolume() {
         try {
@@ -35,6 +89,7 @@
     }
 
     function publish() {
+        syncPlayback();
         const s = snapshot();
         subscribers.forEach(function (dotnet) { dotnet.invokeMethodAsync("OnMusicState", s).catch(function () { }); });
         window.dispatchEvent(new CustomEvent("sansPost:music", { detail: s }));
@@ -67,6 +122,7 @@
         // Błąd strumienia albo koniec transmisji: komunikat i wybór użytkownika (ponów / następna) — bez pętli ponowień.
         listen(audio, "error", function () { if (audio.getAttribute("src")) fail(); });
         listen(audio, "ended", function () { if (audio.getAttribute("src")) fail(); });
+        listen(audio, "timeupdate", checkLimit);   // dodatkowy wyzwalacz (zdarzenie odtwarzacza, kilka razy na sekundę) — bez pętli klatek
         return audio;
     }
 
@@ -105,6 +161,11 @@
     function play(station) {
         if (station) state.station = station;
         if (!state.station) return;
+        // Świadome "Graj" po zatrzymaniu przez limit rozpoczyna nową sesję słuchania (kolejne 2 godziny).
+        if (state.status === "limit" || playedNow() >= PLAY_LIMIT_MS) {
+            playedMs = 0;
+            playingSince = null;
+        }
         const a = ensureAudio();
         stopStream();
         a.volume = state.volume / 100;
@@ -171,7 +232,13 @@
         if (event.target && event.target.matches && event.target.matches("input[data-music-volume]")) setVolume(event.target.value, true);
     });
 
+    // Powrót do karty: zaległe sprawdzenie limitu (timer mógł być dławiony w tle); wyjście ze strony: zapis licznika.
+    listen(document, "visibilitychange", checkLimit);
+    listen(window, "pagehide", savePlayed);
+
     state.volume = safeGetVolume();
+    // Diagnostyka (E2E): bieżący naliczony czas grania, tylko do odczytu.
+    Object.defineProperty(debug, "playedMs", { enumerable: true, get: function () { return Math.round(playedNow()); } });
 
     window.sansPostMusic = {
         // Komponent Blazor rysujący stan: od razu dostaje bieżący stan, potem każdą zmianę. Zwraca numer do odpięcia.

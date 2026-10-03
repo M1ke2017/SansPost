@@ -4,6 +4,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject ScenePreference Preference
+@inject UiServices Ui
 
 <PageTitle>@L["SansPost — Saloon"]</PageTitle>
 
@@ -91,6 +92,11 @@
                 <span>@L["Rozmowy o technologii, grach, podróżach, pomysłach i projektach. Czytać można bez konta."]</span>
             }
         </p>
+        @* Tabliczka przy jaszczurce (scena 3D, aria-hidden) — ta sama informacja dla czytnika ekranu. *@
+        @if (capacity is not null && renderer == EntranceRenderer.ThreeD)
+        {
+            <p class="visually-hidden">@L.Format("Zajęte miejsca w Saloonie: {0} z {1}.", capacity.Used, capacity.Limit)</p>
+        }
 
         <nav class="entrance-signs" aria-label="@L["Wejście do SansPost"]">
             @if (alias is null)
@@ -185,9 +191,11 @@
 
             renderer3d = await JS.InvokeAsync<IJSObjectReference>("import", "./js/entrance3d.js");
             var decision = await renderer3d.InvokeAsync<RendererDecision>("init", host3d,
-                new { force = Scene == "3d", signs = boardwalk, known3d = Preference.Renderer == "3d" });
+                new { force = Scene == "3d", signs = boardwalk, known3d = Preference.Renderer == "3d", labels = SceneLabels() });
             rendererReason = decision.Reason;
             renderer = decision.Renderer == "3d" ? EntranceRenderer.ThreeD : EntranceRenderer.CssFallback;
+            if (renderer == EntranceRenderer.ThreeD)
+                await ShowCapacityAsync();
         }
         catch (JSDisconnectedException)
         {
@@ -201,6 +209,41 @@
         if (rendererReason != "cancelled")
             Preference.Renderer = renderer == EntranceRenderer.ThreeD ? "3d" : "css";
         StateHasChanged();
+    }
+
+    // Tabliczka "Zajęte miejsca": napisy w języku interfejsu, liczby — konta założone rejestracją (bez kont demo i adminów,
+    // ta sama reguła co limit rejestracji) i limit (PublicDemo:MaxPublicAccounts). Błąd odczytu — tabliczka bez liczb (sam napis).
+    private RegistrationCapacity? capacity;
+
+    private object SceneLabels() => new { seatsTitle = L["ZAJĘTE MIEJSCA"], guests = L["GOŚĆ MOŻE CZYTAĆ"] };
+
+    private async Task ShowCapacityAsync()
+    {
+        try
+        {
+            capacity = await Ui.Run((IAuthService s) => s.GetCapacityAsync());
+            await renderer3d!.InvokeVoidAsync("setOccupancy", new { used = capacity.Used, limit = capacity.Limit });
+        }
+        catch (Exception ex) when (ex is not JSDisconnectedException)
+        {
+            capacity = null;
+        }
+    }
+
+    protected override async Task OnLanguageChangedAsync()
+    {
+        if (renderer3d is null || renderer != EntranceRenderer.ThreeD)
+            return;
+        try
+        {
+            await renderer3d.InvokeVoidAsync("setLanguage", SceneLabels());
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     private Task OpenLoginAsync() => entering ? Task.CompletedTask : loginCard!.ShowAsync();

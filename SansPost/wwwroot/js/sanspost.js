@@ -37,6 +37,11 @@
         safeSet("localStorage", THEME_KEY, next);
     });
 
+    // "Odśwież stronę" w oknie ponownego łączenia (_Host) — bez inline onclick, który blokuje CSP.
+    document.addEventListener("click", function (event) {
+        if (event.target.closest && event.target.closest("[data-reload]")) location.reload();
+    });
+
     // Zmiana motywu systemu działa, dopóki użytkownik nie wybrał własnego.
     if (window.matchMedia) {
         window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {

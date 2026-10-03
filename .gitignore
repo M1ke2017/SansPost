@@ -369,3 +369,19 @@ FodyWeavers.xsd
 .env.*
 !.env.example
 /backups/
+
+# Lokalna konfiguracja narzędzi (serwer deweloperski Claude Code) i zrzuty baz — nigdy w repozytorium
+/.claude/
+*.dump
+
+# Lokalne pliki robocze i wdrożeniowe (nigdy w publicznym repo)
+scratchpad/
+# Nakładki compose dla konkretnego serwera (adresy, ścieżki, dane hosta) — w repo tylko ogólne pliki
+docker-compose.*.yml
+!docker-compose.bootstrap.yml
+docker-compose.override.yml
+# Klucze i certyfikaty
+*.pem
+*.pfx
+id_rsa*
+id_ed25519*

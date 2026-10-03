@@ -12,8 +12,7 @@ namespace SansPost.Features.Posts
         public const int DefaultPageSize = 20;
         public const int MaxPageSize = 50;
 
-        public const int FreePostLimit = 10;
-        public const int PremiumPostLimit = 50;
+        // Limit postów: dzienny (Features/Usage/DailyQuota) — bez osobnego limitu "na konto" (Free/Premium nie wpływa).
 
         // Popular: score = PopularHoursPerEngagementUnit × ln(1 + likes + PopularCommentWeight × comments) − wiek_w_godzinach.
         // Każda godzina wieku kosztuje 1 punkt; e-krotny wzrost zaangażowania jest wart 24 godziny świeżości.

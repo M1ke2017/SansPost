@@ -125,7 +125,8 @@ namespace SansPost.E2E
                 BaseURL = _server.BaseUrl,
                 ViewportSize = new ViewportSize { Width = 390, Height = 844 },
                 ReducedMotion = ReducedMotion.Reduce,
-                ColorScheme = ColorScheme.Light
+                ColorScheme = ColorScheme.Light,
+                BypassCSP = true
             });
             var mobile = await session.NewPageAsync();
             await Ui.LoginAsync(mobile, owner.Email, E2EEnvironment.UserPassword);

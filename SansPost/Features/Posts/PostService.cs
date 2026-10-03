@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SansPost.Features.Identity;
+using SansPost.Features.Usage;
 using SansPost.Infrastructure.Persistence;
 
 namespace SansPost.Features.Posts
@@ -52,11 +53,6 @@ namespace SansPost.Features.Posts
 
         // Autor, którego tablica Wanted może promować (konto aktywne) — jedna reguła dla plakatów i bramki uzupełnienia.
         private static readonly Expression<Func<Post, bool>> HasPromotableAuthor = p => p.User.Status == AccountStatus.Active;
-
-        // Posty wliczane do limitu: opublikowane i ukryte przez moderację (ukrycie nie zwalnia slotu),
-        // bez usuniętych przez autora.
-        private IQueryable<Post> QuotaPosts(int userId) =>
-            _context.Posts.Where(p => p.UserId == userId && p.Status != ContentStatus.Deleted);
 
         // Read model: liczniki jako skorelowane podzapytania w JEDNYM SELECT (brak N+1, brak materializacji Likes/Comments).
         // Zależność od tabel Comments/Likes dotyczy wyłącznie odczytu — Posts nie wywołuje ich logiki.
@@ -348,10 +344,9 @@ namespace SansPost.Features.Posts
             if (!await _context.Users.AnyAsync(u => u.Id == userId, cancellationToken))
                 return null;
 
-            var limit = await GetPostLimitAsync(userId, cancellationToken);
-            var used = await QuotaPosts(userId).CountAsync(cancellationToken);
-
-            return new PostQuotaResponse(limit, used, Math.Max(0, limit - used));
+            // Dzienny limit (v1.0): posty utworzone dziś (UTC) — usunięcie nie zwraca miejsca.
+            var used = await _context.UsedTodayAsync(userId, QuotaKind.Post, _time.GetUtcNow(), cancellationToken);
+            return new PostQuotaResponse(DailyQuota.Posts, used, Math.Max(0, DailyQuota.Posts - used));
         }
 
         public async Task<ServiceResult<PostDetailsResponse>> CreateAsync(int actorUserId, PostRequest request, CancellationToken cancellationToken = default)
@@ -362,23 +357,22 @@ namespace SansPost.Features.Posts
             if (await _writeGuard.CheckAsync(actorUserId, cancellationToken) is { } denied)
                 return ServiceResult<PostDetailsResponse>.From(denied);
 
-            // Jawna transakcja: COUNT → INSERT musi być atomowe względem innych requestów tego samego użytkownika.
-            // Blokada wiersza users serializuje je w PostgreSQL (także między instancjami aplikacji).
-            // Wyjście bez Commit (limit, wyjątek, anulowanie) = rollback przy Dispose.
+            // Jawna transakcja: zużycie dziennego limitu i INSERT posta razem — post, który się nie zapisze (wyjątek,
+            // anulowanie), nie zużywa limitu. Blokada wiersza users serializuje zapisy użytkownika w PostgreSQL (także
+            // między instancjami aplikacji). Wyjście bez Commit = rollback przy Dispose.
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
             if (!await _context.LockUserRowAsync(actorUserId, cancellationToken))
                 return ServiceResult<PostDetailsResponse>.Fail(ServiceError.NotFound, "Użytkownik nie istnieje.");
 
-            var limit = await GetPostLimitAsync(actorUserId, cancellationToken);
-            var used = await QuotaPosts(actorUserId).CountAsync(cancellationToken);
-            if (used >= limit)
-                return ServiceResult<PostDetailsResponse>.Fail(ServiceError.Forbidden, $"Osiągnięto limit postów ({limit}).");
+            var now = _time.GetUtcNow();
+            if (!await _context.TryConsumeAsync(actorUserId, QuotaKind.Post, now, cancellationToken))
+                return ServiceResult<PostDetailsResponse>.From(DailyQuota.LimitReached(QuotaKind.Post, now));
 
             var post = new Post
             {
                 UserId = actorUserId,
-                CreatedAt = _time.GetUtcNow().UtcDateTime,
+                CreatedAt = now.UtcDateTime,
                 Version = 1
             };
             Apply(post, normalized);
@@ -468,17 +462,6 @@ namespace SansPost.Features.Posts
             return await _context.Posts.AnyAsync(p => p.Id == postId && p.Status == ContentStatus.Published, cancellationToken)
                 ? ServiceResult.Fail(ServiceError.PreconditionFailed, StaleVersionMessage)
                 : ServiceResult.Fail(ServiceError.NotFound, "Post został usunięty.");
-        }
-
-        private async Task<int> GetPostLimitAsync(int userId, CancellationToken cancellationToken)
-        {
-            var subscription = await _context.Subscriptions
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
-
-            return Subscription.EffectiveTypeOf(subscription, _time.GetUtcNow().UtcDateTime) == SubscriptionType.Premium
-                ? PostLimits.PremiumPostLimit
-                : PostLimits.FreePostLimit;
         }
 
         private static PostRequest Normalize(PostRequest request) => new()

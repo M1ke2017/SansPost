@@ -4073,6 +4073,7 @@ html:has(dialog[open]) { overflow: hidden; }
 
 .music-status { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-muted); }
 .music-status.is-error { color: var(--danger); }
+.music-status-note { display: block; font-weight: var(--weight-regular); }
 
 .music-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .music-controls .btn { min-height: 44px; }
@@ -4516,5 +4517,14 @@ html:has(dialog[open]) { overflow: hidden; }
 @media (max-width: 400px) {
     .header-actions { gap: 4px; }
     .header-actions .btn-primary { padding-inline: 10px; }
+}
+
+/* Sprint 24 — telefon: główne kontrolki dotykowe mają 44 px wysokości (motyw, język, CTA w nagłówku, przełącznik
+   sortowania). Szerokości bez zmian — angielski nagłówek przy 360 px ma tylko kilka pikseli zapasu. Drobne linki
+   w kartach (autor, statystyki, kategoria) zostają ≥ 24 px (WCAG 2.2 AA 2.5.8). */
+@media (max-width: 767.98px) {
+    .theme-toggle, .header-actions .btn-primary { min-height: 44px; }
+    .language-option { min-height: 38px; }   /* + padding i ramka przełącznika = 44 px */
+    .segmented button { min-height: 44px; }
 }
 

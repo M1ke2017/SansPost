@@ -121,6 +121,23 @@ namespace SansPost.Tests.Postgres
             Assert.Null(await auth.AuthenticateAsync(users[0].Email, "anything-at-all"));
         }
 
+        // Tablica "Zajęte miejsca" po świeżym wdrożeniu z treściami startowymi: konta demo nie zajmują miejsc (0 / 100),
+        // dwie zwykłe rejestracje — 2 / 100 (reguła liczenia przetłumaczona na SQL PostgreSQL).
+        [DockerFact]
+        public async Task Capacity_AfterDemoSeed_CountsOnlyRegisteredAccounts()
+        {
+            var db = await _pg.CreateMigratedDatabaseAsync($"seed_{Guid.NewGuid():N}");
+            Assert.Equal(DemoSeedResult.Seeded, await SeedAsync(db));
+
+            await using var context = _pg.CreateContext(db);
+            var auth = TestServices.Auth(context, new PublicDemoOptions { MaxPublicAccounts = 100 });
+            Assert.Equal(new RegistrationCapacity(0, 100), await auth.GetCapacityAsync());
+
+            foreach (var email in new[] { "first@example.com", "second@example.com" })
+                Assert.True((await auth.RegisterAsync(new RegisterRequest { Email = email, Password = TestUsers.Password })).Succeeded);
+            Assert.Equal(new RegistrationCapacity(2, 100), await auth.GetCapacityAsync());
+        }
+
         // G11 — kilka instancji startuje jednocześnie: blokada bramy → seed dokładnie raz.
         [DockerFact]
         public async Task ParallelStartup_SeedsExactlyOnce()

@@ -649,6 +649,36 @@ namespace SansPost.Migrations
                     b.ToTable("likes");
                 });
 
+            modelBuilder.Entity("SansPost.Features.Usage.DailyUserUsage", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("userid");
+
+                    b.Property<DateOnly>("DateUtc")
+                        .HasColumnType("date")
+                        .HasColumnName("dateutc");
+
+                    b.Property<int>("CommentsCreated")
+                        .HasColumnType("integer")
+                        .HasColumnName("commentscreated");
+
+                    b.Property<int>("GamesStarted")
+                        .HasColumnType("integer")
+                        .HasColumnName("gamesstarted");
+
+                    b.Property<int>("PostsCreated")
+                        .HasColumnType("integer")
+                        .HasColumnName("postscreated");
+
+                    b.HasKey("UserId", "DateUtc");
+
+                    b.ToTable("dailyuserusages", t =>
+                        {
+                            t.HasCheckConstraint("CK_dailyuserusages_counts", "postscreated >= 0 AND commentscreated >= 0 AND gamesstarted >= 0");
+                        });
+                });
+
             modelBuilder.Entity("SansPost.Features.Comments.Comment", b =>
                 {
                     b.HasOne("SansPost.Features.Posts.Post", "Post")
@@ -808,6 +838,17 @@ namespace SansPost.Migrations
                         .IsRequired();
 
                     b.Navigation("Post");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SansPost.Features.Usage.DailyUserUsage", b =>
+                {
+                    b.HasOne("SansPost.Features.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

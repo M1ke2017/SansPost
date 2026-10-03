@@ -40,3 +40,6 @@ Dockerfile
 deploy
 DEPLOYMENT.md
 *.md
+
+# Dokumentacja i zrzuty README — poza kontekstem budowania
+docs

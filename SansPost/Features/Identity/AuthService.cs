@@ -14,7 +14,13 @@ namespace SansPost.Features.Identity
 
         // Tylko informacja tak/nie — bez liczby kont.
         Task<bool> IsRegistrationAvailableAsync(CancellationToken cancellationToken = default);
+
+        // Tabliczka "Zajęte miejsca" przy wejściu (Final Visual Polish): zajęte publiczne konta / limit wersji demo.
+        // Tylko dla UI (Blazor, po stronie serwera) — bez endpointu REST.
+        Task<RegistrationCapacity> GetCapacityAsync(CancellationToken cancellationToken = default);
     }
+
+    public sealed record RegistrationCapacity(int Used, int Limit);
 
     public class AuthService : IAuthService
     {
@@ -158,10 +164,17 @@ namespace SansPost.Features.Identity
         public async Task<bool> IsRegistrationAvailableAsync(CancellationToken cancellationToken = default) =>
             _demo.RegistrationEnabled && await CountPublicAccountsAsync(cancellationToken) < _demo.MaxPublicAccounts;
 
-        // Liczą się WSZYSTKIE zwykłe konta (Active, Suspended, Banned) — ban nie zwalnia slotu,
-        // inaczej limit dałoby się obejść rotacją kont. Admini nie zajmują publicznych slotów.
+        // Tablica "Zajęte miejsca" przy wejściu: ta sama reguła liczenia co limit rejestracji (konta publiczne poniżej).
+        public async Task<RegistrationCapacity> GetCapacityAsync(CancellationToken cancellationToken = default) =>
+            new(await CountPublicAccountsAsync(cancellationToken), _demo.MaxPublicAccounts);
+
+        // Konto publiczne = zwykłe konto założone rejestracją. Liczą się WSZYSTKIE takie konta (Active, Suspended, Banned) —
+        // ban nie zwalnia slotu, inaczej limit dałoby się obejść rotacją kont. Nie zajmują slotów: admini (rola) ani konta
+        // demo z seeda (zarezerwowana domena, której rejestracja nie przyjmuje) — po świeżym wdrożeniu z treściami startowymi 0 / limit.
+        private static readonly string DemoEmailSuffix = IdentityNormalizer.Normalize("@" + Demo.DemoContent.EmailDomain);
+
         private Task<int> CountPublicAccountsAsync(CancellationToken cancellationToken) =>
-            _context.Users.CountAsync(u => u.Role == UserRole.User, cancellationToken);
+            _context.Users.CountAsync(u => u.Role == UserRole.User && !u.NormalizedEmail.EndsWith(DemoEmailSuffix), cancellationToken);
 
         private Task<bool> EmailTakenAsync(User user, CancellationToken cancellationToken) =>
             _context.Users.AnyAsync(u => u.NormalizedEmail == user.NormalizedEmail, cancellationToken);

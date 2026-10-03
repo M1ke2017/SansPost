@@ -26,6 +26,7 @@ namespace SansPost.Infrastructure.Persistence
         public DbSet<RegistrationGate> RegistrationGates { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<SansPost.Features.Duels.DuelResultRecord> DuelResults { get; set; }
+        public DbSet<SansPost.Features.Usage.DailyUserUsage> DailyUserUsages { get; set; }
 
         private const string PublishedOnly = "status = 'Published'";
 
@@ -280,6 +281,18 @@ namespace SansPost.Infrastructure.Persistence
                 notification.HasIndex(n => n.UserId)
                     .HasFilter("readat IS NULL")
                     .HasDatabaseName("IX_notifications_unread");
+            });
+
+            // Dzienne limity biznesowe (v1.0): jeden wiersz na użytkownika i dzień UTC — klucz złożony (UNIQUE z definicji),
+            // atomowy upsert w DailyQuota. Wiersze znikają razem z kontem (kaskada); liczniki nieujemne.
+            modelBuilder.Entity<SansPost.Features.Usage.DailyUserUsage>(usage =>
+            {
+                usage.HasKey(u => new { u.UserId, u.DateUtc });
+                usage.HasOne(u => u.User).WithMany().HasForeignKey(u => u.UserId).OnDelete(DeleteBehavior.Cascade);
+                usage.ToTable(t =>
+                {
+                    t.HasCheckConstraint("CK_dailyuserusages_counts", "postscreated >= 0 AND commentscreated >= 0 AND gamesstarted >= 0");
+                });
             });
 
             modelBuilder.Entity<SansPost.Features.Duels.DuelResultRecord>(result =>

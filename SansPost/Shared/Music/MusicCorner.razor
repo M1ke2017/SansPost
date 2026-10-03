@@ -51,10 +51,16 @@
             }
         </section>
 
-        <p class="music-status @(status == "error" ? "is-error" : "")" role="status">@L[MusicState.TextFor(status)]</p>
+        <p class="music-status @(status == "error" ? "is-error" : "")" role="status">
+            @L[MusicState.TextFor(status)]
+            @if (status == "limit")
+            {
+                <span class="music-status-note">@L["Dalsze słuchanie wymaga ponownego uruchomienia."]</span>
+            }
+        </p>
 
         <div class="music-controls">
-            @{ var toggleText = active ? L["Pauza"] : status == "error" ? L["Spróbuj ponownie"] : L["Graj"]; }
+            @{ var toggleText = active ? L["Pauza"] : status == "error" ? L["Spróbuj ponownie"] : status == "limit" ? L["Uruchom ponownie"] : L["Graj"]; }
             <button type="button" class="btn btn-primary music-toggle" data-music-toggle @attributes="MusicState.Attributes(selected)"
                     aria-label="@($"{toggleText}: {selected.Name}")">
                 <span class="music-toggle-icon" aria-hidden="true">@(active ? "❚❚" : "▶")</span>

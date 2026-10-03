@@ -59,6 +59,7 @@ namespace SansPost.Tests.Duels
 
         private async Task<Guid> LiveAsync(bool ready = true)
         {
+            _accounts.ClearDailyUsage();   // testy wielu pojedynków z rzędu; dzienny limit gier — DailyGameQuotaTests
             var duel = Ok(await _sessions.StartLiveAsync(Anna, "Anna", Bart, "Bart"));
             var id = Guid.Parse(duel.DuelId);
             if (ready)
@@ -501,6 +502,28 @@ namespace SansPost.Tests.Duels
                 Assert.All(both, r => Assert.True(r.Succeeded, r.Code));
                 Ok(await _sessions.SurrenderAsync(Guid.Parse(rematchId), Anna));
             }
+        }
+
+        // Regresja (Sprint 24, QA 1v1): po rewanżu zakończonym i opuszczonym stół wracał do lobby z POPRZEDNIM, dawno
+        // zakończonym pojedynkiem (sprzed rewanżu nikt go nie "opuszczał"). Pojedynek zastąpiony rewanżem nie jest bieżący.
+        [Fact]
+        public async Task RematchFinishedAndLeft_PreviousDuelNotResumed_LobbyAgain()
+        {
+            var id = await LiveAsync();
+            Ok(await _sessions.SurrenderAsync(id, Anna));
+            Ok(await _sessions.RequestRematchAsync(id, Anna));
+            var rematch = Guid.Parse(Ok(await _sessions.RequestRematchAsync(id, Bart)).DuelId);
+            Ok(await _sessions.SetReadyAsync(rematch, Anna));
+            Ok(await _sessions.SetReadyAsync(rematch, Bart));
+            Ok(await _sessions.SurrenderAsync(rematch, Bart));
+
+            Assert.Equal(rematch.ToString("N"), Ok(_sessions.GetActive(Anna)).DuelId);   // wynik rewanżu, nie stary pojedynek
+            Ok(await _sessions.LeaveAsync(rematch, Anna));
+            Ok(await _sessions.LeaveAsync(rematch, Bart));
+
+            Assert.Equal(ServiceError.NotFound, _sessions.GetActive(Anna).Error);
+            Assert.Equal(ServiceError.NotFound, _sessions.GetActive(Bart).Error);
+            Assert.Equal("win", View(id, Bart).Result);   // historia starego pojedynku nietknięta
         }
 
         [Fact]

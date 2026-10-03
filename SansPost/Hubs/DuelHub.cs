@@ -21,15 +21,17 @@ namespace SansPost.Hubs
         private readonly DuelConnectionRegistry _registry;
         private readonly IDuelNotifier _notifier;
         private readonly DuelStandingsService _standings;
+        private readonly ILogger<DuelHub> _logger;
 
         public DuelHub(GameSessionService sessions, DuelChallengeService challenges, DuelConnectionRegistry registry, IDuelNotifier notifier,
-            DuelStandingsService standings)
+            DuelStandingsService standings, ILogger<DuelHub> logger)
         {
             _sessions = sessions;
             _challenges = challenges;
             _registry = registry;
             _notifier = notifier;
             _standings = standings;
+            _logger = logger;
         }
 
         private int UserId => Context.User!.GetUserId()!.Value;
@@ -40,6 +42,8 @@ namespace SansPost.Hubs
             // Pierwsze połączenie gracza: pojawia się przy stole, a jeśli wraca w oknie powrotu — pojedynek trwa dalej.
             if (_registry.Add(UserId, Alias, Context.ConnectionId))
             {
+                // Tylko pierwsze połączenie gracza i ostatnie rozłączenie (kolejne karty przeglądarki — bez szumu w logach).
+                _logger.LogInformation("Duel table: user {UserId} joined.", UserId);
                 await _sessions.PlayerOnlineAsync(UserId);
                 await _notifier.PublishAsync(new[] { DuelEvent.Presence });
             }
@@ -51,6 +55,7 @@ namespace SansPost.Hubs
             // Dopiero ostatnie połączenie gracza oznacza odejście od stołu (inne karty dalej grają).
             if (_registry.Remove(Context.ConnectionId) is { } userId)
             {
+                _logger.LogInformation("Duel table: user {UserId} left ({Reason}).", userId, exception is null ? "closed" : "connection lost");
                 await _sessions.PlayerOfflineAsync(userId);
                 await _notifier.PublishAsync(new[] { DuelEvent.Presence });
             }

@@ -16,6 +16,8 @@ namespace SansPost.Shared.Music
             "playing" => "Radio gra",
             "loading" => "Łączenie ze stacją…",
             "error" => "Ta stacja jest chwilowo niedostępna.",
+            // Limit aktywnego grania (js/music.js) — informacja, nie błąd.
+            "limit" => "Radio zostało zatrzymane po 2 godzinach odtwarzania.",
             _ => "Radio zatrzymane"
         };
 
